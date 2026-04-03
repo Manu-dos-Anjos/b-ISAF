@@ -1,29 +1,24 @@
 import type { Metadata } from "next";
-import Sidebar from "@/app/components/Sidebar";
-import Header from "@/app/components/Header";
-import "./globals.css";
-
+import Providers from "@/app/providers";
+import AppShell from "@/app/components/AppShell";
+import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "b-ISAF",
+  title: "Biblioteca Virtual - ISAF",
   description: "Biblioteca Virtual ISAF",
 };
 
-export default function Rootlayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt">
-      <body className="bg-zinc-950 text-slate-100">
-        <div className="flex">
-          <Sidebar />
-          <div className="flex-1 ml-20">
-            <Header />
-            <main className="p-8">{children}</main>
-          </div>
-        </div>
+    <html lang="pt" suppressHydrationWarning className="scroll-smooth">
+      <body suppressHydrationWarning className="overflow-x-hidden">
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );
