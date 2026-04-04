@@ -1,6 +1,5 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import Breadcrumbs from "@/app/components/header/Breadcrumbs";
 import Image from "next/image";
 import {
   Search,
@@ -10,7 +9,6 @@ import {
   Moon,
   Menu,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 
 export default function Header({
   expanded,
@@ -21,14 +19,6 @@ export default function Header({
   mobileOpen?: boolean;
   setMobileOpen?: (value: boolean) => void;
 }) {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isDark = resolvedTheme === "dark";
 
   return (
     <>
@@ -74,13 +64,6 @@ export default function Header({
 
           {/* Ações da direita */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setTheme(isDark ? "light" : "dark")}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 transition-colors hover:bg-slate-100 dark:border-white/10 dark:hover:bg-slate-800"
-              aria-label="Mudar tema"
-            >
-              {mounted && (isDark ? <Sun size={20} /> : <Moon size={20} />)}
-            </button>
 
             <button
               className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 transition-colors hover:bg-slate-100 dark:border-white/10 dark:hover:bg-slate-800"
@@ -141,14 +124,6 @@ export default function Header({
 
         {/* Ações mobile */}
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 transition-colors hover:bg-slate-100 dark:border-white/10 dark:hover:bg-slate-800"
-            aria-label="Mudar tema"
-          >
-            {mounted && (isDark ? <Sun size={20} /> : <Moon size={20} />)}
-          </button>
-
           <button
             className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 transition-colors hover:bg-slate-100 dark:border-white/10 dark:hover:bg-slate-800"
             aria-label="Notificações"
