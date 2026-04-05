@@ -157,7 +157,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="space-y-6 md:space-y-10 p-4 md:p-8 pt-4 md:pt-2 max-w-7xl mx-auto">
+    <div className="space-y-6 md:space-y-10 p-8 md:p-8 pt-24 md:pt-24 max-w-7xl mx-auto">
       <WelcomeBanner userName="Manuel" />
 
       <SectionCarousel title="Continuar a ouvir">
