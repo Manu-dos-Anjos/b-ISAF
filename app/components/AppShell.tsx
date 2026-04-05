@@ -1,17 +1,39 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import Sidebar from "@/app/components/Sidebar";
+import { useState } from "react";
+import Sidebar, { SidebarUser } from "@/app/components/Sidebar";
 import Header from "@/app/components/header/Header";
-import Breadcrumbs from "@/app/components/header/Breadcrumbs";
 
-export default function AppShell({ children }: { children: ReactNode }) {
+type AppShellProps = {
+  children: React.ReactNode;
+};
+
+export default function AppShell({ children }: AppShellProps) {
   const [expanded, setExpanded] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Mock atual — mais tarde podes substituir por dados reais do login/Firebase
+  const user: SidebarUser = {
+    name: "Manuel dos Anjos",
+    email: "250438@isaf.co.ao",
+    academic: {
+      year: "1º Ano",
+      semester: "2º Semestre",
+      course: "Informática de Gestão Financeira",
+      studentNumber: "250438",
+      institution: "Instituto Superior de Administração e Finanças",
+    },
+    status: {
+      label: "Perfil completo",
+      tone: "success",
+      description: "Os teus dados académicos estão atualizados.",
+    },
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
       <Sidebar
         expanded={expanded}
         setExpanded={setExpanded}
@@ -19,26 +41,25 @@ export default function AppShell({ children }: { children: ReactNode }) {
         setPinned={setPinned}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        user={user}
       />
 
       <Header
         expanded={expanded}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        notificationCount={3}
       />
 
-      <div
-        className={`transition-all duration-300 ${
+      <main
+        className={`min-h-screen transition-all duration-300 ${
           expanded ? "md:ml-56" : "md:ml-16"
         }`}
       >
-        {/* espaço por causa do header fixo */}
-        <div className="pt-16">
-          <Breadcrumbs />
-
-          <main className="px-4 py-6 md:px-6 lg:px-8">{children}</main>
-        </div>
-      </div>
+        {children}
+      </main>
     </div>
   );
 }

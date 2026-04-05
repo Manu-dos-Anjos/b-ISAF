@@ -201,7 +201,7 @@ export default function HomePage() {
         )}
       </SectionCarousel>
 
-      <SectionCarousel title="Questionários concluídos">
+      <SectionCarousel title="Questionários em andamento">
         {loading ? (
           <p className="py-8 text-gray-500 dark:text-gray-400">A carregar questionários...</p>
         ) : historicoQuizzes.length > 0 ? (

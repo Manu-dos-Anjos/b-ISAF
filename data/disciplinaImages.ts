@@ -1,5 +1,5 @@
 export const disciplinaImages: Record<string, string> = {
-  "Fundamentos de Sistemas de Informação": "/thumbnails/fsi.jpg",
+  "Fundamentos de Sistemas de Informação": "/thumbnails/fundamentos.jpg",
   "Comunicação Pessoal e Empresarial": "/images/disciplinas/comunicacao.jpg",
   "Matematica I": "/images/disciplinas/gestao.jpg",
   "Ingles I": "/images/disciplinas/ingles.jpg",

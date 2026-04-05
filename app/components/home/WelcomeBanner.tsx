@@ -18,7 +18,7 @@ export default function WelcomeBanner({ userName }: WelcomeBannerProps) {
               Bem-vindo, <span className="text-blue-400">{userName}</span>!
             </h1>
             <p className="mt-3 text-lg text-slate-400">
-              Continua o teu progresso na Biblioteca Virtual ISAF
+              Continua o teu progresso!
             </p>
           </div>
 
