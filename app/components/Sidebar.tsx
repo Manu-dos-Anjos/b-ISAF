@@ -157,10 +157,10 @@ export default function Sidebar({
           <p className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Estado do perfil
           </p>
-          <p className="mt-1 text-sm font-semibold leading-5 text-slate-900 break-words dark:text-white">
+          <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white">
             {displayName}
           </p>
-          <p className="text-xs leading-5 text-slate-500 break-all dark:text-slate-400">
+          <p className="break-all text-xs leading-5 text-slate-500 dark:text-slate-400">
             {displayEmail}
           </p>
         </div>
@@ -261,103 +261,105 @@ export default function Sidebar({
 
       {/* Desktop Sidebar */}
       <aside
-        onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={`fixed top-0 left-0 z-50 hidden h-full flex-col border-r border-gray-200 bg-white shadow-lg transition-all duration-300 ease-in-out dark:border-white/10 dark:bg-gradient-to-b dark:from-indigo-950 dark:via-slate-900 dark:to-slate-950 dark:shadow-2xl md:flex ${
           expanded ? "w-56" : "w-16"
         }`}
       >
-        {/* Logo */}
-        <div
-          className={`flex min-h-[64px] items-center gap-3 border-b border-gray-200 px-3 py-4 dark:border-white/10 ${
-            expanded ? "justify-between" : "justify-center"
-          }`}
-        >
-          <div className="flex items-center gap-4 overflow-hidden">
-            <Image
-              src="/logo.svg"
-              alt="b-ISAF Logo"
-              width={32}
-              height={32}
-              className="h-8 w-8 flex-shrink-0"
-            />
+        {/* Área que pode expandir no hover */}
+        <div onMouseEnter={handleMouseEnter} className="flex min-h-0 flex-1 flex-col">
+          {/* Logo */}
+          <div
+            className={`flex min-h-[64px] items-center gap-3 border-b border-gray-200 px-3 py-4 dark:border-white/10 ${
+              expanded ? "justify-between" : "justify-center"
+            }`}
+          >
+            <div className="flex items-center gap-4 overflow-hidden">
+              <Image
+                src="/logo.svg"
+                alt="b-ISAF Logo"
+                width={32}
+                height={32}
+                className="h-8 w-8 flex-shrink-0"
+              />
+
+              {expanded && (
+                <div className="overflow-hidden whitespace-nowrap">
+                  <span className="text-lg font-bold tracking-wide text-black dark:text-white">
+                    b-ISAF
+                  </span>
+                </div>
+              )}
+            </div>
 
             {expanded && (
-              <div className="overflow-hidden whitespace-nowrap">
-                <span className="text-lg font-bold tracking-wide text-black dark:text-white">
-                  b-ISAF
-                </span>
-              </div>
+              <button
+                onClick={() => setPinned(!pinned)}
+                className="flex-shrink-0 text-gray-400 transition-colors hover:text-black dark:text-white/40 dark:hover:text-white/80"
+                title={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
+                aria-label={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
+              >
+                {pinned ? <PinOff size={18} strokeWidth={2} /> : <Pin size={18} strokeWidth={2} />}
+              </button>
             )}
           </div>
 
-          {expanded && (
-            <button
-              onClick={() => setPinned(!pinned)}
-              className="flex-shrink-0 text-gray-400 transition-colors hover:text-black dark:text-white/40 dark:hover:text-white/80"
-              title={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
-              aria-label={pinned ? "Desafixar sidebar" : "Fixar sidebar"}
-            >
-              {pinned ? <PinOff size={18} strokeWidth={2} /> : <Pin size={18} strokeWidth={2} />}
-            </button>
-          )}
-        </div>
+          {/* Nav */}
+          <nav className="flex flex-1 flex-col justify-center gap-2 overflow-hidden py-4">
+            {navItems.map((item) => {
+              const active = isActive(item.path);
+              const Icon = item.icon;
 
-        {/* Nav */}
-        <nav className="flex flex-1 flex-col justify-center gap-2 overflow-hidden py-4">
-          {navItems.map((item) => {
-            const active = isActive(item.path);
-            const Icon = item.icon;
-
-            return (
-              <div key={item.id} className="relative px-2">
-                {!expanded && active && (
-                  <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-black dark:bg-white" />
-                )}
-
-                <button
-                  onClick={() => router.push(item.path)}
-                  className={`
-                    w-full flex items-center gap-3 rounded-xl transition-all duration-200
-                    ${expanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"}
-                    ${
-                      active
-                        ? expanded
-                          ? "bg-gray-100 text-black dark:bg-white/15 dark:text-white"
-                          : "bg-gray-100 text-black dark:bg-white/10 dark:text-white"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-black dark:text-white/60 dark:hover:bg-white/8 dark:hover:text-white"
-                    }
-                  `}
-                  title={!expanded ? item.label : undefined}
-                >
-                  <Icon
-                    size={20}
-                    className={active ? "text-black dark:text-white" : "text-gray-600 dark:text-white/60"}
-                  />
-
-                  {expanded && (
-                    <>
-                      <span
-                        className={`flex-1 whitespace-nowrap text-left text-sm font-medium ${
-                          active ? "text-black dark:text-white" : "text-gray-700 dark:text-white/70"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-
-                      {active && (
-                        <ChevronRight
-                          size={14}
-                          className="flex-shrink-0 text-gray-500 dark:text-white/60"
-                        />
-                      )}
-                    </>
+              return (
+                <div key={item.id} className="relative px-2">
+                  {active && (
+                    <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-black dark:bg-white" />
                   )}
-                </button>
-              </div>
-            );
-          })}
-        </nav>
+
+                  <button
+                    onClick={() => router.push(item.path)}
+                    className={`
+                      w-full flex items-center gap-3 rounded-xl transition-all duration-200
+                      ${expanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"}
+                      ${
+                        active
+                          ? expanded
+                            ? "bg-gray-100 text-black dark:bg-white/15 dark:text-white"
+                            : "bg-gray-100 text-black dark:bg-white/10 dark:text-white"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-black dark:text-white/60 dark:hover:bg-white/8 dark:hover:text-white"
+                      }
+                    `}
+                    title={!expanded ? item.label : undefined}
+                  >
+                    <Icon
+                      size={20}
+                      className={active ? "text-black dark:text-white" : "text-gray-600 dark:text-white/60"}
+                    />
+
+                    {expanded && (
+                      <>
+                        <span
+                          className={`flex-1 whitespace-nowrap text-left text-sm font-medium ${
+                            active ? "text-black dark:text-white" : "text-gray-700 dark:text-white/70"
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+
+                        {active && (
+                          <ChevronRight
+                            size={14}
+                            className="flex-shrink-0 text-gray-500 dark:text-white/60"
+                          />
+                        )}
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </nav>
+        </div>
 
         {/* User footer desktop */}
         <div
@@ -367,7 +369,7 @@ export default function Sidebar({
           }`}
         >
           {profileOpen && (
-            <div className="absolute left-full bottom-3 ml-3 z-[60] w-72">
+            <div className="absolute left-full bottom-1 z-[60] ml-1.5 w-72">
               {renderProfilePanel()}
             </div>
           )}
@@ -435,24 +437,29 @@ export default function Sidebar({
             const Icon = item.icon;
 
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  router.push(item.path);
-                  setMobileOpen?.(false);
-                }}
-                className={`flex w-full items-center gap-4 rounded-lg px-4 py-3 transition-all duration-200 ${
-                  active
-                    ? "bg-gray-100 text-black dark:bg-white/15 dark:text-white"
-                    : "text-gray-700 hover:bg-gray-50 dark:text-white/70 dark:hover:bg-white/8"
-                }`}
-              >
-                <Icon
-                  size={20}
-                  className={active ? "text-black dark:text-white" : "text-gray-600 dark:text-white/60"}
-                />
-                <span className="text-left font-medium">{item.label}</span>
-              </button>
+              <div key={item.id} className="relative px-3">
+                {active && (
+                  <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-black dark:bg-white" />
+                )}
+
+                <button
+                  onClick={() => {
+                    router.push(item.path);
+                    setMobileOpen?.(false);
+                  }}
+                  className={`flex w-full items-center gap-4 rounded-lg px-4 py-3 transition-all duration-200 ${
+                    active
+                      ? "bg-gray-100 text-black dark:bg-white/15 dark:text-white"
+                      : "text-gray-700 hover:bg-gray-50 dark:text-white/70 dark:hover:bg-white/8"
+                  }`}
+                >
+                  <Icon
+                    size={20}
+                    className={active ? "text-black dark:text-white" : "text-gray-600 dark:text-white/60"}
+                  />
+                  <span className="text-left font-medium">{item.label}</span>
+                </button>
+              </div>
             );
           })}
         </nav>
@@ -463,7 +470,7 @@ export default function Sidebar({
           className="relative border-t border-gray-200 p-4 dark:border-white/10"
         >
           {profileOpen && (
-            <div className="absolute left-4 right-4 bottom-[4.75rem] z-[60]">
+            <div className="absolute left-fill right-[0.5] bottom-[5rem] z-[60]">
               {renderProfilePanel()}
             </div>
           )}
