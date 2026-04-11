@@ -1,9 +1,9 @@
 export const disciplinaImages: Record<string, string> = {
-  "Fundamentos de Sistemas de Informação": "/thumbnails/fundamentos.jpg",
-  "Comunicação Pessoal e Empresarial": "/images/disciplinas/comunicacao.jpg",
-  "Matematica I": "/images/disciplinas/gestao.jpg",
-  "Ingles I": "/images/disciplinas/ingles.jpg",
-  "Metodologias de Investigação Científica": "/images/disciplinas/metodologia.jpg",
+  "Fundamentos de Sistemas de Informação": "/disciplines/fundamentos_si.jpg",
+  "Comunicação Pessoal e Empresarial": "/disciplines/comunicacao.jpg",
+  "Matemática I": "/disciplines/matematica.jpg",
+  "Inglês I": "/disciplines/ingles.jpg",
+  "Metodologias de Investigação Científica": "/disciplines/metodologias.jpg",
   
   // Adiciona aqui mais disciplinas conforme fores usando
   // Exemplo:
