@@ -1,54 +1,99 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Headphones, ClipboardList, ArrowRight } from "lucide-react";
+import {
+  BookOpen,
+  Headphones,
+  ClipboardList,
+  ArrowRight,
+} from "lucide-react";
 
 type WelcomeBannerProps = {
   userName: string;
 };
 
+/* =========================================================
+   Ações rápidas
+   Ordem:
+   1) Resumos em áudio  -> azul
+   2) Conteúdo por disciplina -> verde
+   3) Questionário -> âmbar
+   ========================================================= */
 const quickActions = [
-  {
-    title: "Conteúdo por disciplina",
-    icon: BookOpen,
-    href: "/disciplinas",
-    mobileClass: "bg-blue-500/10 text-blue-300 hover:bg-blue-500/20",
-    desktopClass:
-      "bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 hover:border-slate-500",
-    iconClass: "text-blue-400",
-    textClass: "text-slate-200",
-    arrowClass: "text-slate-500",
-  },
   {
     title: "Resumos em áudio",
     icon: Headphones,
     href: "/disciplinas?filter=audio",
-    mobileClass: "bg-purple-500/10 text-purple-300 hover:bg-purple-500/20",
+
+    // MOBILE: azul escuro suave
+    mobileClass: "bg-blue-700/10 text-blue-200 hover:bg-blue-700/20",
+
+    // DESKTOP: card com fundo azul escuro e borda azul discreta
     desktopClass:
-      "bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 hover:border-slate-500",
-    iconClass: "text-purple-400",
-    textClass: "text-slate-200",
-    arrowClass: "text-slate-500",
+      "bg-blue-950/80 hover:bg-blue-900/80 border border-blue-700/30 hover:border-blue-500/40 shadow-sm shadow-blue-950/20",
+
+    // Ícone
+    iconClass: "text-blue-300",
+
+    // Texto
+    textClass: "text-blue-100 font-medium",
+
+    // Seta
+    arrowClass: "text-blue-300",
   },
   {
-    title: "Testes e questionários",
+    title: "Conteúdos por disciplina",
+    icon: BookOpen,
+    href: "/disciplinas",
+
+    // MOBILE: verde suave
+    mobileClass: "bg-emerald-600/10 text-emerald-200 hover:bg-emerald-600/20",
+
+    // DESKTOP: card com fundo verde escuro e borda verde discreta
+    desktopClass:
+      "bg-emerald-950/80 hover:bg-emerald-900/80 border border-emerald-700/30 hover:border-emerald-500/40 shadow-sm shadow-emerald-950/20",
+
+    // Ícone
+    iconClass: "text-emerald-300",
+
+    // Texto
+    textClass: "text-emerald-100 font-medium",
+
+    // Seta
+    arrowClass: "text-emerald-300",
+  },
+  {
+    title: "Questionários",
     icon: ClipboardList,
     href: "/disciplinas?filter=quiz",
-    mobileClass: "bg-amber-400/10 text-amber-300 hover:bg-amber-400/20",
+
+    // MOBILE: âmbar elegante
+    mobileClass: "bg-amber-500/10 text-amber-200 hover:bg-amber-500/20",
+
+    // DESKTOP: card com fundo âmbar escuro, mais clean que castanho
     desktopClass:
-      "bg-gradient-to-br from-amber-300 via-yellow-300 to-amber-400 hover:brightness-110 border border-amber-300/50",
-    iconClass: "text-amber-900",
-    textClass: "text-amber-900 font-semibold",
-    arrowClass: "text-amber-700",
+      "bg-amber-950/75 hover:bg-amber-900/80 border border-amber-700/30 hover:border-amber-500/40 shadow-sm shadow-amber-950/20",
+
+    // Ícone
+    iconClass: "text-amber-300",
+
+    // Texto
+    textClass: "text-amber-100 font-medium",
+
+    // Seta
+    arrowClass: "text-amber-300",
   },
 ];
 
 export default function WelcomeBanner({ userName }: WelcomeBannerProps) {
   return (
     <section>
-      {/* ── MOBILE ── */}
+      {/* =====================================================
+          MOBILE
+          ===================================================== */}
       <div className="rounded-2xl border border-slate-700/50 bg-slate-900 p-4 lg:hidden">
         <div className="flex items-center justify-between gap-4">
+          {/* Texto de boas-vindas */}
           <div>
             <h1 className="text-lg font-semibold text-white">
               Olá, <span className="text-blue-400">{userName}!</span>
@@ -56,6 +101,7 @@ export default function WelcomeBanner({ userName }: WelcomeBannerProps) {
             <p className="text-xs text-slate-400">Pronto para começar?</p>
           </div>
 
+          {/* Botões rápidos compactos */}
           <div className="flex items-center gap-2">
             {quickActions.map((action) => (
               <Link
@@ -71,11 +117,12 @@ export default function WelcomeBanner({ userName }: WelcomeBannerProps) {
         </div>
       </div>
 
-      {/* ── DESKTOP ── */}
+      {/* =====================================================
+          DESKTOP
+          ===================================================== */}
       <div className="hidden rounded-2xl border border-slate-700/50 bg-slate-900 lg:block">
         <div className="flex items-center gap-6 p-6">
-
-          {/* Texto de boas-vindas */}
+          {/* Texto principal */}
           <div className="flex-1">
             <p className="text-sm text-slate-400">Bem-vindo,</p>
             <h1 className="mt-0.5 text-3xl font-semibold tracking-tight text-white">

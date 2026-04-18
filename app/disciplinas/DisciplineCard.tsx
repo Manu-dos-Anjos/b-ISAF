@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Book } from "lucide-react";
 import { iconMap, type Discipline } from "@/app/lib/mockData";
 
 type Props = {
@@ -7,7 +8,7 @@ type Props = {
 };
 
 export default function DisciplineCard({ discipline }: Props) {
-  const Icon = iconMap[discipline.icon];
+  const Icon = iconMap[discipline.icon] ?? Book;
 
   return (
     <Link
@@ -21,13 +22,17 @@ export default function DisciplineCard({ discipline }: Props) {
     >
       {/* Cover */}
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-100 dark:bg-white/5">
-        <Image
-          src={discipline.coverUrl}
-          alt={`Capa da disciplina ${discipline.title}`}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
+        {discipline.coverUrl ? (
+          <Image
+            src={discipline.coverUrl}
+            alt={`Capa da disciplina ${discipline.title}`}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-950" />
+        )}
 
         {/* Gradiente discreto para leitura do texto */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent" />
@@ -38,16 +43,10 @@ export default function DisciplineCard({ discipline }: Props) {
           <span className="line-clamp-1">Disciplina</span>
         </div>
 
-        {/* Título (sem professor) */}
+        {/* Título */}
         <div className="absolute bottom-4 left-4 right-4">
-          <div
-            className="
-              inline-block max-w-full
-              rounded-xl bg-slate-950/35 px-3 py-2
-              backdrop-blur-sm
-            "
-          >
-            <h3 className="text-base font-semibold leading-snug text-white line-clamp-2">
+          <div className="inline-block max-w-full rounded-xl bg-slate-950/35 px-3 py-2 backdrop-blur-sm">
+            <h3 className="line-clamp-2 text-base font-semibold leading-snug text-white">
               {discipline.title}
             </h3>
           </div>

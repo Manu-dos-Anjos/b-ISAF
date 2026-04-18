@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* =========================================================
+   Base global
+   ========================================================= */
+
 html,
 body {
   min-height: 100%;
@@ -13,6 +17,10 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
+/* =========================================================
+   Esconder scrollbar quando necessário
+   ========================================================= */
+
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -20,4 +28,85 @@ body {
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* =========================================================
+   Scrollbars personalizadas por tema
+   - violeta: Tutor IA e listas gerais
+   - azul: Áudios
+   - verde: Slides
+   ========================================================= */
+
+/* Base comum para todas as scrollbars temáticas */
+.tutor-scrollbar,
+.scrollbar-theme,
+.scrollbar-audio,
+.scrollbar-slide {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+
+  /* Track padrão */
+  --sb-track: rgba(255, 255, 255, 0.06);
+}
+
+/* Tema violeta: Tutor IA e listas gerais */
+.tutor-scrollbar,
+.scrollbar-theme {
+  --sb-thumb: rgba(139, 92, 246, 0.75);
+  --sb-thumb-hover: rgba(139, 92, 246, 0.9);
+}
+
+/* Tema azul: Áudios */
+.scrollbar-audio {
+  --sb-thumb: rgba(59, 130, 246, 0.75);
+  --sb-thumb-hover: rgba(96, 165, 250, 0.9);
+}
+
+/* Tema verde: Slides */
+.scrollbar-slide {
+  --sb-thumb: rgba(16, 185, 129, 0.75);
+  --sb-thumb-hover: rgba(34, 197, 94, 0.9);
+}
+
+/* Chrome / Edge / Safari */
+.tutor-scrollbar::-webkit-scrollbar,
+.scrollbar-theme::-webkit-scrollbar,
+.scrollbar-audio::-webkit-scrollbar,
+.scrollbar-slide::-webkit-scrollbar {
+  width: 10px;
+}
+
+.tutor-scrollbar::-webkit-scrollbar-track,
+.scrollbar-theme::-webkit-scrollbar-track,
+.scrollbar-audio::-webkit-scrollbar-track,
+.scrollbar-slide::-webkit-scrollbar-track {
+  background: var(--sb-track);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 9999px;
+  margin: 10px 0;
+}
+
+.tutor-scrollbar::-webkit-scrollbar-thumb,
+.scrollbar-theme::-webkit-scrollbar-thumb,
+.scrollbar-audio::-webkit-scrollbar-thumb,
+.scrollbar-slide::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    var(--sb-thumb),
+    var(--sb-thumb-hover)
+  );
+  border: 2px solid rgba(2, 6, 23, 0.9);
+  border-radius: 9999px;
+}
+
+.tutor-scrollbar::-webkit-scrollbar-thumb:hover,
+.scrollbar-theme::-webkit-scrollbar-thumb:hover,
+.scrollbar-audio::-webkit-scrollbar-thumb:hover,
+.scrollbar-slide::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--sb-thumb-hover),
+    var(--sb-thumb)
+  );
 }
