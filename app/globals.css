@@ -17,6 +17,13 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
+/* Quando o painel entra em fullscreen real do navegador */
+[data-panel-id]:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+}
+
 /* =========================================================
    Esconder scrollbar quando necessário
    ========================================================= */

@@ -1,16 +1,13 @@
 "use client";
 
-import { ThemeProvider } from "next-themes";
+import { AudioPlayerProvider } from "@/app/lib/context/AudioPlayerContext";
+import MiniPlayer from "@/app/components/audio/MiniPlayer";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider 
-      attribute="class" 
-      defaultTheme="dark" 
-      enableSystem={false} 
-      disableTransitionOnChange={false}
-    >
+    <AudioPlayerProvider>
       {children}
-    </ThemeProvider>
+      <MiniPlayer />
+    </AudioPlayerProvider>
   );
 }

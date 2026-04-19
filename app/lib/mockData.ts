@@ -240,8 +240,8 @@ export const mockDisciplines: Discipline[] = [
             id: "fsi-top-01",
             title: "O conceito de Sistema de Informação",
             contents: [
-              { id: "fsi-c-01", type: "audio", title: "Áudio - Conceito de SI" },
-              { id: "fsi-c-02", type: "slide", title: "Slides - Conceito de SI" },
+              { id: "fsi-c-01", type: "audio", title: "Áudio - Conceito de SI", url: "/audios/fundamentos-organigrama.mp3" },
+              { id: "fsi-c-02", type: "slide", title: "Slides - Conceito de SI", url: "/slides/fsi.pdf" },
               { id: "fsi-c-03", type: "quiz", title: "Quiz - Conceito de SI" },
             ],
           },

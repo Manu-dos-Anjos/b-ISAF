@@ -1,29 +1,23 @@
 // app/layout.tsx
-
-import type { Metadata } from "next";
-import Providers from "@/app/providers";
+import "./globals.css";
+import { cookies } from "next/headers";
+import Providers from "./providers";
 import AppShell from "@/app/components/AppShell";
-import "@/app/globals.css";
 
-export const metadata: Metadata = {
-  title: "Biblioteca Virtual - ISAF",
-  description: "Biblioteca Virtual ISAF",
-};
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = cookies();
+  const pinnedCookie = (await cookieStore).get("sidebarPinned"); // "1" | "0" | undefined
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+  const hasPinnedCookie = !!pinnedCookie;
+  const initialPinned = pinnedCookie ? pinnedCookie.value === "1" : true; // default true
+
   return (
-    <html lang="pt" suppressHydrationWarning className="scroll-smooth">
-      <body
-        suppressHydrationWarning
-        // <<< ALTERAÇÃO: Cores restauradas conforme o seu pedido
-        className="overflow-x-hidden bg-slate-950 text-white antialiased"
-      >
+    <html lang="pt" className="dark scroll-smooth" suppressHydrationWarning>
+      <body className="overflow-x-hidden" suppressHydrationWarning>
         <Providers>
-          <AppShell>{children}</AppShell>
+          <AppShell initialPinned={initialPinned} hasPinnedCookie={hasPinnedCookie}>
+            {children}
+          </AppShell>
         </Providers>
       </body>
     </html>

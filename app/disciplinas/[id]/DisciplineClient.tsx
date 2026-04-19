@@ -1,5 +1,6 @@
 "use client";
 
+import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,10 +11,18 @@ import {
   Trophy,
   PlayCircle,
   X,
+  Maximize2,
+  Minimize2,
+  RotateCw,
   Sparkles,
   Send,
   GripVertical,
+  Expand,
+  Shrink,
 } from "lucide-react";
+
+import SlideViewer from "@/app/components/slides/SlideViewer";
+
 import type {
   Discipline,
   Chapter,
@@ -51,24 +60,19 @@ type TutorDragState = {
   offsetY: number;
 };
 
-type ContentWithUrl = TopicContent & {
-  url?: string;
-};
-
 type ContentPanelContext = {
   discipline: string;
   chapter: string;
   topic: string;
-  content: ContentWithUrl;
+  content: TopicContent;
 };
 
 type FloatingContentPanel = {
   id: string;
   context: ContentPanelContext;
-  position: {
-    x: number;
-    y: number;
-  };
+  position: { x: number; y: number };
+  isFullscreen?: boolean; // fullscreen "dentro da app"
+  rotation?: 0 | 90; // rotação mobile
 };
 
 type FloatingContentDragState = {
@@ -97,17 +101,11 @@ function getContentIcon(type: TopicContent["type"]) {
 function getContentButtonClass(type: TopicContent["type"]) {
   switch (type) {
     case "audio":
-      // azul escuro, como o card de áudio
       return "bg-blue-700 hover:bg-blue-600 text-white";
-
     case "slide":
-      // verde, como o card de slide
       return "bg-emerald-600 hover:bg-emerald-500 text-white";
-
     case "quiz":
-      // amarelo vivo, semelhante ao card da imagem
       return "bg-yellow-400 hover:bg-yellow-300 border border-yellow-300/60 hover:border-yellow-200 !text-slate-950 shadow-sm shadow-yellow-400/20 font-semibold";
-
     default:
       return "bg-blue-600 hover:bg-blue-500 text-white";
   }
@@ -190,8 +188,12 @@ export default function DisciplineClient({ discipline }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   /* =========================================================
-     Painéis flutuantes de Áudio / Slide
-     - podem existir simultaneamente
+     Player global (mini-player)
+     ========================================================= */
+  const audioPlayer = useAudioPlayer();
+
+  /* =========================================================
+     Painéis flutuantes (Slides)
      ========================================================= */
   const [contentPanels, setContentPanels] = useState<FloatingContentPanel[]>(
     []
@@ -201,11 +203,56 @@ export default function DisciplineClient({ discipline }: Props) {
   const contentPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   /* =========================================================
+     Fullscreen REAL do navegador (para slides em mobile + desktop)
+     ========================================================= */
+  const [browserFullscreenPanelId, setBrowserFullscreenPanelId] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    const onFsChange = () => {
+      const el = document.fullscreenElement as HTMLElement | null;
+      // o panel tem data-panel-id
+      const id = el?.dataset?.panelId ?? null;
+      setBrowserFullscreenPanelId(id);
+    };
+
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  const toggleBrowserFullscreen = async (panelId: string) => {
+    const el = contentPanelRefs.current[panelId];
+    if (!el) return;
+
+    try {
+      const current = document.fullscreenElement as HTMLElement | null;
+      const currentId = current?.dataset?.panelId ?? null;
+
+      // se já está fullscreen neste painel => sair
+      if (currentId === panelId) {
+        await document.exitFullscreen();
+        return;
+      }
+
+      // se está fullscreen noutro => sair e entrar neste
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+
+      await el.requestFullscreen();
+    } catch (err) {
+      console.error("Falha ao alternar fullscreen:", err);
+    }
+  };
+
+  /* =========================================================
      Reset quando muda a disciplina
      ========================================================= */
   useEffect(() => {
     setActiveChapterId(chapters[0]?.id ?? "");
     setMobileView("chapters");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [discipline.id]);
 
   /* =========================================================
@@ -280,7 +327,7 @@ export default function DisciplineClient({ discipline }: Props) {
   }, [isDraggingTutor]);
 
   /* =========================================================
-     Drag dos painéis de Áudio / Slide
+     Drag dos painéis de slide
      ========================================================= */
   useEffect(() => {
     if (!isDraggingContent) return;
@@ -364,7 +411,7 @@ export default function DisciplineClient({ discipline }: Props) {
   }, [chapters]);
 
   /* =========================================================
-     Abrir Tutor IA
+     Tutor IA
      ========================================================= */
   const openTutor = (topicTitle: string) => {
     setTutorContext({
@@ -385,23 +432,63 @@ export default function DisciplineClient({ discipline }: Props) {
   };
 
   /* =========================================================
-     Focar um painel já aberto
+     Focar painel (trazer para frente)
      ========================================================= */
   const focusContentPanel = (panelId: string) => {
     setContentPanels((prev) => {
       const found = prev.find((panel) => panel.id === panelId);
       if (!found) return prev;
-
       return [...prev.filter((panel) => panel.id !== panelId), found];
     });
   };
 
   /* =========================================================
-     Abrir painel flutuante de Áudio / Slide
-     - mantém os painéis abertos em simultâneo
-     - se já existir, apenas traz para a frente
+     Fullscreen dentro da app + rotação mobile
      ========================================================= */
-  const openContentPanel = (content: TopicContent, topicTitle: string) => {
+  const togglePanelFullscreen = (panelId: string) => {
+    setContentPanels((prev) =>
+      prev.map((p) =>
+        p.id === panelId ? { ...p, isFullscreen: !p.isFullscreen } : p
+      )
+    );
+  };
+
+  const rotatePanelMobile = (panelId: string) => {
+    setContentPanels((prev) =>
+      prev.map((p) =>
+        p.id === panelId
+          ? { ...p, rotation: (p.rotation ?? 0) === 0 ? 90 : 0 }
+          : p
+      )
+    );
+  };
+
+  /* =========================================================
+     Abrir conteúdo
+     - Áudio: toca no mini-player
+     - Slide: abre painel flutuante (com fullscreen + rotação + fullscreen navegador)
+     ========================================================= */
+  const openContent = (content: TopicContent, topicTitle: string) => {
+    if (content.type === "audio") {
+      if (!content.url) {
+        alert("Este áudio ainda não tem URL configurada no mockData.");
+        return;
+      }
+
+      void audioPlayer.play({
+        id: content.id,
+        title: content.title,
+        url: content.url,
+        discipline: discipline.title,
+        chapter: activeChapter?.title ?? "",
+        topic: topicTitle,
+        coverUrl: discipline.coverUrl,
+      });
+
+      return;
+    }
+
+    // Slide
     const panelId = [
       discipline.id,
       activeChapter?.id ?? "chapter",
@@ -413,15 +500,12 @@ export default function DisciplineClient({ discipline }: Props) {
       discipline: discipline.title,
       chapter: activeChapter?.title ?? "",
       topic: topicTitle,
-      content: content as ContentWithUrl,
+      content,
     };
 
     setContentPanels((prev) => {
       const exists = prev.find((panel) => panel.id === panelId);
-
-      if (exists) {
-        return [...prev.filter((panel) => panel.id !== panelId), exists];
-      }
+      if (exists) return [...prev.filter((p) => p.id !== panelId), exists];
 
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
@@ -453,23 +537,21 @@ export default function DisciplineClient({ discipline }: Props) {
           id: panelId,
           context,
           position: { x, y },
+          isFullscreen: false,
+          rotation: 0,
         },
       ];
     });
   };
 
   /* =========================================================
-     Envio de mensagem no Tutor IA
+     Envio de mensagens do Tutor IA
      ========================================================= */
   const handleSendTutorMessage = () => {
     const trimmed = tutorInput.trim();
     if (!trimmed) return;
 
-    const userMessage: TutorMessage = {
-      role: "user",
-      text: trimmed,
-    };
-
+    const userMessage: TutorMessage = { role: "user", text: trimmed };
     setTutorMessages((prev) => [...prev, userMessage]);
     setTutorInput("");
 
@@ -511,7 +593,7 @@ export default function DisciplineClient({ discipline }: Props) {
       <button
         key={content.id}
         type="button"
-        onClick={() => openContentPanel(content, topicTitle)}
+        onClick={() => openContent(content, topicTitle)}
         className={`${actionButtonClass} ${contentButtonColor}`}
         title={content.title}
       >
@@ -521,9 +603,6 @@ export default function DisciplineClient({ discipline }: Props) {
     );
   };
 
-  /* =========================================================
-     Botão Tutor IA
-     ========================================================= */
   const renderTutorButton = (topicTitle: string) => (
     <button
       key={`tutor-${topicTitle}`}
@@ -537,20 +616,11 @@ export default function DisciplineClient({ discipline }: Props) {
     </button>
   );
 
-  /* =========================================================
-     Ações de cada tema
-     Ordem desejada:
-     1. Áudio
-     2. Slide
-     3. Tutor IA
-     4. Questionário
-     ========================================================= */
   const renderTopicActions = (topic: Topic) => {
     const contents = topic.contents ?? [];
-
-    const audioContents = contents.filter((content) => content.type === "audio");
-    const slideContents = contents.filter((content) => content.type === "slide");
-    const quizContents = contents.filter((content) => content.type === "quiz");
+    const audioContents = contents.filter((c) => c.type === "audio");
+    const slideContents = contents.filter((c) => c.type === "slide");
+    const quizContents = contents.filter((c) => c.type === "quiz");
 
     return (
       <div
@@ -559,30 +629,14 @@ export default function DisciplineClient({ discipline }: Props) {
           sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end sm:gap-2 sm:ml-auto
         "
       >
-        {/* 1) Áudio */}
-        {audioContents.map((content) =>
-          renderContentAction(content, topic.title)
-        )}
-
-        {/* 2) Slide */}
-        {slideContents.map((content) =>
-          renderContentAction(content, topic.title)
-        )}
-
-        {/* 3) Tutor IA */}
+        {audioContents.map((content) => renderContentAction(content, topic.title))}
+        {slideContents.map((content) => renderContentAction(content, topic.title))}
         {renderTutorButton(topic.title)}
-
-        {/* 4) Questionário */}
-        {quizContents.map((content) =>
-          renderContentAction(content, topic.title)
-        )}
+        {quizContents.map((content) => renderContentAction(content, topic.title))}
       </div>
     );
   };
 
-  /* =========================================================
-     Card de capítulo
-     ========================================================= */
   const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
     const topicsCount = chapter.topics?.length ?? 0;
     const progress = chapter.status === "Concluído" ? 100 : 35;
@@ -645,9 +699,7 @@ export default function DisciplineClient({ discipline }: Props) {
               <div className="h-full w-full bg-gradient-to-br from-slate-800 to-slate-950" />
             )}
           </div>
-
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/92 via-slate-950/80 to-slate-950/35" />
-
           <div className="relative z-10">
             <p className="text-xs font-medium uppercase tracking-[0.25em] text-blue-400">
               {discipline.year} · {discipline.semester}
@@ -670,9 +722,7 @@ export default function DisciplineClient({ discipline }: Props) {
      ========================================================= */
   return (
     <div className="space-y-6">
-      {/* =====================================================
-          Cabeçalho principal
-          ===================================================== */}
+      {/* Cabeçalho principal */}
       <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/45 p-5">
         <div className="absolute inset-0">
           {discipline.coverUrl ? (
@@ -695,12 +745,9 @@ export default function DisciplineClient({ discipline }: Props) {
               {discipline.year} · {discipline.semester}
             </p>
 
-            <div>
-              {/* Nome do professor removido do título */}
-              <h1 className="text-3xl font-bold tracking-tight text-white">
-                {discipline.title}
-              </h1>
-            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              {discipline.title}
+            </h1>
 
             <div className="flex flex-wrap gap-3 pt-2 text-sm text-slate-300">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
@@ -726,9 +773,7 @@ export default function DisciplineClient({ discipline }: Props) {
         </div>
       </section>
 
-      {/* =====================================================
-          MOBILE: Tabs
-          ===================================================== */}
+      {/* MOBILE */}
       <section className="lg:hidden">
         <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-3">
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-white/5 p-1">
@@ -794,7 +839,6 @@ export default function DisciplineClient({ discipline }: Props) {
                 </button>
               </div>
 
-              {/* Temas enumerados no mobile */}
               <div className="space-y-3">
                 {activeChapter?.topics?.map((topic, index) => (
                   <article
@@ -827,11 +871,8 @@ export default function DisciplineClient({ discipline }: Props) {
         </div>
       </section>
 
-      {/* =====================================================
-          DESKTOP: layout em 2 colunas
-          ===================================================== */}
+      {/* DESKTOP */}
       <section className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 lg:grid lg:grid-cols-[340px_1fr] lg:h-[640px]">
-        {/* Coluna esquerda: capítulos */}
         <aside className="scrollbar-theme border-b border-white/10 p-5 lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r lg:border-white/10">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-200">Capítulos</h2>
@@ -845,7 +886,6 @@ export default function DisciplineClient({ discipline }: Props) {
           </div>
         </aside>
 
-        {/* Coluna direita: temas */}
         <main className="scrollbar-theme h-full overflow-y-auto p-5">
           <div className="mb-4 border-b border-white/10 pb-3">
             <h2 className="text-lg font-semibold text-slate-100">
@@ -879,47 +919,58 @@ export default function DisciplineClient({ discipline }: Props) {
       </section>
 
       {/* =====================================================
-          Painéis flutuantes de Áudio / Slide
-          - podem existir simultaneamente
-          - cada um tem o seu scroll temático
+          Painéis flutuantes (Slides)
           ===================================================== */}
       {contentPanels.map((panel, index) => {
         const theme = getContentPanelTheme(panel.context.content.type);
         const selectedContent = panel.context.content;
 
+        const isBrowserFs = browserFullscreenPanelId === panel.id;
+        const isAppFs = !!panel.isFullscreen;
+        const isAnyFs = isBrowserFs || isAppFs;
+
+        const rotation: 0 | 90 = panel.rotation ?? 0;
+
         return (
           <div
             key={panel.id}
+            data-panel-id={panel.id}
             ref={(el) => {
               contentPanelRefs.current[panel.id] = el;
             }}
             style={{
-              left: `${panel.position.x}px`,
-              top: `${panel.position.y}px`,
+              ...(isBrowserFs
+                ? { left: 0, top: 0, right: 0, bottom: 0 }
+                : isAppFs
+                  ? { left: 8, top: 8, right: 8, bottom: 8 }
+                  : { left: `${panel.position.x}px`, top: `${panel.position.y}px` }),
               zIndex: 59 + index,
             }}
-            className="
-              fixed
-              w-[92vw] md:w-[34rem]
-              min-w-[22rem] min-h-[20rem]
-              max-w-[90vw] max-h-[78vh]
-              resize
-              overflow-hidden
-              rounded-2xl border border-white/10 bg-slate-950 shadow-2xl
-            "
+            className={`
+              fixed flex flex-col
+              overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-2xl
+              ${
+                isAnyFs
+                  ? "w-auto h-auto max-w-none max-h-none resize-none"
+                  : "w-[92vw] md:w-[34rem] min-w-[22rem] min-h-[20rem] max-w-[90vw] max-h-[78vh] resize"
+              }
+            `}
           >
-            {/* Cabeçalho do painel flutuante */}
+            {/* Header */}
             <div
               className={`flex items-start justify-between gap-4 border-b px-4 py-4 ${theme.borderClass}`}
             >
               <div
-                className="flex flex-1 select-none items-start gap-3 cursor-move"
+                className={`flex flex-1 select-none items-start gap-3 ${
+                  isAnyFs ? "cursor-default" : "cursor-move"
+                }`}
                 onPointerDown={(event) => {
+                  if (isAnyFs) return;
                   if (event.button !== 0) return;
+
                   const panelElement = contentPanelRefs.current[panel.id];
                   if (!panelElement) return;
 
-                  // Traz o painel para a frente ao começar a arrastar
                   focusContentPanel(panel.id);
 
                   const rect = panelElement.getBoundingClientRect();
@@ -934,103 +985,147 @@ export default function DisciplineClient({ discipline }: Props) {
                 <div
                   className={`flex h-9 w-9 items-center justify-center rounded-xl ${theme.iconClass}`}
                 >
-                  {selectedContent.type === "audio" ? (
-                    <Headphones size={18} />
-                  ) : (
-                    <FileText size={18} />
-                  )}
+                  <FileText size={18} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold text-white">
                       {theme.label}
                     </h3>
-                    <GripVertical size={14} className="text-slate-500" />
+                    {!isAnyFs && (
+                      <GripVertical size={14} className="text-slate-500" />
+                    )}
                   </div>
 
                   <p className="text-xs text-slate-400">Conteúdo da aula</p>
 
-                  <div className="mt-3 space-y-1 text-[11px] text-slate-300">
-                    <p>
-                      <span className="text-slate-500">Disciplina:</span>{" "}
-                      {panel.context.discipline}
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Capítulo:</span>{" "}
-                      {panel.context.chapter}
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Tema:</span>{" "}
-                      {panel.context.topic}
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Conteúdo:</span>{" "}
-                      {selectedContent.title}
-                    </p>
-                  </div>
+                  {!isAnyFs && (
+                    <div className="mt-3 space-y-1 text-[11px] text-slate-300">
+                      <p>
+                        <span className="text-slate-500">Disciplina:</span>{" "}
+                        {panel.context.discipline}
+                      </p>
+                      <p>
+                        <span className="text-slate-500">Capítulo:</span>{" "}
+                        {panel.context.chapter}
+                      </p>
+                      <p>
+                        <span className="text-slate-500">Tema:</span>{" "}
+                        {panel.context.topic}
+                      </p>
+                      <p className="truncate">
+                        <span className="text-slate-500">Conteúdo:</span>{" "}
+                        {selectedContent.title}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setContentPanels((prev) =>
-                    prev.filter((current) => current.id !== panel.id)
-                  )
-                }
-                className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
-                aria-label="Fechar campo flutuante"
-              >
-                <X size={18} />
-              </button>
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                {/* Rotacionar (apenas mobile) */}
+                <button
+                  type="button"
+                  onClick={() => rotatePanelMobile(panel.id)}
+                  className="md:hidden rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  aria-label="Rodar slide"
+                  title="Rodar (mobile)"
+                >
+                  <RotateCw size={18} />
+                </button>
+
+                {/* Fullscreen REAL do navegador (mobile + desktop) */}
+                <button
+                  type="button"
+                  onClick={() => void toggleBrowserFullscreen(panel.id)}
+                  className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  aria-label={
+                    isBrowserFs
+                      ? "Sair da tela inteira (navegador)"
+                      : "Tela inteira (navegador)"
+                  }
+                  title={
+                    isBrowserFs
+                      ? "Sair da tela inteira (navegador)"
+                      : "Tela inteira (navegador)"
+                  }
+                >
+                  {isBrowserFs ? <Shrink size={18} /> : <Expand size={18} />}
+                </button>
+
+                {/* Fullscreen dentro da app */}
+                <button
+                  type="button"
+                  onClick={() => togglePanelFullscreen(panel.id)}
+                  className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  aria-label={isAppFs ? "Sair da tela inteira" : "Maximizar painel"}
+                  title={isAppFs ? "Sair da tela inteira" : "Maximizar painel"}
+                >
+                  {isAppFs ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </button>
+
+                {/* Fechar */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setContentPanels((prev) =>
+                      prev.filter((current) => current.id !== panel.id)
+                    )
+                  }
+                  className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  aria-label="Fechar campo flutuante"
+                  title="Fechar"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
-            {/* Corpo do painel com scrollbar própria por tipo */}
-            <div className="flex h-[calc(100%-9.5rem)] flex-col">
+            {/* Body */}
+            <div className="flex-1 overflow-hidden">
               <div
-                className={`${theme.scrollbarClass} flex-1 overflow-y-auto px-4 py-4 pr-3`}
+                className={`${theme.scrollbarClass} h-full overflow-y-auto px-4 py-4 pr-3`}
               >
                 <div
                   className={`rounded-2xl border p-4 ${theme.borderClass} ${theme.panelClass}`}
                 >
-                  <p className="text-sm font-medium text-white">
-                    {selectedContent.title}
-                  </p>
+                  {!isAnyFs && (
+                    <>
+                      <p className="text-sm font-medium text-white">
+                        {selectedContent.title}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-300">
+                        No mobile, podes rodar (horizontal). Também tens tela
+                        inteira (painel) e tela inteira do navegador.
+                      </p>
+                    </>
+                  )}
 
-                  <p className="mt-1 text-sm text-slate-300">
-                    {selectedContent.type === "audio"
-                      ? "Aqui podes integrar o player de áudio."
-                      : "Aqui podes integrar o visualizador de slides."}
-                  </p>
-
-                  {"url" in selectedContent && selectedContent.url ? (
-                    <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-black">
-                      {selectedContent.type === "audio" ? (
-                        <audio
-                          controls
-                          className="w-full"
-                          src={selectedContent.url}
-                        />
-                      ) : (
-                        <iframe
-                          title={selectedContent.title}
-                          src={selectedContent.url}
-                          className="h-64 w-full"
-                        />
-                      )}
+                  {selectedContent.url ? (
+                    <div className={`${isAnyFs ? "mt-0" : "mt-4"}`}>
+                      <SlideViewer
+                        url={selectedContent.url}
+                        rotation={rotation}
+                        className={
+                          isAnyFs
+                            ? "h-[calc(100vh-140px)]"
+                            : "h-72 md:h-80"
+                        }
+                      />
                     </div>
                   ) : (
                     <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">
-                      Este painel já está pronto. Se adicionares uma propriedade{" "}
+                      Para testar, adiciona{" "}
                       <code className="rounded bg-white/5 px-1 py-0.5 text-slate-200">
                         url
                       </code>{" "}
-                      ao conteúdo no{" "}
+                      no conteúdo do{" "}
                       <code className="rounded bg-white/5 px-1 py-0.5 text-slate-200">
                         mockData.ts
                       </code>
-                      , o player/slide será carregado aqui.
+                      .
                     </div>
                   )}
                 </div>
@@ -1046,10 +1141,7 @@ export default function DisciplineClient({ discipline }: Props) {
       {isTutorOpen && (
         <div
           ref={tutorPanelRef}
-          style={{
-            left: `${tutorPosition.x}px`,
-            top: `${tutorPosition.y}px`,
-          }}
+          style={{ left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px` }}
           className="
             fixed z-[60]
             w-[92vw] md:w-[42rem]
@@ -1060,7 +1152,7 @@ export default function DisciplineClient({ discipline }: Props) {
             rounded-2xl border border-white/10 bg-slate-950 shadow-2xl
           "
         >
-          {/* Cabeçalho do Tutor IA */}
+          {/* Header */}
           <div className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4">
             <div
               className="flex flex-1 select-none items-start gap-3 cursor-move"
@@ -1116,12 +1208,12 @@ export default function DisciplineClient({ discipline }: Props) {
             </button>
           </div>
 
-          {/* Mensagens do Tutor IA com scrollbar violeta */}
+          {/* Body */}
           <div className="flex h-[calc(100%-9.5rem)] flex-col">
             <div className="tutor-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4 pr-3">
-              {tutorMessages.map((message, index) => (
+              {tutorMessages.map((message, idx) => (
                 <div
-                  key={index}
+                  key={idx}
                   className={`flex ${
                     message.role === "user" ? "justify-end" : "justify-start"
                   }`}
@@ -1140,7 +1232,6 @@ export default function DisciplineClient({ discipline }: Props) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input do Tutor IA */}
             <div className="border-t border-white/10 p-4">
               <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <input
@@ -1166,9 +1257,7 @@ export default function DisciplineClient({ discipline }: Props) {
         </div>
       )}
 
-      {/* =====================================================
-          Modal do vídeo
-          ===================================================== */}
+      {/* Modal do vídeo */}
       {isVideoOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -1209,15 +1298,13 @@ export default function DisciplineClient({ discipline }: Props) {
               </div>
             ) : (
               <div className="space-y-3 p-6 text-slate-300">
-                <p>
-                  Ainda não foi configurado nenhum vídeo para esta disciplina.
-                </p>
+                <p>Ainda não foi configurado nenhum vídeo para esta disciplina.</p>
                 <p className="text-sm text-slate-500">
-                  Para ativar, adiciona uma propriedade{" "}
+                  Para ativar, adiciona{" "}
                   <code className="rounded bg-white/5 px-1 py-0.5 text-slate-200">
                     introVideoUrl
                   </code>{" "}
-                  ao objeto da disciplina no{" "}
+                  no objeto da disciplina no{" "}
                   <code className="rounded bg-white/5 px-1 py-0.5 text-slate-200">
                     mockData.ts
                   </code>
