@@ -9,6 +9,7 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  Volume2,
   X,
 } from "lucide-react";
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
@@ -24,27 +25,40 @@ function formatTime(sec: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-const POS_KEY = "b-isaf:miniplayer:pos:v4";
-const COLLAPSE_KEY = "b-isaf:miniplayer:collapsed:v4";
+const POS_KEY = "b-isaf:miniplayer:pos:v5";
+const COLLAPSE_KEY = "b-isaf:miniplayer:collapsed:v5";
 
 type DragState = { offsetX: number; offsetY: number };
 
-type ProgressSliderProps = {
-  value: number; // seconds
-  max: number; // seconds
+type ModernSliderProps = {
+  value: number;
+  min?: number;
+  max: number;
   onChange: (nextValue: number) => void;
+  ariaLabel: string;
+  keyboardStep?: number;
 };
 
 /**
- * Slider moderno (track fina + thumb pequeno + fill em gradiente)
- * - Sem <input range> para conseguir um look consistente em todos os browsers.
+ * Slider moderno:
+ * - track fina (h-1)
+ * - fill em gradiente
+ * - thumb pequeno com shadow/ring
+ * - pointer drag (mobile/desktop)
  */
-function ProgressSlider({ value, max, onChange }: ProgressSliderProps) {
+function ModernSlider({
+  value,
+  min = 0,
+  max,
+  onChange,
+  ariaLabel,
+  keyboardStep = 5,
+}: ModernSliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
 
-  const safeMax = Math.max(1, max || 1);
-  const safeValue = clamp(value || 0, 0, safeMax);
-  const pct = (safeValue / safeMax) * 100;
+  const safeMax = Math.max(min + 0.000001, max);
+  const safeValue = clamp(value, min, safeMax);
+  const pct = ((safeValue - min) / (safeMax - min)) * 100;
 
   const setFromClientX = (clientX: number) => {
     const el = trackRef.current;
@@ -53,7 +67,8 @@ function ProgressSlider({ value, max, onChange }: ProgressSliderProps) {
     const rect = el.getBoundingClientRect();
     const x = clamp(clientX - rect.left, 0, rect.width);
     const ratio = rect.width ? x / rect.width : 0;
-    onChange(ratio * safeMax);
+    const next = min + ratio * (safeMax - min);
+    onChange(next);
   };
 
   return (
@@ -61,7 +76,6 @@ function ProgressSlider({ value, max, onChange }: ProgressSliderProps) {
       ref={trackRef}
       className="relative h-1 w-full rounded-full bg-white/10"
       onPointerDown={(e) => {
-        // permite arrastar no mobile/desktop
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         setFromClientX(e.clientX);
 
@@ -77,15 +91,14 @@ function ProgressSlider({ value, max, onChange }: ProgressSliderProps) {
         window.addEventListener("pointercancel", handleUp);
       }}
       role="slider"
-      aria-label="Progresso do áudio"
-      aria-valuemin={0}
+      aria-label={ariaLabel}
+      aria-valuemin={min}
       aria-valuemax={safeMax}
       aria-valuenow={safeValue}
       tabIndex={0}
       onKeyDown={(e) => {
-        // acessibilidade básica via teclado
-        if (e.key === "ArrowLeft") onChange(clamp(safeValue - 5, 0, safeMax));
-        if (e.key === "ArrowRight") onChange(clamp(safeValue + 5, 0, safeMax));
+        if (e.key === "ArrowLeft") onChange(clamp(safeValue - keyboardStep, min, safeMax));
+        if (e.key === "ArrowRight") onChange(clamp(safeValue + keyboardStep, min, safeMax));
       }}
     >
       {/* Fill */}
@@ -108,6 +121,8 @@ export default function MiniPlayer() {
     isPlaying,
     currentTime,
     duration,
+    volume,
+    setVolume,
     toggle,
     stop,
     seek,
@@ -132,11 +147,10 @@ export default function MiniPlayer() {
     seek(clamp(safeCurrent + delta, 0, safeDuration));
   };
 
-  // Restore collapsed
+  // restore collapsed
   useEffect(() => {
     if (!track) return;
     if (hasCollapsedPref) return;
-
     try {
       const saved = localStorage.getItem(COLLAPSE_KEY);
       if (saved != null) setCollapsed(saved === "1");
@@ -147,7 +161,7 @@ export default function MiniPlayer() {
     }
   }, [track, hasCollapsedPref]);
 
-  // Persist collapsed
+  // persist collapsed
   useEffect(() => {
     if (!track) return;
     if (!hasCollapsedPref) return;
@@ -158,7 +172,7 @@ export default function MiniPlayer() {
     }
   }, [track, collapsed, hasCollapsedPref]);
 
-  // Restore position
+  // restore position
   useEffect(() => {
     if (!track) return;
     if (hasPosition) return;
@@ -179,8 +193,8 @@ export default function MiniPlayer() {
 
     const t = window.setTimeout(() => {
       const rect = panelRef.current?.getBoundingClientRect();
-      const w = rect?.width ?? (collapsed ? 340 : 380);
-      const h = rect?.height ?? (collapsed ? 84 : 440);
+      const w = rect?.width ?? (collapsed ? 340 : 390);
+      const h = rect?.height ?? (collapsed ? 140 : 520);
 
       const x = Math.max(8, (window.innerWidth - w) / 2);
       const y = Math.max(8, window.innerHeight - h - 12);
@@ -192,7 +206,7 @@ export default function MiniPlayer() {
     return () => window.clearTimeout(t);
   }, [track, hasPosition, collapsed]);
 
-  // Persist position
+  // persist position
   useEffect(() => {
     if (!track) return;
     if (!hasPosition) return;
@@ -203,7 +217,7 @@ export default function MiniPlayer() {
     }
   }, [track, position, hasPosition]);
 
-  // Clamp on collapse/expand and resize
+  // clamp on collapse/expand and resize
   useEffect(() => {
     if (!track) return;
 
@@ -229,7 +243,7 @@ export default function MiniPlayer() {
     };
   }, [collapsed, track]);
 
-  // Drag
+  // drag
   useEffect(() => {
     if (!isDragging) return;
 
@@ -270,12 +284,9 @@ export default function MiniPlayer() {
 
   if (!track) return null;
 
-  const iconStroke = 2.2;
-
   const glassBtn =
     "rounded-2xl bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10 transition active:scale-[0.98]";
-  const iconBtn =
-    "inline-flex items-center justify-center h-10 w-10 " + glassBtn;
+  const iconBtn = "inline-flex items-center justify-center h-10 w-10 " + glassBtn;
   const primaryBtn =
     "inline-flex items-center justify-center h-14 w-14 rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500 transition active:scale-[0.98]";
 
@@ -290,7 +301,7 @@ export default function MiniPlayer() {
           : "w-[390px] max-w-[calc(100vw-24px)]",
       ].join(" ")}
     >
-      {/* Top bar (drag + tempo + colapsar + fechar) */}
+      {/* Top bar */}
       <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
         <div
           className="flex min-w-0 flex-1 items-center gap-2 select-none cursor-move"
@@ -302,7 +313,7 @@ export default function MiniPlayer() {
             const rect = panelRef.current.getBoundingClientRect();
             dragRef.current = {
               offsetX: e.clientX - rect.left,
-              offsetY: e.clientX ? e.clientY - rect.top : 0,
+              offsetY: e.clientY - rect.top,
             };
             setIsDragging(true);
           }}
@@ -311,10 +322,8 @@ export default function MiniPlayer() {
           <p className="truncate text-xs text-slate-300">A reproduzir</p>
         </div>
 
-        {/* minutos mesmo colapsado */}
         <p className="text-[11px] tabular-nums text-slate-400">
-          {formatTime(safeCurrent)} /{" "}
-          {safeDuration ? formatTime(safeDuration) : "--:--"}
+          {formatTime(safeCurrent)} / {safeDuration ? formatTime(safeDuration) : "--:--"}
         </p>
 
         <button
@@ -369,28 +378,41 @@ export default function MiniPlayer() {
               aria-label={isPlaying ? "Pausar" : "Reproduzir"}
               title={isPlaying ? "Pausar" : "Reproduzir"}
             >
-              {isPlaying ? (
-                <Pause size={18} strokeWidth={iconStroke} />
-              ) : (
-                <Play size={18} strokeWidth={iconStroke} className="ml-0.5" />
-              )}
+              {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
             </button>
           </div>
 
+          {/* Progresso */}
           <div className="mt-3">
-            <ProgressSlider
+            <ModernSlider
               value={safeCurrent}
+              min={0}
               max={Math.max(1, safeDuration)}
               onChange={(v) => seek(v)}
+              ariaLabel="Progresso do áudio"
+              keyboardStep={5}
             />
             <div className="mt-1 flex items-center justify-between text-[11px] tabular-nums text-slate-400">
               <span>{formatTime(safeCurrent)}</span>
               <span>-{safeDuration ? formatTime(timeLeft) : "--:--"}</span>
             </div>
           </div>
+
+          {/* Volume (mesmo look do progresso) */}
+          <div className="mt-3 flex items-center gap-3">
+            <Volume2 size={16} className="text-slate-400" />
+            <ModernSlider
+              value={volume}
+              min={0}
+              max={1}
+              onChange={(v) => setVolume(v)}
+              ariaLabel="Volume"
+              keyboardStep={0.05}
+            />
+          </div>
         </div>
       ) : (
-        /* Expanded - estilo Apple Music */
+        /* Expanded */
         <div className="px-5 py-5">
           <div className="mx-auto w-full max-w-[220px]">
             <div className="relative aspect-square w-full overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-lg">
@@ -411,11 +433,15 @@ export default function MiniPlayer() {
             </p>
           </div>
 
+          {/* Progresso */}
           <div className="mt-5">
-            <ProgressSlider
+            <ModernSlider
               value={safeCurrent}
+              min={0}
               max={Math.max(1, safeDuration)}
               onChange={(v) => seek(v)}
+              ariaLabel="Progresso do áudio"
+              keyboardStep={5}
             />
             <div className="mt-1 flex items-center justify-between text-[11px] tabular-nums text-slate-400">
               <span>{formatTime(safeCurrent)}</span>
@@ -423,6 +449,7 @@ export default function MiniPlayer() {
             </div>
           </div>
 
+          {/* Controlos */}
           <div className="mt-6 flex items-center justify-center gap-6">
             <button
               type="button"
@@ -431,7 +458,7 @@ export default function MiniPlayer() {
               aria-label="Voltar 15s"
               title="Voltar 15s"
             >
-              <SkipBack size={20} strokeWidth={iconStroke} />
+              <SkipBack size={20} />
             </button>
 
             <button
@@ -441,11 +468,7 @@ export default function MiniPlayer() {
               aria-label={isPlaying ? "Pausar" : "Reproduzir"}
               title={isPlaying ? "Pausar" : "Reproduzir"}
             >
-              {isPlaying ? (
-                <Pause size={22} strokeWidth={iconStroke} />
-              ) : (
-                <Play size={22} strokeWidth={iconStroke} className="ml-0.5" />
-              )}
+              {isPlaying ? <Pause size={22} /> : <Play size={22} className="ml-0.5" />}
             </button>
 
             <button
@@ -455,8 +478,21 @@ export default function MiniPlayer() {
               aria-label="Avançar 15s"
               title="Avançar 15s"
             >
-              <SkipForward size={20} strokeWidth={iconStroke} />
+              <SkipForward size={20} />
             </button>
+          </div>
+
+          {/* Volume (mesmo look do progresso) */}
+          <div className="mt-6 flex items-center gap-3">
+            <Volume2 size={16} className="text-slate-400" />
+            <ModernSlider
+              value={volume}
+              min={0}
+              max={1}
+              onChange={(v) => setVolume(v)}
+              ariaLabel="Volume"
+              keyboardStep={0.05}
+            />
           </div>
         </div>
       )}

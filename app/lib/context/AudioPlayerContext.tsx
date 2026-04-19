@@ -19,12 +19,19 @@ export type AudioTrack = {
   coverUrl?: string;
 };
 
+type Persisted = {
+  track: AudioTrack | null;
+  time: number;
+  volume: number;
+  wasPlaying: boolean;
+};
+
 type AudioPlayerApi = {
   track: AudioTrack | null;
   isPlaying: boolean;
-  currentTime: number; // segundos
-  duration: number; // segundos
-  volume: number; // 0..1
+  currentTime: number;
+  duration: number;
+  volume: number;
 
   play: (track: AudioTrack, opts?: { startAt?: number }) => Promise<void>;
   toggle: () => Promise<void>;
@@ -37,7 +44,11 @@ type AudioPlayerApi = {
 
 const AudioPlayerContext = createContext<AudioPlayerApi | null>(null);
 
-const STORAGE_KEY = "b-isaf:miniplayer:v1";
+const STORAGE_KEY = "b-isaf:audio:player:v1";
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(Math.max(v, min), max);
+}
 
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -49,8 +60,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [duration, setDuration] = useState(0);
 
   const [volume, _setVolume] = useState(0.9);
+  const [hasRestored, setHasRestored] = useState(false);
 
-  // cria o elemento de áudio 1x e liga listeners
+  // cria 1 elemento de áudio global
   useEffect(() => {
     const audio = new Audio();
     audio.preload = "metadata";
@@ -68,8 +80,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
 
-    audio.volume = volume;
-
     return () => {
       audio.pause();
       audio.removeEventListener("timeupdate", onTime);
@@ -79,38 +89,112 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audio.removeEventListener("ended", onEnded);
       audioRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // restaura última faixa (opcional)
+  // restore: faixa + tempo + volume + “estava a tocar”
   useEffect(() => {
+    if (hasRestored) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as { track?: AudioTrack; time?: number };
+      if (!raw) {
+        setHasRestored(true);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Persisted;
+
+      const restoredVolume =
+        typeof parsed.volume === "number" ? clamp(parsed.volume, 0, 1) : 0.9;
+
+      _setVolume(restoredVolume);
+      audio.volume = restoredVolume;
+
       if (parsed.track?.url) {
         setTrack(parsed.track);
-        setCurrentTime(parsed.time ?? 0);
+        audio.src = parsed.track.url;
+
+        const restoredTime =
+          typeof parsed.time === "number" ? Math.max(0, parsed.time) : 0;
+
+        // esperar metadata antes de setar currentTime (mais consistente)
+        const setTime = () => {
+          try {
+            audio.currentTime = restoredTime;
+            setCurrentTime(restoredTime);
+          } catch {
+            // ignore
+          }
+        };
+
+        // se metadata já carregou, seta já
+        if (audio.readyState >= 1) {
+          setTime();
+        } else {
+          audio.addEventListener("loadedmetadata", setTime, { once: true });
+        }
+
+        // tentar retomar se estava a tocar
+        if (parsed.wasPlaying) {
+          // tentativa após um micro delay
+          setTimeout(async () => {
+            try {
+              await audio.play();
+            } catch {
+              // autoplay pode ser bloqueado -> utilizador clica play
+              setIsPlaying(false);
+            }
+          }, 150);
+        }
       }
     } catch {
       // ignore
+    } finally {
+      setHasRestored(true);
     }
-  }, []);
+  }, [hasRestored]);
 
-  // persistência simples
+  // persistir estado (frequente mas leve)
   useEffect(() => {
+    const data: Persisted = {
+      track,
+      time: currentTime,
+      volume,
+      wasPlaying: isPlaying,
+    };
+
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ track, time: currentTime })
-      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch {
       // ignore
     }
-  }, [track, currentTime]);
+  }, [track, currentTime, volume, isPlaying]);
+
+  // persistir também no refresh/fechar tab (garante último segundo)
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      const data: Persisted = {
+        track,
+        time: audioRef.current?.currentTime ?? currentTime,
+        volume,
+        wasPlaying: !audioRef.current?.paused,
+      };
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [track, currentTime, volume]);
 
   const setVolume = (v: number) => {
-    const next = Math.min(1, Math.max(0, v));
+    const next = clamp(v, 0, 1);
     _setVolume(next);
     if (audioRef.current) audioRef.current.volume = next;
   };
@@ -121,34 +205,27 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     const sameTrack = track?.id === nextTrack.id && track?.url === nextTrack.url;
 
-    // se for a mesma faixa e já está a tocar, apenas "toggle"
-    if (sameTrack && !audio.paused) {
-      audio.pause();
-      return;
-    }
-
-    // se for uma faixa nova (ou estava pausado), carrega e toca
     setTrack(nextTrack);
 
     if (!sameTrack) {
       audio.src = nextTrack.url;
-      try {
-        // define startAt antes do play
-        const startAt = opts?.startAt ?? 0;
-        audio.currentTime = startAt;
-        setCurrentTime(startAt);
-      } catch {
-        // alguns browsers podem falhar antes do metadata, ignoramos
-      }
-    } else {
-      // mesma faixa, mas estava pausada
-      // mantém currentTime
+      const startAt = opts?.startAt ?? 0;
+
+      // set time quando metadata estiver pronta
+      const setTime = () => {
+        try {
+          audio.currentTime = startAt;
+          setCurrentTime(startAt);
+        } catch {}
+      };
+
+      if (audio.readyState >= 1) setTime();
+      else audio.addEventListener("loadedmetadata", setTime, { once: true });
     }
 
     try {
       await audio.play();
     } catch {
-      // autoplay pode ser bloqueado; o utilizador terá de clicar play
       setIsPlaying(false);
     }
   };
@@ -159,9 +236,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const toggle = async () => {
     const audio = audioRef.current;
-    if (!audio) return;
-
-    if (!track) return;
+    if (!audio || !track) return;
 
     if (audio.paused) {
       try {
@@ -177,6 +252,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const stop = () => {
     const audio = audioRef.current;
     if (!audio) return;
+
     audio.pause();
     audio.src = "";
     setTrack(null);
@@ -189,7 +265,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const audio = audioRef.current;
     if (!audio) return;
 
-    const next = Math.min(Math.max(0, time), duration || Number.MAX_SAFE_INTEGER);
+    const next = Math.max(0, time);
     try {
       audio.currentTime = next;
       setCurrentTime(next);
@@ -224,8 +300,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
 export function useAudioPlayer() {
   const ctx = useContext(AudioPlayerContext);
-  if (!ctx) {
-    throw new Error("useAudioPlayer deve ser usado dentro de AudioPlayerProvider");
-  }
+  if (!ctx) throw new Error("useAudioPlayer deve ser usado dentro de AudioPlayerProvider");
   return ctx;
 }
