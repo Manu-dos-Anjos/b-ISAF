@@ -31,8 +31,8 @@ type NotificationItem = {
 const filterOptions = [
   { id: "disciplinas", label: "Disciplinas", icon: BookOpen, color: "text-blue-500", description: "Encontre por matéria" },
   { id: "slides", label: "Slides", icon: FileText, color: "text-emerald-500", description: "Apresentações de aulas" },
-  { id: "audios", label: "Áudios", icon: Headphones, color: "text-purple-500", description: "Gravações e podcasts" },
-  { id: "quizzes", label: "Quizzes", icon: Trophy, color: "text-amber-500", description: "Teste os seus conhecimentos" },
+  { id: "audios", label: "Áudios", icon: Headphones, color: "text-purple-500", description: "Resumos e podcasts" },
+  { id: "quizzes", label: "Questionários", icon: Trophy, color: "text-amber-500", description: "Teste os seus conhecimentos" },
   { id: "comunicados", label: "Comunicados", icon: Megaphone, color: "text-cyan-500", description: "Avisos e novidades importantes" }, // <-- Adicionado
 ];
 // ================================================================

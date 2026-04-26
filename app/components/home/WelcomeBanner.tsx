@@ -46,42 +46,42 @@ const quickActions = [
     icon: BookOpen,
     href: "/disciplinas",
 
-    // MOBILE: verde suave
-    mobileClass: "bg-emerald-600/10 text-emerald-200 hover:bg-emerald-600/20",
+    // MOBILE: azul escuro suave
+    mobileClass: "bg-blue-700/10 text-blue-200 hover:bg-blue-700/20",
 
     // DESKTOP: card com fundo verde escuro e borda verde discreta
     desktopClass:
-      "bg-emerald-950/80 hover:bg-emerald-900/80 border border-emerald-700/30 hover:border-emerald-500/40 shadow-sm shadow-emerald-950/20",
+      "bg-blue-950/80 hover:bg-blue-900/80 border border-blue-700/30 hover:border-blue-500/40 shadow-sm shadow-blue-950/20",
 
     // Ícone
-    iconClass: "text-emerald-300",
+    iconClass: "text-blue-300",
 
     // Texto
-    textClass: "text-emerald-100 font-medium",
+    textClass: "text-blue-100 font-medium",
 
     // Seta
-    arrowClass: "text-emerald-300",
+    arrowClass: "text-blue-300",
   },
   {
     title: "Questionários",
     icon: ClipboardList,
     href: "/disciplinas?filter=quiz",
 
-    // MOBILE: âmbar elegante
-    mobileClass: "bg-amber-500/10 text-amber-200 hover:bg-amber-500/20",
+    // MOBILE: azul escuro suave
+    mobileClass: "bg-blue-700/10 text-blue-200 hover:bg-blue-700/20",
 
     // DESKTOP: card com fundo âmbar escuro, mais clean que castanho
     desktopClass:
-      "bg-amber-950/75 hover:bg-amber-900/80 border border-amber-700/30 hover:border-amber-500/40 shadow-sm shadow-amber-950/20",
+      "bg-blue-950/80 hover:bg-blue-900/80 border border-blue-700/30 hover:border-blue-500/40 shadow-sm shadow-blue-950/20",
 
     // Ícone
-    iconClass: "text-amber-300",
+    iconClass: "text-blue-300",
 
     // Texto
-    textClass: "text-amber-100 font-medium",
+    textClass: "text-blue-100 font-medium",
 
     // Seta
-    arrowClass: "text-amber-300",
+    arrowClass: "text-blue-300",
   },
 ];
 

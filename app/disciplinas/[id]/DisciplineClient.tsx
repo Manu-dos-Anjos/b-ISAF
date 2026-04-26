@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 
 import SlideViewer from "@/app/components/slides/SlideViewer";
+// Hook que persiste estado no localStorage (código fornecido anteriormente)
+import { useLocalStorageState } from "@/app/lib/hooks/useLocalStorageState";
 
 import type {
   Discipline,
@@ -103,9 +105,9 @@ function getContentButtonClass(type: TopicContent["type"]) {
     case "audio":
       return "bg-blue-700 hover:bg-blue-600 text-white";
     case "slide":
-      return "bg-emerald-600 hover:bg-emerald-500 text-white";
+      return "bg-blue-700 hover:bg-blue-600 text-white";
     case "quiz":
-      return "bg-yellow-400 hover:bg-yellow-300 border border-yellow-300/60 hover:border-yellow-200 !text-slate-950 shadow-sm shadow-yellow-400/20 font-semibold";
+      return "bg-blue-700 hover:bg-blue-600 text-white";
     default:
       return "bg-blue-600 hover:bg-blue-500 text-white";
   }
@@ -124,9 +126,9 @@ function getContentPanelTheme(type: TopicContent["type"]) {
 
     case "slide":
       return {
-        borderClass: "border-emerald-500/20",
-        panelClass: "bg-emerald-500/10",
-        iconClass: "bg-emerald-600/20 text-emerald-300",
+        borderClass: "border-blue-700/20",
+        panelClass: "bg-blue-700/10",
+        iconClass: "bg-blue-700/20 text-blue-300",
         scrollbarClass: "scrollbar-slide",
         label: "Campo de Slide",
       };
@@ -157,30 +159,49 @@ export default function DisciplineClient({ discipline }: Props) {
   const chapters = discipline.chapters ?? [];
 
   /* =========================================================
-     Estado principal da navegação
+     Estado principal da navegação (PERSISTENTE)
      ========================================================= */
-  const [activeChapterId, setActiveChapterId] = useState<string>(
+  const [activeChapterId, setActiveChapterId] = useLocalStorageState<string>(
+    `dc-activeChapter-${discipline.id}`,
     chapters[0]?.id ?? ""
   );
-  const [mobileView, setMobileView] = useState<MobileView>("chapters");
+  const [mobileView, setMobileView] = useLocalStorageState<MobileView>(
+    `dc-mobileView-${discipline.id}`,
+    "chapters"
+  );
   const [isVideoOpen, setIsVideoOpen] = useState(false);
 
   /* =========================================================
-     Tutor IA flutuante
+     Tutor IA flutuante (PERSISTENTE)
      ========================================================= */
-  const [isTutorOpen, setIsTutorOpen] = useState(false);
+  const [isTutorOpen, setIsTutorOpen] = useLocalStorageState<boolean>(
+    `dc-tutorOpen-${discipline.id}`,
+    false
+  );
   const [tutorInput, setTutorInput] = useState("");
-  const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([
-    {
-      role: "assistant",
-      text:
-        "Olá! Sou o Tutor IA. Pergunta-me sobre este tema e eu ajudo-te com base no conteúdo da disciplina.",
-    },
-  ]);
-  const [tutorContext, setTutorContext] = useState<TutorContext | null>(null);
+  const [tutorMessages, setTutorMessages] = useLocalStorageState<TutorMessage[]>(
+    `dc-tutorMessages-${discipline.id}`,
+    [
+      {
+        role: "assistant",
+        text:
+          "Olá! Sou o Tutor IA. Pergunta-me sobre este tema e eu ajudo-te com base no conteúdo da disciplina.",
+      },
+    ]
+  );
+  const [tutorContext, setTutorContext] = useLocalStorageState<TutorContext | null>(
+    `dc-tutorContext-${discipline.id}`,
+    null
+  );
 
-  const [tutorPosition, setTutorPosition] = useState({ x: 0, y: 0 });
-  const [hasTutorPosition, setHasTutorPosition] = useState(false);
+  const [tutorPosition, setTutorPosition] = useLocalStorageState(
+    `dc-tutorPosition-${discipline.id}`,
+    { x: 0, y: 0 }
+  );
+  const [hasTutorPosition, setHasTutorPosition] = useLocalStorageState<boolean>(
+    `dc-hasTutorPos-${discipline.id}`,
+    false
+  );
   const [isDraggingTutor, setIsDraggingTutor] = useState(false);
 
   const tutorPanelRef = useRef<HTMLDivElement | null>(null);
@@ -193,9 +214,10 @@ export default function DisciplineClient({ discipline }: Props) {
   const audioPlayer = useAudioPlayer();
 
   /* =========================================================
-     Painéis flutuantes (Slides)
+     Painéis flutuantes (Slides) (PERSISTENTE)
      ========================================================= */
-  const [contentPanels, setContentPanels] = useState<FloatingContentPanel[]>(
+  const [contentPanels, setContentPanels] = useLocalStorageState<FloatingContentPanel[]>(
+    `dc-contentPanels-${discipline.id}`,
     []
   );
   const [isDraggingContent, setIsDraggingContent] = useState(false);
@@ -212,7 +234,6 @@ export default function DisciplineClient({ discipline }: Props) {
   useEffect(() => {
     const onFsChange = () => {
       const el = document.fullscreenElement as HTMLElement | null;
-      // o panel tem data-panel-id
       const id = el?.dataset?.panelId ?? null;
       setBrowserFullscreenPanelId(id);
     };
@@ -229,13 +250,11 @@ export default function DisciplineClient({ discipline }: Props) {
       const current = document.fullscreenElement as HTMLElement | null;
       const currentId = current?.dataset?.panelId ?? null;
 
-      // se já está fullscreen neste painel => sair
       if (currentId === panelId) {
         await document.exitFullscreen();
         return;
       }
 
-      // se está fullscreen noutro => sair e entrar neste
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       }
@@ -245,16 +264,7 @@ export default function DisciplineClient({ discipline }: Props) {
       console.error("Falha ao alternar fullscreen:", err);
     }
   };
-
-  /* =========================================================
-     Reset quando muda a disciplina
-     ========================================================= */
-  useEffect(() => {
-    setActiveChapterId(chapters[0]?.id ?? "");
-    setMobileView("chapters");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [discipline.id]);
-
+  
   /* =========================================================
      Auto-scroll do Tutor IA
      ========================================================= */
@@ -265,18 +275,29 @@ export default function DisciplineClient({ discipline }: Props) {
   }, [isTutorOpen, tutorMessages]);
 
   /* =========================================================
-     Posicionamento inicial do Tutor IA
+     Posicionamento inicial do Tutor IA - CORRIGIDO
      ========================================================= */
   useEffect(() => {
     if (!isTutorOpen || hasTutorPosition) return;
 
     const timer = window.setTimeout(() => {
       const rect = tutorPanelRef.current?.getBoundingClientRect();
-      const panelWidth = rect?.width ?? 672;
-      const panelHeight = rect?.height ?? 520;
 
-      const x = Math.max(16, window.innerWidth - panelWidth - 16);
-      const y = Math.max(16, window.innerHeight - panelHeight - 16);
+      // Fallback para mobile: se as dimensões não estiverem disponíveis,
+      // usa uma percentagem da janela para garantir visibilidade
+      const panelWidth =
+        rect?.width && rect.width > 0
+          ? rect.width
+          : Math.min(window.innerWidth * 0.94, 672);
+
+      const panelHeight =
+        rect?.height && rect.height > 0
+          ? rect.height
+          : Math.min(window.innerHeight * 0.85, 520);
+
+      // Canto inferior direito com margem segura
+      const x = Math.max(8, window.innerWidth - panelWidth - 8);
+      const y = Math.max(8, window.innerHeight - panelHeight - 8);
 
       setTutorPosition({ x, y });
       setHasTutorPosition(true);
@@ -411,7 +432,7 @@ export default function DisciplineClient({ discipline }: Props) {
   }, [chapters]);
 
   /* =========================================================
-     Tutor IA
+     Tutor IA: abertura
      ========================================================= */
   const openTutor = (topicTitle: string) => {
     setTutorContext({
@@ -429,6 +450,7 @@ export default function DisciplineClient({ discipline }: Props) {
 
     setTutorInput("");
     setIsTutorOpen(true);
+    setHasTutorPosition(false); // força reposicionamento ao abrir
   };
 
   /* =========================================================
@@ -465,8 +487,6 @@ export default function DisciplineClient({ discipline }: Props) {
 
   /* =========================================================
      Abrir conteúdo
-     - Áudio: toca no mini-player
-     - Slide: abre painel flutuante (com fullscreen + rotação + fullscreen navegador)
      ========================================================= */
   const openContent = (content: TopicContent, topicTitle: string) => {
     if (content.type === "audio") {
@@ -631,8 +651,8 @@ export default function DisciplineClient({ discipline }: Props) {
       >
         {audioContents.map((content) => renderContentAction(content, topic.title))}
         {slideContents.map((content) => renderContentAction(content, topic.title))}
-        {renderTutorButton(topic.title)}
         {quizContents.map((content) => renderContentAction(content, topic.title))}
+        {renderTutorButton(topic.title)}
       </div>
     );
   };
@@ -919,7 +939,7 @@ export default function DisciplineClient({ discipline }: Props) {
       </section>
 
       {/* =====================================================
-          Painéis flutuantes (Slides)
+          PAINÉIS FLUTUANTES (SLIDES) – OTIMIZADOS PARA MOBILE
           ===================================================== */}
       {contentPanels.map((panel, index) => {
         const theme = getContentPanelTheme(panel.context.content.type);
@@ -947,21 +967,20 @@ export default function DisciplineClient({ discipline }: Props) {
               zIndex: 59 + index,
             }}
             className={`
-              fixed flex flex-col
-              overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-2xl
+              fixed flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-2xl
               ${
                 isAnyFs
                   ? "w-auto h-auto max-w-none max-h-none resize-none"
-                  : "w-[92vw] md:w-[34rem] min-w-[22rem] min-h-[20rem] max-w-[90vw] max-h-[78vh] resize"
+                  : "w-[94vw] md:w-[34rem] min-w-[20rem] min-h-[16rem] max-w-[96vw] max-h-[90dvh] resize"
               }
             `}
           >
             {/* Header */}
             <div
-              className={`flex items-start justify-between gap-4 border-b px-4 py-4 ${theme.borderClass}`}
+              className={`flex items-start justify-between gap-3 border-b px-3 py-3 md:px-4 md:py-4 ${theme.borderClass}`}
             >
               <div
-                className={`flex flex-1 select-none items-start gap-3 ${
+                className={`flex flex-1 select-none items-start gap-2 md:gap-3 ${
                   isAnyFs ? "cursor-default" : "cursor-move"
                 }`}
                 onPointerDown={(event) => {
@@ -983,25 +1002,27 @@ export default function DisciplineClient({ discipline }: Props) {
                 }}
               >
                 <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl ${theme.iconClass}`}
+                  className={`flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg md:rounded-xl ${theme.iconClass}`}
                 >
-                  <FileText size={18} />
+                  <FileText size={16} className="md:size-18" />
                 </div>
 
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 md:gap-2">
                     <h3 className="text-sm font-semibold text-white">
                       {theme.label}
                     </h3>
                     {!isAnyFs && (
-                      <GripVertical size={14} className="text-slate-500" />
+                      <GripVertical size={14} className="text-slate-500 hidden sm:block" />
                     )}
                   </div>
 
-                  <p className="text-xs text-slate-400">Conteúdo da aula</p>
+                  <p className="text-xs text-slate-400 hidden sm:block">
+                    Conteúdo da aula
+                  </p>
 
                   {!isAnyFs && (
-                    <div className="mt-3 space-y-1 text-[11px] text-slate-300">
+                    <div className="mt-2 md:mt-3 space-y-1 text-[11px] text-slate-300">
                       <p>
                         <span className="text-slate-500">Disciplina:</span>{" "}
                         {panel.context.discipline}
@@ -1023,50 +1044,35 @@ export default function DisciplineClient({ discipline }: Props) {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                {/* Rotacionar (apenas mobile) */}
+              {/* Ações */}
+              <div className="flex items-center gap-1 md:gap-2">
                 <button
                   type="button"
                   onClick={() => rotatePanelMobile(panel.id)}
-                  className="md:hidden rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  className="md:hidden rounded-full p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
                   aria-label="Rodar slide"
-                  title="Rodar (mobile)"
                 >
-                  <RotateCw size={18} />
+                  <RotateCw size={20} />
                 </button>
 
-                {/* Fullscreen REAL do navegador (mobile + desktop) */}
                 <button
                   type="button"
                   onClick={() => void toggleBrowserFullscreen(panel.id)}
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
-                  aria-label={
-                    isBrowserFs
-                      ? "Sair da tela inteira (navegador)"
-                      : "Tela inteira (navegador)"
-                  }
-                  title={
-                    isBrowserFs
-                      ? "Sair da tela inteira (navegador)"
-                      : "Tela inteira (navegador)"
-                  }
+                  className="rounded-full p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  aria-label={isBrowserFs ? "Sair da tela inteira" : "Tela inteira"}
                 >
-                  {isBrowserFs ? <Shrink size={18} /> : <Expand size={18} />}
+                  {isBrowserFs ? <Shrink size={20} /> : <Expand size={20} />}
                 </button>
 
-                {/* Fullscreen dentro da app */}
                 <button
                   type="button"
                   onClick={() => togglePanelFullscreen(panel.id)}
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  className="rounded-full p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
                   aria-label={isAppFs ? "Sair da tela inteira" : "Maximizar painel"}
-                  title={isAppFs ? "Sair da tela inteira" : "Maximizar painel"}
                 >
-                  {isAppFs ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                  {isAppFs ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
                 </button>
 
-                {/* Fechar */}
                 <button
                   type="button"
                   onClick={() =>
@@ -1074,11 +1080,10 @@ export default function DisciplineClient({ discipline }: Props) {
                       prev.filter((current) => current.id !== panel.id)
                     )
                   }
-                  className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+                  className="rounded-full p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
                   aria-label="Fechar campo flutuante"
-                  title="Fechar"
                 >
-                  <X size={18} />
+                  <X size={20} />
                 </button>
               </div>
             </div>
@@ -1086,37 +1091,36 @@ export default function DisciplineClient({ discipline }: Props) {
             {/* Body */}
             <div className="flex-1 overflow-hidden">
               <div
-                className={`${theme.scrollbarClass} h-full overflow-y-auto px-4 py-4 pr-3`}
+                className={`${theme.scrollbarClass} h-full overflow-y-auto px-3 py-3 md:px-4 md:py-4`}
               >
                 <div
-                  className={`rounded-2xl border p-4 ${theme.borderClass} ${theme.panelClass}`}
+                  className={`rounded-2xl border p-3 md:p-4 ${theme.borderClass} ${theme.panelClass}`}
                 >
                   {!isAnyFs && (
                     <>
                       <p className="text-sm font-medium text-white">
                         {selectedContent.title}
                       </p>
-                      <p className="mt-1 text-sm text-slate-300">
-                        No mobile, podes rodar (horizontal). Também tens tela
-                        inteira (painel) e tela inteira do navegador.
+                      <p className="mt-1 text-xs md:text-sm text-slate-300">
+                        No mobile, podes rodar (horizontal). Também tens tela inteira.
                       </p>
                     </>
                   )}
 
                   {selectedContent.url ? (
-                    <div className={`${isAnyFs ? "mt-0" : "mt-4"}`}>
+                    <div className={`${isAnyFs ? "mt-0" : "mt-3 md:mt-4"}`}>
                       <SlideViewer
                         url={selectedContent.url}
                         rotation={rotation}
                         className={
                           isAnyFs
-                            ? "h-[calc(100vh-140px)]"
-                            : "h-72 md:h-80"
+                            ? "h-[calc(100dvh-120px)]"
+                            : "h-52 md:h-80"
                         }
                       />
                     </div>
                   ) : (
-                    <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">
+                    <div className="mt-3 md:mt-4 rounded-xl border border-dashed border-white/10 bg-white/5 p-4 text-sm text-slate-400">
                       Para testar, adiciona{" "}
                       <code className="rounded bg-white/5 px-1 py-0.5 text-slate-200">
                         url
@@ -1136,7 +1140,7 @@ export default function DisciplineClient({ discipline }: Props) {
       })}
 
       {/* =====================================================
-          Tutor IA flutuante
+          TUTOR IA FLUTUANTE – OTIMIZADO PARA MOBILE
           ===================================================== */}
       {isTutorOpen && (
         <div
@@ -1144,18 +1148,17 @@ export default function DisciplineClient({ discipline }: Props) {
           style={{ left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px` }}
           className="
             fixed z-[60]
-            w-[92vw] md:w-[42rem]
-            min-w-[22rem] min-h-[22rem]
-            max-w-[90vw] max-h-[80vh]
-            resize
-            overflow-hidden
+            w-[94vw] md:w-[42rem]
+            min-w-[20rem] min-h-[20rem]
+            max-w-[96vw] max-h-[85dvh] md:max-h-[80vh]
+            resize overflow-hidden
             rounded-2xl border border-white/10 bg-slate-950 shadow-2xl
           "
         >
           {/* Header */}
-          <div className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4">
+          <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3 py-3 md:px-4 md:py-4">
             <div
-              className="flex flex-1 select-none items-start gap-3 cursor-move"
+              className="flex flex-1 select-none items-start gap-2 md:gap-3 cursor-move"
               onPointerDown={(event) => {
                 if (event.button !== 0) return;
                 if (!tutorPanelRef.current) return;
@@ -1168,19 +1171,19 @@ export default function DisciplineClient({ discipline }: Props) {
                 setIsDraggingTutor(true);
               }}
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600/20 text-violet-400">
-                <Sparkles size={18} />
+              <div className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg md:rounded-xl bg-violet-600/20 text-violet-400">
+                <Sparkles size={16} className="md:size-18" />
               </div>
 
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 md:gap-2">
                   <h3 className="text-sm font-semibold text-white">Tutor IA</h3>
-                  <GripVertical size={14} className="text-slate-500" />
+                  <GripVertical size={14} className="text-slate-500 hidden sm:block" />
                 </div>
-                <p className="text-xs text-slate-400">Assistente da disciplina</p>
+                <p className="text-xs text-slate-400 hidden sm:block">Assistente da disciplina</p>
 
                 {tutorContext && (
-                  <div className="mt-3 space-y-1 text-[11px] text-slate-300">
+                  <div className="mt-2 md:mt-3 space-y-1 text-[11px] text-slate-300">
                     <p>
                       <span className="text-slate-500">Disciplina:</span>{" "}
                       {tutorContext.discipline}
@@ -1201,16 +1204,16 @@ export default function DisciplineClient({ discipline }: Props) {
             <button
               type="button"
               onClick={() => setIsTutorOpen(false)}
-              className="rounded-full p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+              className="rounded-full p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
               aria-label="Fechar Tutor IA"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
 
           {/* Body */}
-          <div className="flex h-[calc(100%-9.5rem)] flex-col">
-            <div className="tutor-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4 pr-3">
+          <div className="flex flex-col" style={{ height: "calc(100% - 4.5rem)" }}>
+            <div className="tutor-scrollbar flex-1 space-y-3 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
               {tutorMessages.map((message, idx) => (
                 <div
                   key={idx}
@@ -1219,7 +1222,7 @@ export default function DisciplineClient({ discipline }: Props) {
                   }`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                       message.role === "user"
                         ? "rounded-br-none bg-blue-600 text-white"
                         : "rounded-bl-none bg-white/5 text-slate-200"
@@ -1232,8 +1235,8 @@ export default function DisciplineClient({ discipline }: Props) {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-white/10 p-4">
-              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <div className="border-t border-white/10 p-3 md:p-4">
+              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 md:px-4 md:py-3">
                 <input
                   value={tutorInput}
                   onChange={(e) => setTutorInput(e.target.value)}
@@ -1246,10 +1249,10 @@ export default function DisciplineClient({ discipline }: Props) {
                 <button
                   type="button"
                   onClick={handleSendTutorMessage}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white transition hover:bg-violet-500"
+                  className="inline-flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-xl bg-violet-600 text-white transition hover:bg-violet-500"
                   aria-label="Enviar pergunta"
                 >
-                  <Send size={16} />
+                  <Send size={18} />
                 </button>
               </div>
             </div>
