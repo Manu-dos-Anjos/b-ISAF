@@ -8,32 +8,20 @@ import { UserContext, AppUser } from "@/app/lib/context/UserContext";
 
 type Props = {
   children: React.ReactNode;
-  initialPinned: boolean;      // vem do SSR via cookie
-  hasPinnedCookie: boolean;    // indica se já existia cookie (para migração do localStorage)
 };
 
-const LS_KEY = "sidebarPinned"; // mantém o teu localStorage atual
+const LS_KEY = "b-isaf:sidebarExpanded";
 
-function setPinnedCookie(value: boolean) {
-  // 180 dias
-  const maxAge = 60 * 60 * 24 * 180;
-  document.cookie = `sidebarPinned=${value ? "1" : "0"}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
-}
-
-export default function AppShell({ children, initialPinned, hasPinnedCookie }: Props) {
-  // mounted: usado para evitar transições no primeiro paint (extra “polimento”)
+export default function AppShell({ children }: Props) {
   const [mounted, setMounted] = useState(false);
 
-  // pinned inicial vem do servidor (cookie) => SSR já nasce certo, sem salto
-  const [pinned, setPinned] = useState<boolean>(initialPinned);
-
-  // hover expand
-  const [expanded, setExpanded] = useState(false);
+  // Estado único: expanded (true = aberta, false = fechada)
+  const [expanded, setExpanded] = useState<boolean>(false);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // user (igual ao teu)
+  // User state
   const [user, setUser] = useState<AppUser | null>({
     name: "Manuel dos Anjos",
     email: "250438@isaf.co.ao",
@@ -56,76 +44,46 @@ export default function AppShell({ children, initialPinned, hasPinnedCookie }: P
     );
   };
 
-  // Mount
+  // Mount + carregar estado do localStorage
   useEffect(() => {
     setMounted(true);
 
-    /**
-     * Migração (apenas para quem ainda não tem cookie):
-     * - Se não existe cookie, tentamos recuperar do localStorage.
-     * - Isto pode causar 1 mudança só na primeira vez após deploy.
-     * - Depois de setar cookie, nunca mais pisca.
-     */
-    if (!hasPinnedCookie) {
-      try {
-        const saved = localStorage.getItem(LS_KEY);
-        if (saved != null) {
-          const parsed = JSON.parse(saved);
-          if (typeof parsed === "boolean") {
-            setPinned(parsed);
-            // também escreve cookie já
-            setPinnedCookie(parsed);
-          }
-        } else {
-          // sem localStorage, garante cookie default
-          setPinnedCookie(initialPinned);
+    try {
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed === "boolean") {
+          setExpanded(parsed);
         }
-      } catch {
-        // ignore
       }
+    } catch {
+      // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist pinned em localStorage + cookie (sem depender de window checks)
+  // Persistir estado no localStorage
   useEffect(() => {
     if (!mounted) return;
+    
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(pinned));
+      localStorage.setItem(LS_KEY, JSON.stringify(expanded));
     } catch {
       // ignore
     }
-    try {
-      setPinnedCookie(pinned);
-    } catch {
-      // ignore
-    }
-  }, [pinned, mounted]);
-
-  // se estiver pinned, não faz sentido manter expanded por hover
-  useEffect(() => {
-    if (pinned) setExpanded(false);
-  }, [pinned]);
-
-  // estado visual real
-  const isSidebarExpanded = pinned ? true : expanded;
+  }, [expanded, mounted]);
 
   return (
     <UserContext.Provider value={{ user, setUser }}>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         <Sidebar
-          user={user}
-          onUpdateUser={handleUpdateUser}
-          expanded={isSidebarExpanded}
+          expanded={expanded}
           setExpanded={setExpanded}
-          pinned={pinned}
-          setPinned={setPinned}
           mobileOpen={mobileOpen}
           setMobileOpen={setMobileOpen}
         />
 
         <Header
-          expanded={isSidebarExpanded}
+          expanded={expanded}
           mobileOpen={mobileOpen}
           setMobileOpen={setMobileOpen}
           searchQuery={searchQuery}
@@ -136,11 +94,13 @@ export default function AppShell({ children, initialPinned, hasPinnedCookie }: P
           className={`
             pt-16
             ${mounted ? "transition-all duration-300" : ""}
-            ${isSidebarExpanded ? "md:pl-56" : "md:pl-16"}
+            ${expanded ? "md:pl-56" : "md:pl-16"}
           `}
         >
           <Breadcrumbs />
-          <div className="px-4 py-6 md:px-6 lg:px-8">{children}</div>
+          <div className="px-4 py-6 md:px-6 lg:px-8">
+            {children}
+          </div>
         </main>
       </div>
     </UserContext.Provider>

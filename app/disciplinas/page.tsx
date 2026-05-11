@@ -17,38 +17,6 @@ const filterButtons = [
   { id: "tutor",     label: "Tutor IA",      icon: Sparkles   },
 ];
 
-<div className="flex flex-wrap gap-2">
-  {filterButtons.map((btn) => {
-    const Icon = btn.icon;
-    const isActive = setActiveFilter === btn.id;
-    const isTutor = btn.id === "tutor";
-
-    function setActiveFilter(arg0: string | null): void {
-      throw new Error("Function not implemented.");
-    }
-
-    return (
-      <button
-        key={btn.id}
-        onClick={() => setActiveFilter(isActive ? null : btn.id)}
-        className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium shadow-sm transition-all
-          ${isTutor && !isActive
-            // Tutor tem estilo próprio quando inativo: gradiente subtil
-            ? "border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 dark:border-violet-400/30"
-            : isActive
-            ? "border-blue-500 bg-blue-500 text-white"
-            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          }
-          ${isTutor && isActive ? "border-violet-500 bg-violet-600 text-white" : ""}
-        `}
-      >
-        <Icon size={16} />
-        <span>{btn.label}</span>
-      </button>
-    );
-  })}
-</div>
-
 export default function DisciplinasPage() {
   const { user } = useUser();
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
