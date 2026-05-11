@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import Providers from "./providers";
 import AppShell from "@/app/components/AppShell";
 
+
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
   const pinnedCookie = (await cookieStore).get("sidebarPinned"); // "1" | "0" | undefined

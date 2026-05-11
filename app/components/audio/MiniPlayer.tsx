@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ChevronDown,
+  ChevronUp,
   GripVertical,
   Pause,
   Play,
   SkipBack,
   SkipForward,
   Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
@@ -25,8 +27,8 @@ function formatTime(sec: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-const POS_KEY = "b-isaf:miniplayer:pos:v5";
-const COLLAPSE_KEY = "b-isaf:miniplayer:collapsed:v5";
+const POS_KEY = "b-isaf:miniplayer:pos:v8";
+const MINIMIZED_KEY = "b-isaf:miniplayer:minimized:v8";
 
 type DragState = { offsetX: number; offsetY: number };
 
@@ -39,13 +41,6 @@ type ModernSliderProps = {
   keyboardStep?: number;
 };
 
-/**
- * Slider moderno:
- * - track fina (h-1)
- * - fill em gradiente
- * - thumb pequeno com shadow/ring
- * - pointer drag (mobile/desktop)
- */
 function ModernSlider({
   value,
   min = 0,
@@ -67,14 +62,14 @@ function ModernSlider({
     const rect = el.getBoundingClientRect();
     const x = clamp(clientX - rect.left, 0, rect.width);
     const ratio = rect.width ? x / rect.width : 0;
-    const next = min + ratio * (safeMax - min);
-    onChange(next);
+    onChange(min + ratio * (safeMax - min));
   };
 
   return (
     <div
       ref={trackRef}
-      className="relative h-1 w-full rounded-full bg-white/10"
+      className="relative h-4 w-full select-none"
+      style={{ touchAction: "none" }}
       onPointerDown={(e) => {
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         setFromClientX(e.clientX);
@@ -101,12 +96,11 @@ function ModernSlider({
         if (e.key === "ArrowRight") onChange(clamp(safeValue + keyboardStep, min, safeMax));
       }}
     >
-      {/* Fill */}
+      <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-white/10" />
       <div
-        className="absolute left-0 top-0 h-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
+        className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
         style={{ width: `${pct}%` }}
       />
-      {/* Thumb */}
       <div
         className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/30"
         style={{ left: `calc(${pct}% - 7px)` }}
@@ -135,8 +129,11 @@ export default function MiniPlayer() {
   const [hasPosition, setHasPosition] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [hasCollapsedPref, setHasCollapsedPref] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [hasLoadedPrefs, setHasLoadedPrefs] = useState(false);
+
+  const [isMuted, setIsMuted] = useState(false);
+  const [prevVolume, setPrevVolume] = useState(1);
 
   const safeDuration = Math.max(0, duration || 0);
   const safeCurrent = clamp(currentTime || 0, 0, safeDuration || 0);
@@ -147,35 +144,44 @@ export default function MiniPlayer() {
     seek(clamp(safeCurrent + delta, 0, safeDuration));
   };
 
-  // restore collapsed
+  const toggleMute = () => {
+    if (isMuted || volume === 0) {
+      setVolume(prevVolume || 0.7);
+      setIsMuted(false);
+    } else {
+      setPrevVolume(volume);
+      setVolume(0);
+      setIsMuted(true);
+    }
+  };
+
+  // Carregar preferências
   useEffect(() => {
-    if (!track) return;
-    if (hasCollapsedPref) return;
+    if (!track || hasLoadedPrefs) return;
+
     try {
-      const saved = localStorage.getItem(COLLAPSE_KEY);
-      if (saved != null) setCollapsed(saved === "1");
+      const savedMin = localStorage.getItem(MINIMIZED_KEY);
+      if (savedMin != null) setIsMinimized(savedMin === "1");
     } catch {
       // ignore
     } finally {
-      setHasCollapsedPref(true);
+      setHasLoadedPrefs(true);
     }
-  }, [track, hasCollapsedPref]);
+  }, [track, hasLoadedPrefs]);
 
-  // persist collapsed
+  // Persistir preferências
   useEffect(() => {
-    if (!track) return;
-    if (!hasCollapsedPref) return;
+    if (!track || !hasLoadedPrefs) return;
     try {
-      localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
+      localStorage.setItem(MINIMIZED_KEY, isMinimized ? "1" : "0");
     } catch {
       // ignore
     }
-  }, [track, collapsed, hasCollapsedPref]);
+  }, [track, isMinimized, hasLoadedPrefs]);
 
-  // restore position
+  // Restaurar posição
   useEffect(() => {
-    if (!track) return;
-    if (hasPosition) return;
+    if (!track || hasPosition) return;
 
     try {
       const saved = localStorage.getItem(POS_KEY);
@@ -193,8 +199,8 @@ export default function MiniPlayer() {
 
     const t = window.setTimeout(() => {
       const rect = panelRef.current?.getBoundingClientRect();
-      const w = rect?.width ?? (collapsed ? 340 : 390);
-      const h = rect?.height ?? (collapsed ? 140 : 520);
+      const w = rect?.width ?? (isMinimized ? 320 : 420);
+      const h = rect?.height ?? (isMinimized ? 72 : 380);
 
       const x = Math.max(8, (window.innerWidth - w) / 2);
       const y = Math.max(8, window.innerHeight - h - 12);
@@ -204,12 +210,11 @@ export default function MiniPlayer() {
     }, 0);
 
     return () => window.clearTimeout(t);
-  }, [track, hasPosition, collapsed]);
+  }, [track, hasPosition, isMinimized]);
 
-  // persist position
+  // Persistir posição
   useEffect(() => {
-    if (!track) return;
-    if (!hasPosition) return;
+    if (!track || !hasPosition) return;
     try {
       localStorage.setItem(POS_KEY, JSON.stringify(position));
     } catch {
@@ -217,7 +222,7 @@ export default function MiniPlayer() {
     }
   }, [track, position, hasPosition]);
 
-  // clamp on collapse/expand and resize
+  // Limitar posição à viewport
   useEffect(() => {
     if (!track) return;
 
@@ -241,24 +246,21 @@ export default function MiniPlayer() {
       window.clearTimeout(t);
       window.removeEventListener("resize", clampToViewport);
     };
-  }, [collapsed, track]);
+  }, [track, isMinimized]);
 
-  // drag
+  // Drag
   useEffect(() => {
     if (!isDragging) return;
 
     const onMove = (e: PointerEvent) => {
       if (!panelRef.current || !dragRef.current) return;
-
       const rect = panelRef.current.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
 
       const nextX = e.clientX - dragRef.current.offsetX;
       const nextY = e.clientY - dragRef.current.offsetY;
 
-      const maxX = window.innerWidth - w - 8;
-      const maxY = window.innerHeight - h - 8;
+      const maxX = window.innerWidth - rect.width - 8;
+      const maxY = window.innerHeight - rect.height - 8;
 
       setPosition({
         x: clamp(nextX, 8, Math.max(8, maxX)),
@@ -285,31 +287,33 @@ export default function MiniPlayer() {
   if (!track) return null;
 
   const glassBtn =
-    "rounded-2xl bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10 transition active:scale-[0.98]";
-  const iconBtn = "inline-flex items-center justify-center h-10 w-10 " + glassBtn;
+    "rounded-xl bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10 transition active:scale-[0.97]";
+  const iconBtn = `inline-flex h-10 w-10 items-center justify-center ${glassBtn}`;
   const primaryBtn =
-    "inline-flex items-center justify-center h-14 w-14 rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500 transition active:scale-[0.98]";
+    "inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition active:scale-[0.97]";
+
+  const containerStyle = {
+    left: position.x,
+    top: position.y,
+  };
+
+  const containerClassName = [
+    "fixed z-[90] overflow-hidden rounded-2xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-xl",
+    "w-[min(420px,calc(100vw-16px))]",
+    isMinimized ? "w-[min(320px,calc(100vw-16px))]" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div
-      ref={panelRef}
-      style={{ left: position.x, top: position.y }}
-      className={[
-        "fixed z-[90] overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur-xl shadow-2xl",
-        collapsed
-          ? "w-[340px] max-w-[calc(100vw-24px)]"
-          : "w-[390px] max-w-[calc(100vw-24px)]",
-      ].join(" ")}
-    >
+    <div ref={panelRef} style={containerStyle} className={containerClassName}>
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
         <div
           className="flex min-w-0 flex-1 items-center gap-2 select-none cursor-move"
           style={{ touchAction: "none" }}
           onPointerDown={(e) => {
-            if (e.button !== 0) return;
-            if (!panelRef.current) return;
-
+            if (e.button !== 0 || !panelRef.current) return;
             const rect = panelRef.current.getBoundingClientRect();
             dragRef.current = {
               offsetX: e.clientX - rect.left,
@@ -318,56 +322,66 @@ export default function MiniPlayer() {
             setIsDragging(true);
           }}
         >
-          <GripVertical size={16} className="text-slate-500" />
-          <p className="truncate text-xs text-slate-300">A reproduzir</p>
+          <GripVertical size={16} className="shrink-0 text-slate-500" />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-slate-200">
+              {track.title}
+            </p>
+            {!isMinimized && (
+              <p className="truncate text-[10px] text-slate-500">
+                {[track.discipline, track.chapter, track.topic].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </div>
         </div>
 
-        <p className="text-[11px] tabular-nums text-slate-400">
-          {formatTime(safeCurrent)} / {safeDuration ? formatTime(safeDuration) : "--:--"}
-        </p>
+        {!isMinimized && (
+          <p className="shrink-0 text-[11px] tabular-nums text-slate-400">
+            {formatTime(safeCurrent)}
+            <span className="text-slate-600">/</span>
+            {safeDuration ? formatTime(safeDuration) : "--:--"}
+          </p>
+        )}
 
         <button
           type="button"
-          onClick={() => setCollapsed((v) => !v)}
-          className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-white active:scale-[0.98]"
-          aria-label={collapsed ? "Expandir" : "Colapsar"}
-          title={collapsed ? "Expandir" : "Colapsar"}
+          onClick={() => setIsMinimized((v) => !v)}
+          className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+          aria-label={isMinimized ? "Expandir" : "Minimizar"}
+          title={isMinimized ? "Expandir" : "Minimizar"}
         >
-          <ChevronDown
-            size={18}
-            className={collapsed ? "rotate-180 transition-transform" : "transition-transform"}
-          />
+          {isMinimized ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
         <button
           type="button"
           onClick={stop}
-          className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-white active:scale-[0.98]"
+          className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-red-400"
           aria-label="Fechar"
           title="Fechar"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
       </div>
 
-      {/* Collapsed */}
-      {collapsed ? (
+      {/* Minimized */}
+      {isMinimized ? (
         <div className="px-3 py-3">
           <div className="flex items-center gap-3">
-            <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
               {track.coverUrl ? (
                 <Image src={track.coverUrl} alt="" fill className="object-cover" />
-              ) : null}
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Volume2 size={18} className="text-slate-500" />
+                </div>
+              )}
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">
-                {track.title}
-              </p>
+              <p className="truncate text-sm font-semibold text-white">{track.title}</p>
               <p className="truncate text-xs text-slate-400">
-                {[track.discipline, track.chapter, track.topic]
-                  .filter(Boolean)
-                  .join(" · ")}
+                {[track.discipline, track.chapter, track.topic].filter(Boolean).join(" · ")}
               </p>
             </div>
 
@@ -381,60 +395,36 @@ export default function MiniPlayer() {
               {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
             </button>
           </div>
-
-          {/* Progresso */}
-          <div className="mt-3">
-            <ModernSlider
-              value={safeCurrent}
-              min={0}
-              max={Math.max(1, safeDuration)}
-              onChange={(v) => seek(v)}
-              ariaLabel="Progresso do áudio"
-              keyboardStep={5}
-            />
-            <div className="mt-1 flex items-center justify-between text-[11px] tabular-nums text-slate-400">
-              <span>{formatTime(safeCurrent)}</span>
-              <span>-{safeDuration ? formatTime(timeLeft) : "--:--"}</span>
-            </div>
-          </div>
-
-          {/* Volume (mesmo look do progresso) */}
-          <div className="mt-3 flex items-center gap-3">
-            <Volume2 size={16} className="text-slate-400" />
-            <ModernSlider
-              value={volume}
-              min={0}
-              max={1}
-              onChange={(v) => setVolume(v)}
-              ariaLabel="Volume"
-              keyboardStep={0.05}
-            />
-          </div>
         </div>
       ) : (
         /* Expanded */
-        <div className="px-5 py-5">
-          <div className="mx-auto w-full max-w-[220px]">
-            <div className="relative aspect-square w-full overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-lg">
+        <div className="flex flex-col gap-4 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
               {track.coverUrl ? (
                 <Image src={track.coverUrl} alt="" fill className="object-cover" />
-              ) : null}
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Volume2 size={20} className="text-slate-500" />
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white">{track.title}</p>
+              <p className="truncate text-xs text-slate-400">
+                {[track.discipline, track.chapter, track.topic].filter(Boolean).join(" · ")}
+              </p>
             </div>
           </div>
 
-          <div className="mt-4 text-center">
-            <p className="truncate text-base font-semibold text-white">
-              {track.title}
-            </p>
-            <p className="truncate text-sm text-slate-400">
-              {[track.discipline, track.chapter, track.topic]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          </div>
+          {/* Progress */}
+          <div>
+            <div className="mb-1 flex items-center justify-between text-[11px] tabular-nums text-slate-500">
+              <span>{formatTime(safeCurrent)}</span>
+              <span>-{safeDuration ? formatTime(timeLeft) : "--:--"}</span>
+            </div>
 
-          {/* Progresso */}
-          <div className="mt-5">
             <ModernSlider
               value={safeCurrent}
               min={0}
@@ -443,22 +433,18 @@ export default function MiniPlayer() {
               ariaLabel="Progresso do áudio"
               keyboardStep={5}
             />
-            <div className="mt-1 flex items-center justify-between text-[11px] tabular-nums text-slate-400">
-              <span>{formatTime(safeCurrent)}</span>
-              <span>-{safeDuration ? formatTime(timeLeft) : "--:--"}</span>
-            </div>
           </div>
 
-          {/* Controlos */}
-          <div className="mt-6 flex items-center justify-center gap-6">
+          {/* Controls */}
+          <div className="flex items-center justify-center gap-4">
             <button
               type="button"
               onClick={() => jumpSeconds(-15)}
               className={iconBtn}
-              aria-label="Voltar 15s"
-              title="Voltar 15s"
+              aria-label="Voltar 15 segundos"
+              title="Voltar 15 segundos"
             >
-              <SkipBack size={20} />
+              <SkipBack size={18} />
             </button>
 
             <button
@@ -475,21 +461,33 @@ export default function MiniPlayer() {
               type="button"
               onClick={() => jumpSeconds(15)}
               className={iconBtn}
-              aria-label="Avançar 15s"
-              title="Avançar 15s"
+              aria-label="Avançar 15 segundos"
+              title="Avançar 15 segundos"
             >
-              <SkipForward size={20} />
+              <SkipForward size={18} />
             </button>
           </div>
 
-          {/* Volume (mesmo look do progresso) */}
-          <div className="mt-6 flex items-center gap-3">
-            <Volume2 size={16} className="text-slate-400" />
+          {/* Volume */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="shrink-0 text-slate-400 transition hover:text-white"
+              aria-label={isMuted || volume === 0 ? "Ativar som" : "Silenciar"}
+              title={isMuted || volume === 0 ? "Ativar som" : "Silenciar"}
+            >
+              {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+
             <ModernSlider
-              value={volume}
+              value={isMuted ? 0 : volume}
               min={0}
               max={1}
-              onChange={(v) => setVolume(v)}
+              onChange={(v) => {
+                setVolume(v);
+                if (v > 0) setIsMuted(false);
+              }}
               ariaLabel="Volume"
               keyboardStep={0.05}
             />

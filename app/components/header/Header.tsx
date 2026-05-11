@@ -2,20 +2,98 @@
 
 import Image from "next/image";
 import {
-  Search, SlidersHorizontal, Bell, Menu, X, BookOpen, Headphones, FileText, Trophy,
-  Clock, Users, Loader2, Inbox, Megaphone // <-- Ícone Adicionado
+  Search,
+  SlidersHorizontal,
+  Bell,
+  Menu,
+  X,
+  BookOpen,
+  Headphones,
+  FileText,
+  Trophy,
+  Clock,
+  Users,
+  Loader2,
+  Inbox,
+  Megaphone,
+  ChevronDown,
+  Mail,
+  Shield,
+  PencilLine,
+  LogOut,
+  Check,
+  Camera,
+  AlertCircle,
+  ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// --- TIPOS E DADOS ---
-type HeaderProps = {
+/* ================================================================
+   TIPOS PÚBLICOS — prontos para ligar ao Supabase
+   ================================================================ */
+
+export type UserRole = "student" | "teacher" | "admin";
+
+/** Dados vindos de auth.users + tabela profiles do Supabase */
+export type UserProfile = {
+  id: string;           // auth.uid()
+  fullName: string;     // profiles.full_name
+  email: string;        // auth.email
+  avatarUrl?: string | null;  // profiles.avatar_url (Supabase Storage URL)
+  role: UserRole;       // profiles.role
+
+  // Campos académicos — read-only (vêm de enrollment / secretaria)
+  course: string;
+  academicYear: number;
+  semester: 1 | 2;
+  studentNumber?: string | null;
+  bio?: string | null;
+};
+
+export type ProfileUpdatePayload = {
+  fullName: string;
+  bio?: string | null;
+  // avatarUrl é passado via onAvatarUpload separado
+};
+
+export type HeaderProps = {
   expanded: boolean;
   mobileOpen?: boolean;
   setMobileOpen?: (value: boolean) => void;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   notificationCount?: number;
+
+  /** null = não autenticado · undefined = a carregar */
+  user?: UserProfile | null;
+  /** true enquanto o perfil está a ser buscado do Supabase */
+  userLoading?: boolean;
+
+  /**
+   * Chamado ao guardar nome/bio.
+   * Deve chamar supabase.from("profiles").update(payload)
+   */
+  onProfileSave?: (payload: ProfileUpdatePayload) => Promise<void>;
+
+  /**
+   * Chamado quando o utilizador seleciona uma foto nova.
+   * Deve: 1) fazer upload para Supabase Storage
+   *       2) actualizar profiles.avatar_url
+   *       3) retornar a URL pública final.
+   */
+  onAvatarUpload?: (file: File) => Promise<string>;
+
+  /** Deve chamar supabase.auth.signOut() */
+  onLogout?: () => Promise<void> | void;
 };
+
+/* ================================================================
+   TIPOS INTERNOS
+   ================================================================ */
+
+type ProfileDraft = { fullName: string; bio: string };
+
 type NotificationItem = {
   id: number | string;
   type?: "quiz" | "class" | "invite" | "audio" | "slide" | "default";
@@ -25,207 +103,913 @@ type NotificationItem = {
   unread?: boolean;
 };
 
-// ================================================================
-// INÍCIO DA ÁREA ALTERADA: Opções de Filtro
-// ================================================================
-const filterOptions = [
-  { id: "disciplinas", label: "Disciplinas", icon: BookOpen, color: "text-blue-500", description: "Encontre por matéria" },
-  { id: "slides", label: "Slides", icon: FileText, color: "text-emerald-500", description: "Apresentações de aulas" },
-  { id: "audios", label: "Áudios", icon: Headphones, color: "text-purple-500", description: "Resumos e podcasts" },
-  { id: "quizzes", label: "Questionários", icon: Trophy, color: "text-amber-500", description: "Teste os seus conhecimentos" },
-  { id: "comunicados", label: "Comunicados", icon: Megaphone, color: "text-cyan-500", description: "Avisos e novidades importantes" }, // <-- Adicionado
-];
-// ================================================================
-// FIM DA ÁREA ALTERADA
-// ================================================================
+/* ================================================================
+   CONSTANTES
+   ================================================================ */
 
+const FILTER_OPTIONS = [
+  { id: "disciplinas",  label: "Disciplinas",    icon: BookOpen,   color: "text-blue-500",   description: "Encontre por matéria" },
+  { id: "slides",       label: "Slides",         icon: FileText,   color: "text-emerald-500", description: "Apresentações de aulas" },
+  { id: "audios",       label: "Áudios",         icon: Headphones, color: "text-purple-500",  description: "Resumos e podcasts" },
+  { id: "quizzes",      label: "Questionários",  icon: Trophy,     color: "text-amber-500",   description: "Teste os seus conhecimentos" },
+  { id: "comunicados",  label: "Comunicados",    icon: Megaphone,  color: "text-cyan-500",    description: "Avisos e novidades" },
+] as const;
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin:   "Admin",
+  teacher: "Docente",
+  student: "Estudante",
+};
+
+const ROLE_BADGE: Record<UserRole, string> = {
+  admin:   "border-rose-500/20 bg-rose-500/10 text-rose-300",
+  teacher: "border-violet-500/20 bg-violet-500/10 text-violet-300",
+  student: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+};
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_FILE_SIZE_MB = 2;
+
+/* ================================================================
+   HELPERS
+   ================================================================ */
+
+function getInitials(name?: string | null) {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "U";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function getNotifIcon(type?: NotificationItem["type"]) {
+  switch (type) {
+    case "quiz":   return Trophy;
+    case "class":  return Clock;
+    case "invite": return Users;
+    default:       return Bell;
+  }
+}
+
+function isUnread(n: NotificationItem) {
+  return n.unread ?? (n.read !== undefined ? !n.read : true);
+}
+
+/* ================================================================
+   SUB-COMPONENTES
+   ================================================================ */
+
+/** Avatar circular com fallback de iniciais */
+function Avatar({
+  src,
+  name,
+  size = "md",
+  className = "",
+}: {
+  src?: string | null;
+  name?: string | null;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  const dims = { sm: "h-8 w-8 text-[11px]", md: "h-10 w-10 text-sm", lg: "h-14 w-14 text-base" }[size];
+  return (
+    <div className={`relative overflow-hidden rounded-full border border-white/10 bg-slate-800 ${dims} ${className}`}>
+      {src ? (
+        <Image src={src} alt={name ?? "avatar"} fill className="object-cover" unoptimized />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-blue-600 to-indigo-600 font-semibold text-white">
+          {getInitials(name)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Skeleton de uma linha de texto */
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-white/10 ${className}`} />;
+}
+
+/* ================================================================
+   COMPONENTE PRINCIPAL
+   ================================================================ */
 
 export default function Header({
-  expanded, mobileOpen, setMobileOpen, searchQuery, onSearchChange, notificationCount = 0
+  expanded,
+  mobileOpen,
+  setMobileOpen,
+  searchQuery,
+  onSearchChange,
+  notificationCount = 0,
+  user = null,
+  userLoading = false,
+  onProfileSave,
+  onAvatarUpload,
+  onLogout,
 }: HeaderProps) {
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [notificationOpen, setNotificationOpen] = useState(false);
+  /* ── painéis abertos ── */
+  const [filterOpen,       setFilterOpen]       = useState(false);
+  const [notifOpen,        setNotifOpen]        = useState(false);
+  const [profileOpen,      setProfileOpen]      = useState(false);
+  const [profileMode,      setProfileMode]      = useState<"view" | "edit">("view");
 
-  // --- LÓGICA DE NOTIFICAÇÕES (sem alterações) ---
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsError, setNotificationsError] = useState<string | null>(null);
-  const [notificationsLoadedOnce, setNotificationsLoadedOnce] = useState(false);
+  /* ── notificações ── */
+  const [notifications,         setNotifications]         = useState<NotificationItem[]>([]);
+  const [notifLoading,          setNotifLoading]          = useState(false);
+  const [notifError,            setNotifError]            = useState<string | null>(null);
+  const [notifLoadedOnce,       setNotifLoadedOnce]       = useState(false);
 
-  const filterRef = useRef<HTMLDivElement>(null);
-  const notificationRef = useRef<HTMLDivElement>(null);
+  /* ── perfil ── */
+  const [draft,            setDraft]            = useState<ProfileDraft>({ fullName: "", bio: "" });
+  const [saving,           setSaving]           = useState(false);
+  const [profileError,     setProfileError]     = useState<string | null>(null);
+  const [profileSuccess,   setProfileSuccess]   = useState<string | null>(null);
 
-  const isUnread = (notification: NotificationItem) => notification.unread ?? (notification.read !== undefined ? !notification.read : true);
-  const dynamicNotificationCount = notificationsLoadedOnce && !notificationsError ? notifications.filter(isUnread).length : notificationCount;
-  const hasNotifications = dynamicNotificationCount > 0;
+  /* ── avatar ── */
+  const [avatarPreview,    setAvatarPreview]    = useState<string | null>(null);
+  const [avatarFile,       setAvatarFile]       = useState<File | null>(null);
+  const [avatarUploading,  setAvatarUploading]  = useState(false);
+  const [avatarError,      setAvatarError]      = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const getNotificationIcon = (type?: NotificationItem["type"]) => {
-    switch (type) {
-      case "quiz": return Trophy; case "class": return Clock;
-      case "invite": return Users; default: return Bell;
+  /* ── logout ── */
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  /* ── refs para fechar ao clicar fora ── */
+  const filterRef  = useRef<HTMLDivElement>(null);
+  const notifRef   = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  /* ── contagem de notificações ── */
+  const dynamicCount = notifLoadedOnce && !notifError
+    ? notifications.filter(isUnread).length
+    : notificationCount;
+  const hasNotifs = dynamicCount > 0;
+
+  /* ── fechar ao clicar fora ou Escape ── */
+  useEffect(() => {
+    const closeAll = () => { setFilterOpen(false); setNotifOpen(false); setProfileOpen(false); };
+    const handleClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (filterRef.current  && !filterRef.current.contains(t))  setFilterOpen(false);
+      if (notifRef.current   && !notifRef.current.contains(t))   setNotifOpen(false);
+      if (profileRef.current && !profileRef.current.contains(t)) setProfileOpen(false);
+    };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeAll(); };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown",   handleKey);
+    return () => { document.removeEventListener("mousedown", handleClick); document.removeEventListener("keydown", handleKey); };
+  }, []);
+
+  /* ── reset modo ao fechar ── */
+  useEffect(() => {
+    if (!profileOpen) {
+      setProfileMode("view");
+      setProfileError(null);
+      setAvatarPreview(null);
+      setAvatarFile(null);
+      setAvatarError(null);
+    }
+  }, [profileOpen]);
+
+  /* ── preencher draft quando abre em modo edit ── */
+  useEffect(() => {
+    if (profileOpen && user) {
+      setDraft({ fullName: user.fullName ?? "", bio: user.bio ?? "" });
+      setProfileError(null);
+      setProfileSuccess(null);
+    }
+  }, [profileOpen, user]);
+
+  /* ── buscar notificações ── */
+  const fetchNotifs = useCallback(async (signal?: AbortSignal) => {
+    setNotifLoading(true);
+    setNotifError(null);
+    try {
+      const res = await fetch("/api/notifications", { cache: "no-store", signal });
+      if (!res.ok) throw new Error("Falha ao carregar notificações");
+      const data = await res.json();
+      setNotifications(Array.isArray(data?.notifications) ? data.notifications : []);
+      setNotifLoadedOnce(true);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setNotifError("Não foi possível carregar as notificações.");
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    const ctrl = new AbortController();
+    fetchNotifs(ctrl.signal);
+    return () => ctrl.abort();
+  }, [notifOpen, fetchNotifs]);
+
+  /* ================================================================
+     HANDLERS DE AVATAR
+     ================================================================ */
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAvatarError(null);
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setAvatarError("Formato não suportado. Use JPEG, PNG, WebP ou GIF.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setAvatarError(`O ficheiro excede ${MAX_FILE_SIZE_MB} MB.`);
+      return;
+    }
+
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const uploadAvatar = async (): Promise<string | null> => {
+    if (!avatarFile) return null;
+    if (!onAvatarUpload) {
+      setAvatarError("Upload de avatar não está configurado.");
+      return null;
+    }
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const url = await onAvatarUpload(avatarFile);
+      return url;
+    } catch {
+      setAvatarError("Falha ao fazer upload da imagem.");
+      return null;
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
-  const fetchNotifications = useCallback(async (signal?: AbortSignal) => {
-    setNotificationsLoading(true); setNotificationsError(null);
+  /* ================================================================
+     HANDLER GUARDAR PERFIL
+     ================================================================ */
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    const fullName = draft.fullName.trim().replace(/\s+/g, " ").slice(0, 60);
+    if (fullName.length < 3) {
+      setProfileError("O nome deve ter pelo menos 3 caracteres.");
+      return;
+    }
+
+    const bio = draft.bio.trim().slice(0, 160) || null;
+
+    setSaving(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+
     try {
-      const response = await fetch("/api/notifications", { method: "GET", cache: "no-store", signal });
-      if (!response.ok) throw new Error("Falha ao carregar notificações");
-      const data = await response.json();
-      setNotifications(Array.isArray(data?.notifications) ? data.notifications : []);
-      setNotificationsLoadedOnce(true);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setNotificationsError("Não foi possível carregar as notificações.");
-    } finally { setNotificationsLoading(false); }
-  }, []);
+      // 1. upload avatar se houver ficheiro novo
+      if (avatarFile) {
+        const newUrl = await uploadAvatar();
+        if (!newUrl) { setSaving(false); return; } // erro já mostrado
+      }
 
-  useEffect(() => {
-    if (!notificationOpen) return;
-    const controller = new AbortController();
-    fetchNotifications(controller.signal);
-    return () => controller.abort();
-  }, [notificationOpen, fetchNotifications]);
+      // 2. guardar nome + bio
+      await onProfileSave?.({ fullName, bio });
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(event.target as Node)) setFilterOpen(false);
-      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) setNotificationOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+      setProfileSuccess("Perfil atualizado com sucesso.");
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setProfileMode("view");
+    } catch {
+      setProfileError("Não foi possível guardar as alterações. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const renderFilterContent = () => (
-    <>
+  /* ================================================================
+     HANDLER LOGOUT
+     ================================================================ */
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await onLogout?.();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  /* ================================================================
+     PANEL: FILTROS
+     ================================================================ */
+
+  const FilterPanel = () => (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-slate-700 dark:text-slate-300">Filtros Rápidos</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Seleciona o tipo de conteúdo</p>
+          <p className="text-xs text-slate-500">Seleciona o tipo de conteúdo</p>
         </div>
-        <button onClick={() => setFilterOpen(false)} className="text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200" aria-label="Fechar filtros">
-          <X size={18} />
+        <button type="button" onClick={() => setFilterOpen(false)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800" aria-label="Fechar">
+          <X size={16} />
         </button>
       </div>
-      <div className="mt-4 space-y-2">
-        {filterOptions.map((option) => {
-          const Icon = option.icon;
-          return (
-            <button key={option.id} className="w-full rounded-2xl px-4 py-3 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-              <div className="flex items-start gap-3">
-                <Icon size={18} className={`mt-0.5 ${option.color}`} />
-                <div>
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{option.label}</p>
-                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{option.description}</p>
-                </div>
-              </div>
-            </button>
-          );
-        })}
+      <div className="mt-4 space-y-1">
+        {FILTER_OPTIONS.map(({ id, label, icon: Icon, color, description }) => (
+          <button key={id} type="button"
+            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800">
+            <Icon size={17} className={`shrink-0 ${color}`} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{label}</p>
+              <p className="text-xs text-slate-500">{description}</p>
+            </div>
+            <ChevronRight size={14} className="ml-auto text-slate-300 opacity-0 transition group-hover:opacity-100 dark:text-slate-600" />
+          </button>
+        ))}
       </div>
-    </>
+    </div>
   );
 
-  const renderNotificationContent = () => (
-    <>
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-white/10">
+  /* ================================================================
+     PANEL: NOTIFICAÇÕES
+     ================================================================ */
+
+  const NotifPanel = () => (
+    <div className="max-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-white/10">
         <h3 className="font-semibold text-slate-800 dark:text-slate-100">Notificações</h3>
-        {hasNotifications && <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300">{dynamicNotificationCount} novas</span>}
+        <div className="flex items-center gap-2">
+          {hasNotifs && (
+            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+              {dynamicCount} nova{dynamicCount !== 1 ? "s" : ""}
+            </span>
+          )}
+          <button type="button" onClick={() => fetchNotifs()} title="Atualizar"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800">
+            <RefreshCw size={13} className={notifLoading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
-      <div className="max-h-[420px] overflow-y-auto">
-        {notificationsLoading && <div className="flex flex-col items-center justify-center p-10 text-center"><Loader2 className="mb-3 h-5 w-5 animate-spin text-blue-500" /><p className="text-sm font-medium text-slate-800 dark:text-slate-100">A carregar...</p></div>}
-        {!notificationsLoading && notificationsError && <div className="p-10 text-center"><p className="text-sm font-medium text-slate-700 dark:text-slate-200">{notificationsError}</p><button onClick={() => fetchNotifications()} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">Tentar novamente</button></div>}
-        {!notificationsLoading && !notificationsError && notifications.length === 0 && <div className="p-10 text-center"><Inbox className="mx-auto mb-3 h-8 w-8 text-slate-400" /><p className="text-sm font-medium text-slate-800 dark:text-slate-100">Sem notificações</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Quando houver novidades, aparecerão aqui.</p></div>}
-        {!notificationsLoading && !notificationsError && notifications.length > 0 && notifications.map((notif) => {
-          const Icon = getNotificationIcon(notif.type);
+
+      {/* Corpo */}
+      <div className="max-h-[400px] overflow-y-auto">
+        {notifLoading && (
+          <div className="flex flex-col items-center justify-center gap-3 p-10">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+            <p className="text-sm text-slate-500">A carregar...</p>
+          </div>
+        )}
+
+        {!notifLoading && notifError && (
+          <div className="flex flex-col items-center gap-3 p-10 text-center">
+            <AlertCircle size={24} className="text-rose-400" />
+            <p className="text-sm text-slate-600 dark:text-slate-300">{notifError}</p>
+            <button type="button" onClick={() => fetchNotifs()}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500">
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {!notifLoading && !notifError && notifications.length === 0 && (
+          <div className="flex flex-col items-center gap-3 p-10 text-center">
+            <Inbox className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+            <div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Tudo em dia!</p>
+              <p className="mt-0.5 text-xs text-slate-500">Quando houver novidades, aparecem aqui.</p>
+            </div>
+          </div>
+        )}
+
+        {!notifLoading && !notifError && notifications.map((n) => {
+          const Icon = getNotifIcon(n.type);
           return (
-            <div key={notif.id} className={`flex gap-4 border-b border-gray-100 px-5 py-4 last:border-none dark:border-white/10 ${isUnread(notif) ? "bg-blue-50/50 dark:bg-slate-800/60" : ""} hover:bg-slate-50 dark:hover:bg-slate-800`}>
-              <div className="mt-0.5"><Icon size={20} className="text-slate-500 dark:text-slate-400" /></div>
-              <div className="flex-1"><p className="text-sm font-medium leading-tight text-slate-800 dark:text-slate-100">{notif.title}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{notif.time ?? "Agora mesmo"}</p></div>
-              {isUnread(notif) && <span className="mt-1 h-2.5 w-2.5 self-start rounded-full bg-blue-500" />}
+            <div key={n.id} className={`flex gap-4 border-b border-gray-100 px-5 py-4 last:border-none transition dark:border-white/10 ${
+              isUnread(n) ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+            } hover:bg-slate-50 dark:hover:bg-slate-800/60`}>
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                <Icon size={16} className="text-slate-500 dark:text-slate-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium leading-snug text-slate-800 dark:text-slate-100">{n.title}</p>
+                <p className="mt-1 text-xs text-slate-500">{n.time ?? "Agora mesmo"}</p>
+              </div>
+              {isUnread(n) && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />}
             </div>
           );
         })}
       </div>
-      {!notificationsLoading && !notificationsError && notifications.length > 0 && <button className="w-full px-5 py-3 text-center text-sm font-medium text-blue-600 transition-colors hover:text-blue-700">Ver todas</button>}
-    </>
+
+      {!notifLoading && !notifError && notifications.length > 0 && (
+        <button type="button" className="w-full border-t border-gray-100 px-5 py-3 text-center text-sm font-medium text-blue-600 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800/50">
+          Ver todas as notificações
+        </button>
+      )}
+    </div>
   );
 
-  return (
-    <>
-      
-      <header
-        className={`fixed top-0 z-40 h-16 transition-all duration-300
-          bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl
-          border-b border-gray-200 dark:border-white/10
-          ${expanded ? "md:left-56" : "md:left-16"} right-0 left-0
-        `}
-      >
-        <div className="mx-auto flex h-full max-w-screen-2xl items-center justify-between gap-4 px-4 md:px-6">
-          
-          <div className="flex flex-shrink-0 items-center gap-4">
-            <button onClick={() => setMobileOpen?.(!mobileOpen)} className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden">
-              <Menu size={24} className="text-slate-800 dark:text-slate-200" />
-            </button>
-            <div className="hidden items-center gap-3 md:flex">
-              <span className="text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Biblioteca Virtual
+  /* ================================================================
+     PANEL: PERFIL — estado de carregamento
+     ================================================================ */
+
+  const ProfileSkeleton = () => (
+    <div className="p-5 space-y-4">
+      <div className="flex items-start gap-4">
+        <Skeleton className="h-14 w-14 rounded-2xl shrink-0" />
+        <div className="flex-1 space-y-2 pt-1">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48" />
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Skeleton className="h-12 rounded-xl" />
+            <Skeleton className="h-12 rounded-xl" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Skeleton className="h-12 rounded-xl" />
+        <Skeleton className="h-12 rounded-xl" />
+        <Skeleton className="h-12 rounded-xl" />
+        <Skeleton className="h-12 rounded-xl" />
+      </div>
+      <Skeleton className="h-9 rounded-xl" />
+    </div>
+  );
+
+  /* ================================================================
+     PANEL: PERFIL — sem utilizador autenticado
+     ================================================================ */
+
+  const ProfileEmpty = () => (
+    <div className="p-5">
+      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800">
+          <Users size={20} className="text-slate-400" />
+        </div>
+        <p className="text-sm font-medium text-slate-300">Nenhum utilizador autenticado</p>
+        <p className="mt-1 text-xs text-slate-500">Faça login para aceder ao seu perfil.</p>
+      </div>
+    </div>
+  );
+
+  /* ================================================================
+     PANEL: PERFIL — modo VISUALIZAR
+     ================================================================ */
+
+  const ProfileView = () => {
+    if (!user) return null;
+    return (
+      <div>
+        {/* Topo com avatar + info principal */}
+        <div className="border-b border-white/10 px-5 py-4">
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <div className="relative shrink-0">
+              <Avatar src={user.avatarUrl} name={user.fullName} size="lg" className="rounded-2xl" />
+              <span className={`absolute -bottom-1 -right-1 rounded-full border-2 border-slate-900 px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${ROLE_BADGE[user.role]}`}>
+                {ROLE_LABELS[user.role].toUpperCase()}
               </span>
             </div>
+
+            {/* Nome + email */}
+            <div className="min-w-0 flex-1 pt-0.5">
+              <h3 className="truncate text-base font-semibold text-slate-100">{user.fullName}</h3>
+
+              {user.bio && (
+                <p className="mt-0.5 text-xs leading-relaxed text-slate-400 line-clamp-2">{user.bio}</p>
+              )}
+
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                <Mail size={11} className="shrink-0" />
+                <span className="truncate">{user.email}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dados académicos */}
+        <div className="px-5 py-4">
+          <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+            Dados Académicos
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
+            {[
+              { label: "Curso",     value: user.course },
+              { label: "Ano",       value: `${user.academicYear}º ano` },
+              { label: "Semestre",  value: `${user.semester}º semestre` },
+              { label: "Nº aluno",  value: user.studentNumber ?? "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                <span className="block text-slate-500">{label}</span>
+                <span className="mt-0.5 block truncate font-medium text-slate-100">{value}</span>
+              </div>
+            ))}
           </div>
 
-          <div className="flex-1 px-4 md:px-8">
-            <div className="relative mx-auto max-w-xl" ref={filterRef}>
-              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-              <input
-                type="text" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Pesquisar disciplinas, temas..."
-                className="h-10 w-full rounded-full border border-slate-200 bg-slate-50/50 py-2 pl-11 pr-12 text-sm text-slate-800 placeholder-slate-400 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500 dark:focus:bg-slate-800"
-              />
-              
-              <div className="absolute right-1.5 top-1/2 -translate-y-1/2">
-                <button
-                  onClick={() => { setFilterOpen(!filterOpen); setNotificationOpen(false); }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
-                  aria-label="Filtros"
-                >
-                  <SlidersHorizontal size={16} className="text-slate-600 dark:text-slate-300" />
-                </button>
-              </div>
+          {/* Aviso read-only */}
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2.5 text-[11px] text-amber-300">
+            <Shield size={12} className="mt-0.5 shrink-0" />
+            <span>Dados académicos são geridos pela secretaria e não podem ser alterados aqui.</span>
+          </div>
 
-              {/* 
-                ================================================================
-                INÍCIO DA ÁREA ALTERADA: Posicionamento do Dropdown
-                ================================================================
-              */}
-              <div className={`absolute top-full mt-2 origin-top-right transition-all left-0 right-0 md:left-auto md:right-0 md:w-80 ${filterOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">{renderFilterContent()}</div>
-              </div>
-              {/* 
-                ================================================================
-                FIM DA ÁREA ALTERADA
-                ================================================================
-              */}
+          {/* Feedback de sucesso */}
+          {profileSuccess && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-[11px] text-emerald-300">
+              <Check size={12} className="shrink-0" />
+              {profileSuccess}
+            </div>
+          )}
+
+          {/* Acções */}
+          <div className="mt-4 flex gap-2">
+            <button type="button"
+              onClick={() => { setProfileMode("edit"); setProfileError(null); setProfileSuccess(null); }}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500">
+              <PencilLine size={14} />
+              Editar perfil
+            </button>
+
+            {onLogout && (
+              <button type="button" onClick={() => void handleLogout()} disabled={loggingOut}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-50"
+                aria-label="Terminar sessão">
+                {loggingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ================================================================
+     PANEL: PERFIL — modo EDITAR
+     ================================================================ */
+
+  const ProfileEdit = () => {
+    if (!user) return null;
+
+    const currentAvatarSrc = avatarPreview ?? user.avatarUrl ?? undefined;
+    const bioLength = draft.bio.length;
+
+    return (
+      <div className="px-5 py-4 space-y-4">
+        {/* Avatar upload */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-slate-400">Foto de perfil</p>
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0">
+              <Avatar src={currentAvatarSrc} name={user.fullName} size="lg" className="rounded-2xl" />
+
+              {/* Botão overlay */}
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 opacity-0 transition-opacity hover:opacity-100 disabled:cursor-wait"
+                aria-label="Alterar foto">
+                {avatarUploading
+                  ? <Loader2 size={18} className="animate-spin text-white" />
+                  : <Camera size={18} className="text-white" />}
+              </button>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={avatarUploading}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50">
+                <Camera size={13} />
+                {avatarFile ? "Trocar imagem" : "Carregar foto"}
+              </button>
+
+              {avatarFile && (
+                <p className="mt-1.5 truncate text-[11px] text-slate-500">{avatarFile.name}</p>
+              )}
+
+              <p className="mt-1 text-[11px] text-slate-600">
+                JPEG, PNG, WebP ou GIF · máx. {MAX_FILE_SIZE_MB} MB
+              </p>
+
+              {avatarError && (
+                <p className="mt-1.5 flex items-center gap-1 text-[11px] text-rose-400">
+                  <AlertCircle size={10} />
+                  {avatarError}
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="relative flex-shrink-0" ref={notificationRef}>
-            <button
-              onClick={() => { setNotificationOpen(!notificationOpen); setFilterOpen(false); }}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-              aria-label="Notificações"
-            >
-              <Bell size={20} className="text-slate-600 dark:text-slate-300" />
-              {hasNotifications && <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white shadow-md">{dynamicNotificationCount > 9 ? "9+" : dynamicNotificationCount}</span>}
+          <input ref={fileInputRef} type="file" accept={ALLOWED_IMAGE_TYPES.join(",")} onChange={handleAvatarFileChange} className="sr-only" tabIndex={-1} />
+        </div>
+
+        {/* Nome */}
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-slate-400">
+            Nome de exibição <span className="text-rose-400">*</span>
+          </label>
+          <input
+            type="text"
+            value={draft.fullName}
+            onChange={(e) => setDraft((d) => ({ ...d, fullName: e.target.value }))}
+            maxLength={60}
+            placeholder="O teu nome completo"
+            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
+          />
+          <p className="mt-1 text-right text-[10px] text-slate-600">{draft.fullName.length}/60</p>
+        </div>
+
+        {/* Bio */}
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-slate-400">
+            Bio <span className="text-slate-600">(opcional)</span>
+          </label>
+          <textarea
+            value={draft.bio}
+            onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
+            rows={3}
+            maxLength={160}
+            placeholder="Uma breve apresentação..."
+            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
+          />
+          <p className={`mt-0.5 text-right text-[10px] transition ${bioLength > 140 ? "text-amber-400" : "text-slate-600"}`}>
+            {bioLength}/160
+          </p>
+        </div>
+
+        {/* Campos bloqueados */}
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+            Campos bloqueados
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-[11px] opacity-60">
+            {[
+              { label: "Curso",    value: user.course },
+              { label: "Ano",      value: `${user.academicYear}º ano` },
+              { label: "Semestre", value: `${user.semester}º semestre` },
+              { label: "Perfil",   value: ROLE_LABELS[user.role] },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5 cursor-not-allowed">
+                <span className="block text-slate-600">{label}</span>
+                <span className="mt-0.5 block truncate font-medium text-slate-400">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Erros / Sucesso */}
+        {profileError && (
+          <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-[11px] text-rose-300">
+            <AlertCircle size={12} className="mt-0.5 shrink-0" />
+            {profileError}
+          </div>
+        )}
+
+        {/* Nota se callbacks não estiverem ligados */}
+        {!onProfileSave && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2.5 text-[11px] text-amber-400">
+            <AlertCircle size={12} className="mt-0.5 shrink-0" />
+            <span>
+              <strong>Dev:</strong> passa <code className="font-mono">onProfileSave</code> e <code className="font-mono">onAvatarUpload</code> para ligar ao Supabase.
+            </span>
+          </div>
+        )}
+
+        {/* Acções */}
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={() => { setProfileMode("view"); setAvatarFile(null); setAvatarPreview(null); setAvatarError(null); }}
+            disabled={saving}
+            className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50">
+            Cancelar
+          </button>
+
+          <button type="button" onClick={() => void handleSave()} disabled={saving || !onProfileSave}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
+            {saving
+              ? <><Loader2 size={14} className="animate-spin" />A guardar…</>
+              : <><Check size={14} />Guardar</>}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  /* ================================================================
+     RENDER PRINCIPAL
+     ================================================================ */
+  return (
+    <>
+      <header className={`fixed top-0 z-40 h-16 border-b border-gray-200 bg-white/80 backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-slate-950/80
+        right-0 left-0 ${expanded ? "md:left-56" : "md:left-16"}`}>
+        <div className="mx-auto flex h-full max-w-screen-2xl items-center justify-between gap-3 px-4 md:px-6">
+
+          {/* ── Esquerda: menu mobile + título ── */}
+          <div className="flex shrink-0 items-center gap-3">
+            <button type="button" onClick={() => setMobileOpen?.(!mobileOpen)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden"
+              aria-label="Abrir menu">
+              <Menu size={22} className="text-slate-700 dark:text-slate-200" />
             </button>
-            <div className={`absolute top-full right-0 mt-2 w-80 origin-top-right transition-all sm:w-96 ${notificationOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
-              <div className="max-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">{renderNotificationContent()}</div>
+            <span className="hidden text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 md:block">
+              Biblioteca Virtual
+            </span>
+          </div>
+
+          {/* ── Centro: pesquisa + filtros ── */}
+          <div className="min-w-0 flex-1 px-2 md:px-6" ref={filterRef}>
+            <div className="relative mx-auto max-w-xl">
+              <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Pesquisar disciplinas, temas, slides…"
+                className="h-10 w-full rounded-full border border-slate-200 bg-slate-50/50 pl-10 pr-12 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
+              />
+
+              <button type="button"
+                onClick={() => { setFilterOpen(!filterOpen); setNotifOpen(false); setProfileOpen(false); }}
+                className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full transition ${
+                  filterOpen ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                }`}
+                aria-label="Filtros">
+                <SlidersHorizontal size={14} />
+              </button>
+
+              {/* Dropdown de filtros */}
+              <div className={`absolute left-0 right-0 top-full mt-2 origin-top transition-all md:left-auto md:right-0 md:w-80 ${
+                filterOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
+              }`}>
+                <FilterPanel />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Direita: notificações + perfil ── */}
+          <div className="flex shrink-0 items-center gap-2">
+
+            {/* Notificações */}
+            <div className="relative" ref={notifRef}>
+              <button type="button"
+                onClick={() => { setNotifOpen(!notifOpen); setFilterOpen(false); setProfileOpen(false); }}
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                aria-label="Notificações">
+                <Bell size={18} className="text-slate-600 dark:text-slate-300" />
+                {hasNotifs && (
+                  <span className="absolute -right-1 -top-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">
+                    {dynamicCount > 9 ? "9+" : dynamicCount}
+                  </span>
+                )}
+              </button>
+
+              <div className={`absolute right-0 top-full mt-2 w-80 origin-top-right transition-all sm:w-96 ${
+                notifOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
+              }`}>
+                <NotifPanel />
+              </div>
+            </div>
+
+            {/* Perfil */}
+            <div className="relative" ref={profileRef}>
+              <button type="button"
+                onClick={() => { setProfileOpen(!profileOpen); setFilterOpen(false); setNotifOpen(false); }}
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                aria-haspopup="menu" aria-expanded={profileOpen} aria-label="Conta">
+                {userLoading
+                  ? <Skeleton className="h-8 w-8 rounded-full" />
+                  : <Avatar src={user?.avatarUrl} name={user?.fullName} size="sm" className="rounded-full" />}
+
+                <div className="hidden min-w-0 max-w-[120px] text-left md:block">
+                  {userLoading ? (
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-2.5 w-28" />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                        {user?.fullName ?? "Utilizador"}
+                      </p>
+                      <p className="truncate text-[11px] text-slate-500">
+                        {user ? `${user.course} · ${user.academicYear}º ano` : "Perfil"}
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                <ChevronDown size={13} className={`shrink-0 text-slate-400 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {/* Dropdown do perfil */}
+              <div className={`absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] origin-top-right transition-all sm:w-[26rem] ${
+                profileOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
+              }`}>
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                  {userLoading
+                    ? <ProfileSkeleton />
+                    : !user
+                      ? <ProfileEmpty />
+                      : profileMode === "view"
+                        ? <ProfileView />
+                        : <ProfileEdit />}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div onClick={() => { setFilterOpen(false); setNotificationOpen(false); }} className={`fixed inset-0 z-30 bg-black/20 backdrop-blur-sm md:hidden ${(filterOpen || notificationOpen) ? "block" : "hidden"}`} />
+      {/* Backdrop mobile */}
+      <div
+        onClick={() => { setFilterOpen(false); setNotifOpen(false); setProfileOpen(false); }}
+        className={`fixed inset-0 z-30 bg-black/20 backdrop-blur-sm md:hidden ${
+          filterOpen || notifOpen || profileOpen ? "block" : "hidden"
+        }`}
+      />
     </>
   );
 }
+
+/* ================================================================
+   EXEMPLO DE USO COM SUPABASE
+   ================================================================
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import Header, { UserProfile, ProfileUpdatePayload } from "@/components/Header";
+
+export function AppShell({ children }) {
+  const supabase = createClient();
+  const [user, setUser]               = useState<UserProfile | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const authUser = data.session?.user;
+      if (!authUser) { setUser(null); setUserLoading(false); return; }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .single();
+
+      setUser({
+        id:            authUser.id,
+        email:         authUser.email ?? "",
+        fullName:      profile?.full_name ?? "Sem nome",
+        avatarUrl:     profile?.avatar_url ?? null,
+        role:          profile?.role ?? "student",
+        course:        profile?.course ?? "—",
+        academicYear:  profile?.academic_year ?? 1,
+        semester:      profile?.semester ?? 1,
+        studentNumber: profile?.student_number ?? null,
+        bio:           profile?.bio ?? null,
+      });
+      setUserLoading(false);
+    });
+  }, []);
+
+  const onProfileSave = async (payload: ProfileUpdatePayload) => {
+    await supabase.from("profiles").update({
+      full_name: payload.fullName,
+      bio:       payload.bio ?? null,
+    }).eq("id", user!.id);
+  };
+
+  const onAvatarUpload = async (file: File): Promise<string> => {
+    const ext  = file.name.split(".").pop();
+    const path = `avatars/${user!.id}.${ext}`;
+    const { error } = await supabase.storage.from("user-assets").upload(path, file, { upsert: true });
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("user-assets").getPublicUrl(path);
+    const publicUrl = data.publicUrl;
+
+    await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user!.id);
+    return publicUrl;
+  };
+
+  const onLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  return (
+    <>
+      <Header
+        expanded={false}
+        user={user}
+        userLoading={userLoading}
+        searchQuery=""
+        onSearchChange={() => {}}
+        onProfileSave={onProfileSave}
+        onAvatarUpload={onAvatarUpload}
+        onLogout={onLogout}
+      />
+      <main>{children}</main>
+    </>
+  );
+}
+================================================================ */
