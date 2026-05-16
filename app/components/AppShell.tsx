@@ -1,70 +1,89 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Sidebar from "@/app/components/Sidebar";
-import Header from "@/app/components/header/Header";
+import Header, { type UserProfile } from "@/app/components/header/Header";
 import Breadcrumbs from "@/app/components/header/Breadcrumbs";
-import { UserContext, AppUser } from "@/app/lib/context/UserContext";
+import { UserContext, type AppUser } from "@/app/lib/context/UserContext";
 
-type Props = {
-  children: React.ReactNode;
+/* ================================================================
+   DADOS MOCK DO UTILIZADOR
+   Fase 2: substituir por dados reais do Supabase Auth + profiles.
+   Manter aqui para não depender de exports do UserContext.
+   ================================================================ */
+const MOCK_USER: AppUser = {
+  name:      "Manuel dos Anjos",
+  email:     "250438@isaf.co.ao",
+  avatarUrl: undefined,
+  academic: {
+    year:          "1º Ano",
+    semester:      "1º Semestre",
+    course:        "Informática de Gestão Financeira",
+    studentNumber: "250438",
+    institution:   "Instituto Superior de Administração e Finanças",
+  },
+  status: { label: "Perfil Completo", tone: "success" },
 };
+
+/* ================================================================
+   HELPER: AppUser → UserProfile (formato que o Header espera)
+   Fase 2: remover quando o Header ler directamente do Supabase.
+   ================================================================ */
+function toHeaderUser(user: AppUser | null): UserProfile | null {
+  if (!user) return null;
+
+  const yearNum  = parseInt(user.academic.year.replace(/\D/g, ""), 10) || 1;
+  const semNum   = (parseInt(user.academic.semester.replace(/\D/g, ""), 10) || 1) as 1 | 2;
+
+  return {
+    id:            user.academic.studentNumber,
+    fullName:      user.name,
+    email:         user.email,
+    avatarUrl:     user.avatarUrl ?? null,
+    role:          "student",
+    course:        user.academic.course,
+    academicYear:  yearNum,
+    semester:      semNum,
+    studentNumber: user.academic.studentNumber,
+    bio:           null,
+  };
+}
+
+/* ================================================================
+   APPSHELL
+   ================================================================ */
 
 const LS_KEY = "b-isaf:sidebarExpanded";
 
+type Props = { children: React.ReactNode };
+
 export default function AppShell({ children }: Props) {
-  const [mounted, setMounted] = useState(false);
-
-  // Estado único: expanded (true = aberta, false = fechada)
-  const [expanded, setExpanded] = useState<boolean>(false);
-
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted,     setMounted]     = useState(false);
+  const [expanded,    setExpanded]    = useState(false);
+  const [mobileOpen,  setMobileOpen]  = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // User state
-  const [user, setUser] = useState<AppUser | null>({
-    name: "Manuel dos Anjos",
-    email: "250438@isaf.co.ao",
-    avatarUrl: undefined,
-    academic: {
-      year: "1º Ano",
-      semester: "1º Semestre",
-      course: "Informática de Gestão Financeira",
-      studentNumber: "250438",
-      institution: "Instituto Superior de Administração e Finanças",
-    },
-    status: { label: "Perfil Completo", tone: "success" },
-  });
+  const [user, setUser] = useState<AppUser | null>(MOCK_USER);
 
-  const handleUpdateUser = async (
-    updates: Partial<AppUser["academic"]>
-  ): Promise<void> => {
-    setUser((prev) =>
-      prev ? { ...prev, academic: { ...prev.academic, ...updates } } : null
-    );
-  };
+  const headerUser = useMemo(() => toHeaderUser(user), [user]);
 
-  // Mount + carregar estado do localStorage
+  // Carregar estado da sidebar do localStorage
   useEffect(() => {
     setMounted(true);
-
     try {
       const saved = localStorage.getItem(LS_KEY);
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (typeof parsed === "boolean") {
-          setExpanded(parsed);
-        }
+        if (typeof parsed === "boolean") setExpanded(parsed);
       }
     } catch {
       // ignore
     }
   }, []);
 
-  // Persistir estado no localStorage
+  // Persistir estado da sidebar
   useEffect(() => {
     if (!mounted) return;
-    
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(expanded));
     } catch {
@@ -88,6 +107,8 @@ export default function AppShell({ children }: Props) {
           setMobileOpen={setMobileOpen}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          user={headerUser}
+          // Fase 2: onProfileSave / onAvatarUpload / onLogout → ligar ao Supabase
         />
 
         <main

@@ -9,58 +9,66 @@ import {
 } from "lucide-react";
 
 export const iconMap: Record<string, LucideIcon> = {
-  book: Book,
-  calculator: Calculator,
-  science: FlaskConical,
+  book:          Book,
+  calculator:    Calculator,
+  science:       FlaskConical,
   communication: MessageSquare,
-  computer: Monitor,
+  computer:      Monitor,
 };
 
 export type ContentType = "audio" | "slide" | "quiz";
 
 export interface TopicContent {
-  id: string;
-  type: ContentType;
+  id:    string;
+  type:  ContentType;
   title: string;
-  url?: string;
+  url?:  string;
 }
 
 export interface Topic {
-  id: string;
-  title: string;
+  id:       string;
+  title:    string;
   contents: TopicContent[];
 }
 
 export interface Chapter {
-  id: string;
-  title: string;
+  id:     string;
+  title:  string;
   status: "Concluído" | "Não concluído";
   topics: Topic[];
 }
 
 export interface Discipline {
-  id: string;
-  title: string;
-  professor: string;
-  progress: number;
+  id:          string;
+  title:       string;
+  professor:   string;
+  progress:    number;
   lessonCount: number;
-  icon: keyof typeof iconMap;
-  coverUrl: string;
-  href: string;
+  icon:        keyof typeof iconMap;
+  coverUrl:    string;
+  href:        string;
+
+  // ← FIX: campo estava a ser usado mas não declarado
+  introVideoUrl?: string;
 
   // Campos académicos para filtrar pelo utilizador
-  year: string; // ex: "1º Ano"
-  semester: string; // ex: "1º Semestre"
-  course: string; // ex: "Informática de Gestão Financeira"
+  year:     string; // "1º Ano"
+  semester: string; // "1º Semestre"
+  course:   string; // "Informática de Gestão Financeira"
 
   // Estrutura da página da disciplina
   chapters?: Chapter[];
 }
 
+/* ================================================================
+   DADOS MOCK
+   ================================================================ */
+
 export const mockDisciplines: Discipline[] = [
+  // ── 1º Ano · 1º Semestre · IGF ──────────────────────────────
   {
     id: "ingles-i",
-    title: "Inglês I",
+    title: "Língua Inglesa I",
     professor: "Prof. Ana Costa",
     progress: 65,
     lessonCount: 13,
@@ -82,7 +90,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "ingles-c-01", type: "audio", title: "Áudio - Greetings" },
               { id: "ingles-c-02", type: "slide", title: "Slides - Greetings" },
-              { id: "ingles-c-03", type: "quiz", title: "Quiz - Greetings" },
+              { id: "ingles-c-03", type: "quiz",  title: "Quiz - Greetings" },
             ],
           },
           {
@@ -91,7 +99,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "ingles-c-04", type: "audio", title: "Áudio - Introductions" },
               { id: "ingles-c-05", type: "slide", title: "Slides - Introductions" },
-              { id: "ingles-c-06", type: "quiz", title: "Quiz - Introductions" },
+              { id: "ingles-c-06", type: "quiz",  title: "Quiz - Introductions" },
             ],
           },
         ],
@@ -122,7 +130,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "mat-c-01", type: "audio", title: "Áudio - Equações" },
               { id: "mat-c-02", type: "slide", title: "Slides - Equações" },
-              { id: "mat-c-03", type: "quiz", title: "Quiz - Equações" },
+              { id: "mat-c-03", type: "quiz",  title: "Quiz - Equações" },
             ],
           },
           {
@@ -131,7 +139,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "mat-c-04", type: "audio", title: "Áudio - Sistemas Lineares" },
               { id: "mat-c-05", type: "slide", title: "Slides - Sistemas Lineares" },
-              { id: "mat-c-06", type: "quiz", title: "Quiz - Sistemas Lineares" },
+              { id: "mat-c-06", type: "quiz",  title: "Quiz - Sistemas Lineares" },
             ],
           },
         ],
@@ -162,7 +170,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "mig-c-01", type: "audio", title: "Áudio - Método Científico" },
               { id: "mig-c-02", type: "slide", title: "Slides - Método Científico" },
-              { id: "mig-c-03", type: "quiz", title: "Quiz - Método Científico" },
+              { id: "mig-c-03", type: "quiz",  title: "Quiz - Método Científico" },
             ],
           },
           {
@@ -171,7 +179,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "mig-c-04", type: "audio", title: "Áudio - Problema de Pesquisa" },
               { id: "mig-c-05", type: "slide", title: "Slides - Problema de Pesquisa" },
-              { id: "mig-c-06", type: "quiz", title: "Quiz - Problema de Pesquisa" },
+              { id: "mig-c-06", type: "quiz",  title: "Quiz - Problema de Pesquisa" },
             ],
           },
         ],
@@ -210,7 +218,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "com-c-03", type: "audio", title: "Áudio - Comunicação Não Verbal" },
               { id: "com-c-04", type: "slide", title: "Slides - Comunicação Não Verbal" },
-              { id: "com-c-05", type: "quiz", title: "Quiz - Comunicação Não Verbal" },
+              { id: "com-c-05", type: "quiz",  title: "Quiz - Comunicação Não Verbal" },
             ],
           },
         ],
@@ -240,9 +248,9 @@ export const mockDisciplines: Discipline[] = [
             id: "fsi-top-01",
             title: "O conceito de Sistema de Informação",
             contents: [
-              { id: "fsi-c-01", type: "audio", title: "Áudio - Conceito de SI", url: "/audios/fundamentos-organigrama.mp3" },
+              { id: "fsi-c-01", type: "audio", title: "Áudio - Conceito de SI",  url: "/audios/fundamentos-organigrama.mp3" },
               { id: "fsi-c-02", type: "slide", title: "Slides - Conceito de SI", url: "/slides/fsi.pdf" },
-              { id: "fsi-c-03", type: "quiz", title: "Quiz - Conceito de SI" },
+              { id: "fsi-c-03", type: "quiz",  title: "Quiz - Conceito de SI" },
             ],
           },
           {
@@ -251,7 +259,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "fsi-c-04", type: "audio", title: "Áudio - Componentes" },
               { id: "fsi-c-05", type: "slide", title: "Slides - Componentes" },
-              { id: "fsi-c-06", type: "quiz", title: "Quiz - Componentes" },
+              { id: "fsi-c-06", type: "quiz",  title: "Quiz - Componentes" },
             ],
           },
         ],
@@ -275,7 +283,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "fsi-c-09", type: "audio", title: "Áudio - Alinhamento Estratégico" },
               { id: "fsi-c-10", type: "slide", title: "Slides - Alinhamento Estratégico" },
-              { id: "fsi-c-11", type: "quiz", title: "Quiz - Alinhamento Estratégico" },
+              { id: "fsi-c-11", type: "quiz",  title: "Quiz - Alinhamento Estratégico" },
             ],
           },
         ],
@@ -299,7 +307,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "fsi-c-14", type: "audio", title: "Áudio - Redes e Comunicação" },
               { id: "fsi-c-15", type: "slide", title: "Slides - Redes e Comunicação" },
-              { id: "fsi-c-16", type: "quiz", title: "Quiz - Redes e Comunicação" },
+              { id: "fsi-c-16", type: "quiz",  title: "Quiz - Redes e Comunicação" },
             ],
           },
         ],
@@ -315,16 +323,18 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "fsi-c-17", type: "audio", title: "Áudio - Segurança" },
               { id: "fsi-c-18", type: "slide", title: "Slides - Segurança" },
-              { id: "fsi-c-19", type: "quiz", title: "Quiz - Segurança" },
+              { id: "fsi-c-19", type: "quiz",  title: "Quiz - Segurança" },
             ],
           },
         ],
       },
     ],
   },
+
+  // ── 1º Ano · 2º Semestre · IGF ──────────────────────────────
   {
     id: "contabilidade-geral",
-    title: "Contabilidade Geral",
+    title: "Contabilidade Geral I",
     professor: "Prof. Sofia Neto",
     progress: 0,
     lessonCount: 10,
@@ -346,7 +356,7 @@ export const mockDisciplines: Discipline[] = [
             contents: [
               { id: "cont-c-01", type: "audio", title: "Áudio - Património" },
               { id: "cont-c-02", type: "slide", title: "Slides - Património" },
-              { id: "cont-c-03", type: "quiz", title: "Quiz - Património" },
+              { id: "cont-c-03", type: "quiz",  title: "Quiz - Património" },
             ],
           },
         ],
@@ -354,38 +364,30 @@ export const mockDisciplines: Discipline[] = [
     ],
   },
   {
-    id: "redes-computadores",
-    title: "Redes de Computadores",
-    professor: "Prof. Rui Ferreira",
+    id: "ingles-ii",
+    title: "Língua Inglesa II",
+    professor: "Prof. Ana Costa",
     progress: 0,
-    lessonCount: 9,
-    icon: "computer",
-    coverUrl: "/disciplines/redes.jpg",
-    href: "/disciplinas/redes-computadores",
+    lessonCount: 13,
+    icon: "book",
+    coverUrl: "/disciplines/ingles.jpg",
+    href: "/disciplinas/ingles-ii",
     year: "1º Ano",
     semester: "2º Semestre",
     course: "Informática de Gestão Financeira",
     chapters: [
       {
-        id: "redes-cap-01",
-        title: "Capítulo 01: Fundamentos de Redes",
+        id: "ingles2-cap-01",
+        title: "Capítulo 01: Business Communication",
         status: "Não concluído",
         topics: [
           {
-            id: "redes-top-01",
-            title: "Topologias de Rede",
+            id: "ingles2-top-01",
+            title: "Formal Emails",
             contents: [
-              { id: "redes-c-01", type: "audio", title: "Áudio - Topologias" },
-              { id: "redes-c-02", type: "slide", title: "Slides - Topologias" },
-            ],
-          },
-          {
-            id: "redes-top-02",
-            title: "Protocolos de Comunicação",
-            contents: [
-              { id: "redes-c-03", type: "audio", title: "Áudio - Protocolos" },
-              { id: "redes-c-04", type: "slide", title: "Slides - Protocolos" },
-              { id: "redes-c-05", type: "quiz", title: "Quiz - Protocolos" },
+              { id: "ingles2-c-01", type: "audio", title: "Áudio - Formal Emails" },
+              { id: "ingles2-c-02", type: "slide", title: "Slides - Formal Emails" },
+              { id: "ingles2-c-03", type: "quiz",  title: "Quiz - Formal Emails" },
             ],
           },
         ],
@@ -393,67 +395,183 @@ export const mockDisciplines: Discipline[] = [
     ],
   },
   {
-    id: "base-dados",
-    title: "Base de Dados",
-    professor: "Prof. André Costa",
+    id: "intro-organizacoes",
+    title: "Introdução às Organizações e à Gestão",
+    professor: "Prof. Luís Rodrigues",
     progress: 0,
-    lessonCount: 14,
-    icon: "computer",
-    coverUrl: "/disciplines/base_dados.jpg",
-    href: "/disciplinas/base-dados",
-    year: "2º Ano",
-    semester: "1º Semestre",
+    lessonCount: 9,
+    icon: "communication",
+    coverUrl: "/disciplines/organizacoes.jpg",
+    href: "/disciplinas/intro-organizacoes",
+    year: "1º Ano",
+    semester: "2º Semestre",
     course: "Informática de Gestão Financeira",
     chapters: [
       {
-        id: "bd-cap-01",
-        title: "Capítulo 01: Modelação Relacional",
+        id: "org-cap-01",
+        title: "Capítulo 01: Conceito de Organização",
         status: "Não concluído",
         topics: [
           {
-            id: "bd-top-01",
-            title: "Tabelas e Relacionamentos",
+            id: "org-top-01",
+            title: "Tipos de Organizações",
             contents: [
-              { id: "bd-c-01", type: "audio", title: "Áudio - Tabelas" },
-              { id: "bd-c-02", type: "slide", title: "Slides - Tabelas" },
-              { id: "bd-c-03", type: "quiz", title: "Quiz - Tabelas" },
-            ],
-          },
-          {
-            id: "bd-top-02",
-            title: "Chaves Primárias e Estrangeiras",
-            contents: [
-              { id: "bd-c-04", type: "audio", title: "Áudio - Chaves" },
-              { id: "bd-c-05", type: "slide", title: "Slides - Chaves" },
-            ],
-          },
-          {
-            id: "bd-top-03",
-            title: "Normalização",
-            contents: [
-              { id: "bd-c-06", type: "audio", title: "Áudio - Normalização" },
-              { id: "bd-c-07", type: "slide", title: "Slides - Normalização" },
-              { id: "bd-c-08", type: "quiz", title: "Quiz - Normalização" },
+              { id: "org-c-01", type: "audio", title: "Áudio - Tipos de Organizações" },
+              { id: "org-c-02", type: "slide", title: "Slides - Tipos de Organizações" },
             ],
           },
         ],
       },
     ],
   },
+  {
+    id: "arquitetura-computadores",
+    title: "Arquitetura de Computadores",
+    professor: "Prof. Filipe Nunes",
+    progress: 0,
+    lessonCount: 10,
+    icon: "computer",
+    coverUrl: "/disciplines/arquitetura.jpg",
+    href: "/disciplinas/arquitetura-computadores",
+    year: "1º Ano",
+    semester: "2º Semestre",
+    course: "Informática de Gestão Financeira",
+    chapters: [
+      {
+        id: "arq-cap-01",
+        title: "Capítulo 01: Arquitectura Von Neumann",
+        status: "Não concluído",
+        topics: [
+          {
+            id: "arq-top-01",
+            title: "CPU e Memória",
+            contents: [
+              { id: "arq-c-01", type: "audio", title: "Áudio - CPU e Memória" },
+              { id: "arq-c-02", type: "slide", title: "Slides - CPU e Memória" },
+              { id: "arq-c-03", type: "quiz",  title: "Quiz - CPU e Memória" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: "matematica-ii",
+    title: "Matemática II",
+    professor: "Prof. João Silva",
+    progress: 0,
+    lessonCount: 8,
+    icon: "calculator",
+    coverUrl: "/disciplines/matematica.jpg",
+    href: "/disciplinas/matematica-ii",
+    year: "1º Ano",
+    semester: "2º Semestre",
+    course: "Informática de Gestão Financeira",
+    chapters: [
+      {
+        id: "mat2-cap-01",
+        title: "Capítulo 01: Cálculo Diferencial",
+        status: "Não concluído",
+        topics: [
+          {
+            id: "mat2-top-01",
+            title: "Derivadas",
+            contents: [
+              { id: "mat2-c-01", type: "audio", title: "Áudio - Derivadas" },
+              { id: "mat2-c-02", type: "slide", title: "Slides - Derivadas" },
+              { id: "mat2-c-03", type: "quiz",  title: "Quiz - Derivadas" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── 2º Ano · 1º Semestre · IGF ──────────────────────────────
+  {
+    id: "contabilidade-geral-ii",
+    title: "Contabilidade Geral II",
+    professor: "Prof. Sofia Neto",
+    progress: 0,
+    lessonCount: 10,
+    icon: "calculator",
+    coverUrl: "/disciplines/contabilidade.jpg",
+    href: "/disciplinas/contabilidade-geral-ii",
+    year: "2º Ano",
+    semester: "1º Semestre",
+    course: "Informática de Gestão Financeira",
+    chapters: [],
+  },
+  {
+    id: "programacao-i",
+    title: "Programação I",
+    professor: "Prof. André Costa",
+    progress: 0,
+    lessonCount: 14,
+    icon: "computer",
+    coverUrl: "/disciplines/programacao.jpg",
+    href: "/disciplinas/programacao-i",
+    year: "2º Ano",
+    semester: "1º Semestre",
+    course: "Informática de Gestão Financeira",
+    chapters: [],
+  },
+  {
+    id: "sistemas-digitais",
+    title: "Sistemas Digitais",
+    professor: "Prof. Filipe Nunes",
+    progress: 0,
+    lessonCount: 12,
+    icon: "computer",
+    coverUrl: "/disciplines/sistemas_digitais.jpg",
+    href: "/disciplinas/sistemas-digitais",
+    year: "2º Ano",
+    semester: "1º Semestre",
+    course: "Informática de Gestão Financeira",
+    chapters: [],
+  },
+  {
+    id: "calculo-operacoes-financeiras",
+    title: "Cálculo e Operações Financeiras",
+    professor: "Prof. Sofia Neto",
+    progress: 0,
+    lessonCount: 11,
+    icon: "calculator",
+    coverUrl: "/disciplines/financas.jpg",
+    href: "/disciplinas/calculo-operacoes-financeiras",
+    year: "2º Ano",
+    semester: "1º Semestre",
+    course: "Informática de Gestão Financeira",
+    chapters: [],
+  },
+  {
+    id: "introducao-economia",
+    title: "Introdução à Economia",
+    professor: "Prof. Luís Rodrigues",
+    progress: 0,
+    lessonCount: 9,
+    icon: "book",
+    coverUrl: "/disciplines/economia.jpg",
+    href: "/disciplinas/introducao-economia",
+    year: "2º Ano",
+    semester: "1º Semestre",
+    course: "Informática de Gestão Financeira",
+    chapters: [],
+  },
 ];
 
-// -------------------------------------------------------
-// Utilitários
-// -------------------------------------------------------
+/* ================================================================
+   UTILITÁRIOS
+   ================================================================ */
 
 /**
- * Devolve apenas as disciplinas do ano, semestre e curso do utilizador.
- * Quando ligarmos ao Firebase, substituímos esta função por uma query ao Firestore.
+ * Devolve as disciplinas do ano, semestre e curso do utilizador.
+ * Fase 3: substituir por query Supabase.
  */
 export function getDisciplinesForUser(
-  year: string,
+  year:     string,
   semester: string,
-  course: string
+  course:   string
 ): Discipline[] {
   return mockDisciplines.filter(
     (d) => d.year === year && d.semester === semester && d.course === course
@@ -461,11 +579,10 @@ export function getDisciplinesForUser(
 }
 
 export function getDisciplineById(id: string): Discipline | undefined {
-  return mockDisciplines.find((discipline) => discipline.id === id);
+  return mockDisciplines.find((d) => d.id === id);
 }
 
 /**
- * Gera abreviação do curso a partir das palavras com mais de 3 letras.
  * "Informática de Gestão Financeira" → "IGF"
  */
 export function getCourseAbbreviation(course: string): string {

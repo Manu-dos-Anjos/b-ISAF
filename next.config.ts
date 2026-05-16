@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  // necessário para usar pdf-parse no server action
+  serverExternalPackages: ["pdf-parse"],
 };
 
 export default nextConfig;

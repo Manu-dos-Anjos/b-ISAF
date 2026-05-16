@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Trophy, Calendar } from "lucide-react";
+import { Trophy, Calendar, CheckCircle2, XCircle } from "lucide-react";
 
 type QuizCardProps = {
   id: string | number;
@@ -13,8 +13,33 @@ type QuizCardProps = {
   thumbnail: string;
 };
 
+function getScorePalette(pct: number) {
+  if (pct >= 80)
+    return {
+      bar:    "from-emerald-400 to-teal-400",
+      label:  "text-emerald-600 dark:text-emerald-400",
+      bg:     "bg-emerald-50 dark:bg-emerald-500/10",
+      icon:   <CheckCircle2 size={14} className="text-emerald-500" />,
+      status: "Aprovado",
+    };
+  if (pct >= 50)
+    return {
+      bar:    "from-amber-400 to-orange-400",
+      label:  "text-amber-600 dark:text-amber-400",
+      bg:     "bg-amber-50 dark:bg-amber-500/10",
+      icon:   <CheckCircle2 size={14} className="text-amber-500" />,
+      status: "Regular",
+    };
+  return {
+    bar:    "from-rose-400 to-pink-400",
+    label:  "text-rose-600 dark:text-rose-400",
+    bg:     "bg-rose-50 dark:bg-rose-500/10",
+    icon:   <XCircle size={14} className="text-rose-500" />,
+    status: "Reprovado",
+  };
+}
+
 export default function QuizCard({
-  id,
   disciplina,
   tituloQuiz,
   pontuacao,
@@ -23,59 +48,93 @@ export default function QuizCard({
   thumbnail,
 }: QuizCardProps) {
   const percentual = Math.round((pontuacao / totalPerguntas) * 100);
+  const palette    = getScorePalette(percentual);
 
   return (
-    <div className="group relative w-[280px] flex-shrink-0 overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col">
-      
-      {/* Imagem */}
-      <div className="relative h-40 overflow-hidden">
+    <div className="group relative w-[272px] flex-shrink-0 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:hover:border-white/20 dark:hover:shadow-none">
+
+      {/* ── Capa ── */}
+      <div className="relative h-36 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5">
         <Image
           src={thumbnail}
           alt={tituloQuiz}
           fill
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          sizes="272px"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
 
-        <div className="absolute top-4 right-4 bg-emerald-600 text-white font-bold text-2xl w-14 h-14 flex items-center justify-center rounded-2xl shadow-lg ring-4 ring-white dark:ring-slate-900">
-          {percentual}
-          <span className="text-sm font-normal align-super">%</span>
+        {/* Véu */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+
+        {/* Badge percentual — vidro escuro */}
+        <div className="absolute right-3 top-3">
+          <div className="flex items-center justify-center rounded-xl px-3 py-1.5 bg-black/40 backdrop-blur-md ring-1 ring-white/20 shadow-lg">
+            <span className="text-xl font-extrabold leading-none text-white tracking-tight">
+              {percentual}
+              <span className="text-sm font-semibold text-white/70">%</span>
+            </span>
+          </div>
+        </div>
+
+        {/* ── Label disciplina — mesmo estilo vidro escuro ── */}
+        <div className="absolute left-3 bottom-3 right-16">
+          <span className="inline-block rounded-xl bg-black/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur-md ring-1 ring-white/20 shadow-lg truncate max-w-full">
+            {disciplina}
+          </span>
         </div>
       </div>
 
-      {/* Conteúdo com alinhamento fixo da barra */}
-      <div className="p-4 flex flex-col flex-1">
-        <p className="text-xs uppercase tracking-widest text-violet-600 dark:text-violet-400 font-medium">
-          {disciplina}
-        </p>
+      {/* ── Corpo ── */}
+      <div className="flex flex-1 flex-col gap-3 p-4">
 
-        <h3 className="font-semibold leading-tight line-clamp-2 min-h-[2.5rem] mt-1 mb-4 text-gray-900 dark:text-white">
+        {/* Título */}
+        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug text-slate-800 dark:text-white">
           {tituloQuiz}
         </h3>
 
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-            <Trophy size={18} />
-            <span className="font-semibold">
-              {pontuacao} / {totalPerguntas}
+        {/* Pontuação + status + data */}
+        <div className="flex items-center justify-between">
+          <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 ${palette.bg}`}>
+            <Trophy size={13} className={palette.label} />
+            <span className={`text-xs font-bold ${palette.label}`}>
+              {pontuacao}
+              <span className="font-normal opacity-60"> / {totalPerguntas}</span>
             </span>
           </div>
 
-          {dataConclusao && (
-            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-              <Calendar size={14} />
-              <span>{dataConclusao}</span>
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1">
+              {palette.icon}
+              <span className={`text-[11px] font-semibold ${palette.label}`}>
+                {palette.status}
+              </span>
             </div>
-          )}
+            {dataConclusao && (
+              <div className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
+                <Calendar size={10} />
+                <span>{dataConclusao}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Barra de progresso sempre alinhada no fundo */}
-        <div className="mt-auto h-1.5 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-            style={{ width: `${percentual}%` }}
-          />
+        {/* Separador */}
+        <div className="h-px bg-slate-100 dark:bg-white/5" />
+
+        {/* Barra de progresso */}
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-[10px] text-slate-400 dark:text-slate-500">Desempenho</p>
+            <p className={`text-[10px] font-semibold ${palette.label}`}>{percentual}%</p>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r ${palette.bar} transition-all duration-500`}
+              style={{ width: `${percentual}%` }}
+            />
+          </div>
         </div>
+
       </div>
     </div>
   );
