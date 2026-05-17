@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useUser } from "@/app/lib/context/UserContext";
 import { getDisciplinesForUser, getCourseAbbreviation } from "@/app/lib/mockData";
-import DisciplineCard, { type DisciplineScheduleInfo } from "@/app/disciplinas/DisciplineCard";
+import DisciplineCard, { type DisciplineScheduleInfo } from "./DisciplineCard";
 
 /* ================================================================
    TIPO LOCAL (evita dependência circular com MeuCursoPage)
