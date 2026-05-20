@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   Eye,
@@ -24,11 +24,12 @@ const STATS = [
   { icon: Users,         value: "3 000+", label: "Estudantes activos"    },
   { icon: BookOpen,      value: "38",     label: "Disciplinas"            },
   { icon: GraduationCap, value: "3",      label: "Cursos de licenciatura" },
-  { icon: Award,         value: "15+",    label: "Anos de experiência"    },
+  { icon: Award,         value: "10+",    label: "Anos de experiência"    },
 ];
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { supabase } = useSupabase();
 
   const [mode,     setMode]     = useState<Mode>("login");
@@ -46,22 +47,27 @@ export default function LoginPage() {
       return "O teu email ainda não foi confirmado. Verifica a caixa de entrada.";
     if (msg.includes("Too many requests"))
       return "Demasiadas tentativas. Aguarda alguns minutos.";
-    if (msg.includes("User not found"))
-      return "Não existe nenhuma conta com este email.";
-    return "Ocorreu um erro. Tenta novamente.";
+    if (msg.includes("Failed to fetch"))
+      return "Sem ligação ao servidor. Verifica a tua rede e tenta novamente.";
+    return `Erro: ${msg}`;
   }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.push("/");
+
+      // Redireciona para a rota original ou para a home
+      const next = searchParams.get("next") ?? "/";
+      router.push(next);
       router.refresh();
     } catch (err: unknown) {
-      setError(friendlyError(err instanceof Error ? err.message : "Erro desconhecido"));
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      setError(friendlyError(msg));
     } finally {
       setLoading(false);
     }
@@ -72,6 +78,7 @@ export default function LoginPage() {
     setError(null);
     setSuccess(null);
     setLoading(true);
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/login/nova-password`,
@@ -79,7 +86,8 @@ export default function LoginPage() {
       if (error) throw error;
       setSuccess("Email enviado! Verifica a tua caixa de entrada.");
     } catch (err: unknown) {
-      setError(friendlyError(err instanceof Error ? err.message : "Erro desconhecido"));
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      setError(friendlyError(msg));
     } finally {
       setLoading(false);
     }
@@ -208,7 +216,7 @@ export default function LoginPage() {
 
           {/* Rodapé coluna esquerda */}
           <div className="flex items-center justify-between border-t border-white/10 pt-6">
-            <p className="text-xs text-slate-500">© {new Date().getFullYear()} ISAF · Angola</p>
+            <p className="text-xs text-slate-500">© {new Date().getFullYear()} Manuel dos Anjos Quiconda João · ISAF · Angola</p>
             <div className="flex gap-4 text-xs text-slate-600">
               <span className="cursor-default transition hover:text-slate-400">Privacidade</span>
               <span className="cursor-default transition hover:text-slate-400">Termos</span>
@@ -285,7 +293,7 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="250438@isaf.co.ao"
+                    placeholder="xxxxxx@isaf.co.ao"
                     required
                     autoComplete="email"
                     className="h-12 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:bg-white/[0.07] focus:ring-2 focus:ring-blue-500/20"

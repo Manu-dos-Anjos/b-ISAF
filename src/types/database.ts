@@ -1,3 +1,4 @@
+
 // src/types/database.ts
 
 export type Json =
@@ -18,6 +19,7 @@ export interface Database {
           email:            string
           student_number:   string | null
           avatar_url:       string | null
+          bio:              string | null
           role:             "student" | "professor" | "admin" | "superadmin"
           course_id:        string | null
           current_year:     number
@@ -32,6 +34,7 @@ export interface Database {
           email:            string
           student_number?:  string | null
           avatar_url?:      string | null
+          bio?:             string | null
           role?:            "student" | "professor" | "admin" | "superadmin"
           course_id?:       string | null
           current_year?:    number
@@ -63,6 +66,21 @@ export interface Database {
         }
         Update: Partial<Database["public"]["Tables"]["courses"]["Insert"]>
       }
+      student_extra_disciplines: {
+        Row: {
+          id:            string
+          student_id:    string
+          discipline_id: string
+          added_at:      string
+        }
+        Insert: {
+          id?:           string
+          student_id:    string
+          discipline_id: string
+          added_at?:     string
+        }
+        Update: Partial<Database["public"]["Tables"]["student_extra_disciplines"]["Insert"]>
+      }
     }
     Views:     Record<string, never>
     Functions: Record<string, never>
@@ -73,17 +91,14 @@ export interface Database {
 /* ================================================================
    ALIASES DIRECTOS
    ================================================================ */
-
-export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
-export type Course  = Database["public"]["Tables"]["courses"]["Row"]
+export type Profile       = Database["public"]["Tables"]["profiles"]["Row"]
+export type Course        = Database["public"]["Tables"]["courses"]["Row"]
+export type ExtraDiscipline = Database["public"]["Tables"]["student_extra_disciplines"]["Row"]
 
 export type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"]
 export type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"]
 
 /* ================================================================
-   TIPOS COMPOSTOS (para joins)
+   TIPOS COMPOSTOS
    ================================================================ */
-
-export type ProfileWithCourse = Profile & {
-  courses: Course | null
-}
+export type ProfileWithCourse = Profile & { courses: Course | null }
