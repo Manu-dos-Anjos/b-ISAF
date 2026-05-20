@@ -20,12 +20,11 @@ import { useSupabase } from "@/app/lib/context/SupabaseContext";
 
 type Mode = "login" | "reset";
 
-/* ── Estatísticas decorativas ── */
 const STATS = [
-  { icon: Users,          value: "4 200+", label: "Estudantes activos"   },
-  { icon: BookOpen,       value: "38",     label: "Disciplinas"           },
-  { icon: GraduationCap,  value: "3",      label: "Cursos de licenciatura"},
-  { icon: Award,          value: "15+",    label: "Anos de experiência"   },
+  { icon: Users,         value: "3 000+", label: "Estudantes activos"    },
+  { icon: BookOpen,      value: "38",     label: "Disciplinas"            },
+  { icon: GraduationCap, value: "3",      label: "Cursos de licenciatura" },
+  { icon: Award,         value: "15+",    label: "Anos de experiência"    },
 ];
 
 export default function LoginPage() {
@@ -40,7 +39,6 @@ export default function LoginPage() {
   const [error,    setError]    = useState<string | null>(null);
   const [success,  setSuccess]  = useState<string | null>(null);
 
-  /* ── Mensagens de erro legíveis ── */
   function friendlyError(msg: string): string {
     if (msg.includes("Invalid login credentials"))
       return "Email ou password incorrectos. Verifica e tenta novamente.";
@@ -53,7 +51,6 @@ export default function LoginPage() {
     return "Ocorreu um erro. Tenta novamente.";
   }
 
-  /* ── Login ── */
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -64,14 +61,12 @@ export default function LoginPage() {
       router.push("/");
       router.refresh();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro desconhecido";
-      setError(friendlyError(msg));
+      setError(friendlyError(err instanceof Error ? err.message : "Erro desconhecido"));
     } finally {
       setLoading(false);
     }
   }
 
-  /* ── Recuperar password ── */
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -84,25 +79,66 @@ export default function LoginPage() {
       if (error) throw error;
       setSuccess("Email enviado! Verifica a tua caixa de entrada.");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro desconhecido";
-      setError(friendlyError(msg));
+      setError(friendlyError(err instanceof Error ? err.message : "Erro desconhecido"));
     } finally {
       setLoading(false);
     }
   }
 
-  /* ================================================================
-     RENDER
-     ================================================================ */
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="relative flex min-h-screen flex-col bg-slate-950 lg:flex-row">
 
       {/* ══════════════════════════════════════════════════════
-          COLUNA ESQUERDA — imagem + branding (só desktop)
+          FUNDO — visível em mobile (topo) e desktop (coluna esquerda)
       ══════════════════════════════════════════════════════ */}
-      <div className="relative hidden w-1/2 overflow-hidden lg:flex lg:flex-col">
 
-        {/* Imagem de fundo */}
+      {/* Mobile: banner de topo com imagem */}
+      <div className="relative h-56 w-full overflow-hidden sm:h-64 lg:hidden">
+        <Image
+          src="/images/login-bg.jpg"
+          alt="ISAF campus"
+          fill
+          priority
+          className="object-cover object-center"
+        />
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-950/80 via-slate-950/70 to-slate-950" />
+
+        {/* Padrão de pontos */}
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+
+        {/* Logo + título centrado sobre a imagem */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
+            <Image
+              src="/logo_dark.svg"
+              alt="b-ISAF"
+              width={36}
+              height={36}
+              className="h-9 w-9"
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">b-ISAF</h1>
+            <p className="mt-1 text-sm text-blue-300/80">Biblioteca Virtual · ISAF</p>
+          </div>
+
+          {/* Badge */}
+          <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-300 backdrop-blur-sm">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
+            Plataforma académica digital
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: coluna esquerda (50%) */}
+      <div className="relative hidden w-1/2 overflow-hidden lg:flex lg:flex-col">
         <Image
           src="/images/login-bg.jpg"
           alt="ISAF campus"
@@ -110,11 +146,7 @@ export default function LoginPage() {
           priority
           className="object-cover"
         />
-
-        {/* Overlay gradiente */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/90 via-slate-950/80 to-slate-950/95" />
-
-        {/* Padrão de pontos decorativo */}
         <div
           className="absolute inset-0 opacity-[0.07]"
           style={{
@@ -123,19 +155,11 @@ export default function LoginPage() {
           }}
         />
 
-        {/* Conteúdo sobre a imagem */}
         <div className="relative z-10 flex flex-1 flex-col justify-between p-10 xl:p-14">
-
           {/* Logo topo */}
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
-              <Image
-                src="/logo_dark.svg"
-                alt="b-ISAF"
-                width={28}
-                height={28}
-                className="h-7 w-7"
-              />
+              <Image src="/logo_dark.svg" alt="b-ISAF" width={28} height={28} className="h-7 w-7" />
             </div>
             <div>
               <p className="text-base font-bold tracking-tight text-white">b-ISAF</p>
@@ -148,7 +172,7 @@ export default function LoginPage() {
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-blue-300 backdrop-blur-sm">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
-                Plataforma de e-learning
+                Biblioteca Virtual - ISAF
               </div>
               <h2 className="text-4xl font-bold leading-tight tracking-tight text-white xl:text-5xl">
                 O teu percurso
@@ -182,15 +206,13 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Rodapé da coluna esquerda */}
+          {/* Rodapé coluna esquerda */}
           <div className="flex items-center justify-between border-t border-white/10 pt-6">
-            <p className="text-xs text-slate-500">
-              © {new Date().getFullYear()} ISAF · Angola
-            </p>
+            <p className="text-xs text-slate-500">© {new Date().getFullYear()} ISAF · Angola</p>
             <div className="flex gap-4 text-xs text-slate-600">
-              <span className="cursor-default hover:text-slate-400 transition">Privacidade</span>
-              <span className="cursor-default hover:text-slate-400 transition">Termos</span>
-              <span className="cursor-default hover:text-slate-400 transition">Suporte</span>
+              <span className="cursor-default transition hover:text-slate-400">Privacidade</span>
+              <span className="cursor-default transition hover:text-slate-400">Termos</span>
+              <span className="cursor-default transition hover:text-slate-400">Suporte</span>
             </div>
           </div>
         </div>
@@ -199,32 +221,33 @@ export default function LoginPage() {
       {/* ══════════════════════════════════════════════════════
           COLUNA DIREITA — formulário
       ══════════════════════════════════════════════════════ */}
-      <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 lg:px-8 xl:px-16">
+      <div className="flex flex-1 flex-col items-center justify-start px-4 pb-12 pt-8 sm:justify-center sm:py-12 lg:justify-center lg:px-8 xl:px-16">
 
-        {/* Logo mobile (só aparece em ecrãs pequenos) */}
-        <div className="mb-8 flex flex-col items-center gap-3 text-center lg:hidden">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 ring-1 ring-white/10">
-            <Image
-              src="/logo_dark.svg"
-              alt="b-ISAF"
-              width={36}
-              height={36}
-              className="h-9 w-9"
-            />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">b-ISAF</h1>
-            <p className="mt-1 text-sm text-slate-400">Plataforma académica do ISAF</p>
-          </div>
+        {/* Stats mobile — abaixo da imagem, acima do formulário */}
+        <div className="mb-6 grid w-full max-w-md grid-cols-2 gap-2 lg:hidden">
+          {STATS.map(({ icon: Icon, value, label }) => (
+            <div
+              key={label}
+              className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10 text-blue-300">
+                <Icon size={14} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white leading-none">{value}</p>
+                <p className="mt-0.5 truncate text-[10px] text-slate-500">{label}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Caixa do formulário */}
+        {/* Formulário */}
         <div className="w-full max-w-md">
 
-          {/* Título do formulário */}
-          <div className="mb-8">
+          {/* Título */}
+          <div className="mb-6">
             <h2 className="text-2xl font-bold tracking-tight text-white">
-              {mode === "login" ? "Bem-vindo de volta" : "Recuperar password"}
+              {mode === "login" ? "Bem-vindo!" : "Recuperar password"}
             </h2>
             <p className="mt-2 text-sm text-slate-400">
               {mode === "login"
@@ -234,9 +257,8 @@ export default function LoginPage() {
           </div>
 
           {/* Card */}
-          <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-7 shadow-2xl shadow-black/40 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/40 backdrop-blur-sm sm:p-7">
 
-            {/* Alerta de erro */}
             {error && (
               <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
                 <AlertCircle size={15} className="mt-0.5 shrink-0" />
@@ -244,17 +266,13 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Sucesso (reset) */}
             {success && (
               <div className="mb-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
                 {success}
               </div>
             )}
 
-            <form
-              onSubmit={mode === "login" ? handleLogin : handleReset}
-              className="space-y-5"
-            >
+            <form onSubmit={mode === "login" ? handleLogin : handleReset} className="space-y-5">
 
               {/* Email */}
               <div>
@@ -262,10 +280,7 @@ export default function LoginPage() {
                   Email institucional
                 </label>
                 <div className="relative">
-                  <Mail
-                    size={15}
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-                  />
+                  <Mail size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     type="email"
                     value={email}
@@ -278,7 +293,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Password — só no modo login */}
+              {/* Password */}
               {mode === "login" && (
                 <div>
                   <div className="mb-2 flex items-center justify-between">
@@ -294,10 +309,7 @@ export default function LoginPage() {
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock
-                      size={15}
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-                    />
+                    <Lock size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type={showPass ? "text" : "password"}
                       value={password}
@@ -319,17 +331,14 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Botão principal */}
+              {/* Botão */}
               <button
                 type="submit"
                 disabled={loading}
-                className="relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>A processar…</span>
-                  </>
+                  <><Loader2 size={16} className="animate-spin" /><span>A processar…</span></>
                 ) : mode === "login" ? (
                   "Entrar na plataforma"
                 ) : (
@@ -339,7 +348,7 @@ export default function LoginPage() {
             </form>
           </div>
 
-          {/* Link voltar ao login (modo reset) */}
+          {/* Voltar ao login */}
           {mode === "reset" && (
             <div className="mt-5 text-center">
               <button
@@ -352,8 +361,8 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Rodapé mobile */}
-          <p className="mt-8 text-center text-xs text-slate-600 lg:hidden">
+          {/* Rodapé */}
+          <p className="mt-8 text-center text-xs text-slate-600">
             Instituto Superior de Administração e Finanças · Angola
           </p>
         </div>
