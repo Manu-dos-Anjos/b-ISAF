@@ -6,8 +6,9 @@ import {
   useMemo,
   useRef,
   useEffect,
-  useActionState,
   type ElementType,
+  type ComponentType,
+  type ReactNode,
 } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
@@ -16,7 +17,6 @@ import {
   ChevronDown,
   X,
   GraduationCap,
-  Clock,
   Calendar,
   RefreshCw,
   FileText,
@@ -30,13 +30,10 @@ import {
   MapPin,
   Headphones,
   PresentationIcon,
-  Upload,
   Plus,
-  Trash2,
   Loader2,
   Edit3,
 } from "lucide-react";
-import { parseHorarioPDF, type ParsedSlot } from "@/app/actions/parseHorario";
 
 /* ================================================================
    TIPOS
@@ -138,7 +135,7 @@ const DISCIPLINE_SLUGS: Record<string, string> = {
   "igf-1-1-cpe": "comunicacao-pessoal-e-empresarial",
   "igf-1-1-li1": "lingua-inglesa-i",
   "igf-1-1-mi": "metodologias-de-investigacao-cientifica",
-  "igf-1-1-fsi": "fundamentos-de-sistemas-da-informacao",
+  "igf-1-1-fsi": "fundamentos-de-sistemas-de-informacao",
   "igf-1-1-mat1": "matematica-i",
   "igf-1-2-cg1": "contabilidade-geral-i",
   "igf-1-2-li2": "lingua-inglesa-ii",
@@ -175,6 +172,7 @@ const DISCIPLINE_SLUGS: Record<string, string> = {
   "igf-4-2-md": "marketing-digital",
   "igf-4-2-grh": "gestao-de-recursos-humanos",
   "igf-4-2-tfc": "trabalho-final-de-curso",
+
   "cf-1-1-cpe": "comunicacao-pessoal-e-empresarial",
   "cf-1-1-li1": "lingua-inglesa-i",
   "cf-1-1-mi": "metodologias-de-investigacao-cientifica",
@@ -215,12 +213,12 @@ const DISCIPLINE_SLUGS: Record<string, string> = {
   "cf-4-2-eci": "economia-e-comercio-internacionais",
   "cf-4-2-scg": "sistemas-de-controlo-de-gestao",
   "cf-4-2-tfc": "trabalho-final-de-curso",
+
   "gbs-1-1-cpe": "comunicacao-pessoal-e-empresarial",
   "gbs-1-1-li1": "lingua-inglesa-i",
   "gbs-1-1-mi": "metodologias-de-investigacao-cientifica",
   "gbs-1-1-ii": "introducao-a-informatica",
   "gbs-1-1-mat1": "matematica-i",
-  "gbs-1-2-cpe": "comunicacao-pessoal-e-empresarial",
   "gbs-1-2-li2": "lingua-inglesa-ii",
   "gbs-1-2-iog": "introducao-as-organizacoes-e-a-gestao",
   "gbs-1-2-cg1": "contabilidade-geral-i",
@@ -279,7 +277,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
               { id: "igf-1-1-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
               { id: "igf-1-1-li1", name: "Inglês I" },
               { id: "igf-1-1-mi", name: "Metodologias de Investigação Científica" },
-              { id: "igf-1-1-fsi", name: "Fundamentos de Sistemas da Informação" },
+              { id: "igf-1-1-fsi", name: "Fundamentos de Sistemas de Informação" },
               { id: "igf-1-1-mat1", name: "Matemática I" },
             ],
           },
@@ -379,6 +377,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
       },
     ],
   },
+
   "contabilidade-financas": {
     id: "contabilidade-financas",
     name: "Contabilidade e Finanças",
@@ -493,6 +492,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
       },
     ],
   },
+
   "gestao-bancaria-seguros": {
     id: "gestao-bancaria-seguros",
     name: "Gestão Bancária & Seguros",
@@ -515,7 +515,6 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "gbs-1-2-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
               { id: "gbs-1-2-li2", name: "Inglês II" },
               { id: "gbs-1-2-iog", name: "Introdução às Organizações e à Gestão" },
               { id: "gbs-1-2-cg1", name: "Contabilidade Geral I" },
@@ -802,7 +801,7 @@ function getActivePeriods(mySchedule: WeeklySlot[]): FixedPeriod[] {
    TABS
 ================================================================ */
 type Tab = "curriculo" | "horario" | "mudanca";
-type ScheduleMode = "view" | "upload" | "manual";
+type ScheduleMode = "view" | "manual";
 
 /* ================================================================
    COMPONENTE PRINCIPAL
@@ -814,6 +813,14 @@ type Props = {
   studentName: string;
   studentNumber?: string | null;
 };
+
+type GridCell = {
+  disciplineId: string;
+  room: string;
+  professor: string;
+  type: WeeklySlot["type"];
+};
+type GridKey = string;
 
 export default function MeuCursoPage({
   courseId = "informatica-gestao-financeira",
@@ -828,7 +835,8 @@ export default function MeuCursoPage({
   const searchParams = useSearchParams();
 
   const tabFromUrl = (searchParams.get("tab") as Tab) ?? "curriculo";
-  const modeFromUrl = (searchParams.get("mode") as ScheduleMode) ?? "view";
+  const modeParam = searchParams.get("mode");
+  const modeFromUrl: ScheduleMode = modeParam === "manual" ? "manual" : "view";
 
   const [activeTab, setActiveTabState] = useState<Tab>(tabFromUrl);
   const [scheduleMode, setScheduleModeState] = useState<ScheduleMode>(modeFromUrl);
@@ -852,29 +860,10 @@ export default function MeuCursoPage({
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([currentYear]));
 
   const [mySchedule, setMySchedule] = useState<WeeklySlot[]>([]);
-  const [pendingSlots, setPendingSlots] = useState<ParsedSlot[] | null>(null);
-
-  // ── Grid state for manual editor ──────────────────────────────
-  type GridCell = {
-    disciplineId: string;
-    room: string;
-    professor: string;
-    type: WeeklySlot["type"];
-  };
-  type GridKey = string; // "Segunda|07:30-08:20"
-
   const [manualGrid, setManualGrid] = useState<Record<GridKey, GridCell>>({});
   const [globalRoom, setGlobalRoom] = useState<string>("S.03");
   const [manualPeriodGroup, setManualPeriodGroup] = useState<FixedPeriod["group"]>("tarde");
   const [saving, setSaving] = useState(false);
-
-  const [actionState, formAction, isPending] = useActionState(parseHorarioPDF, null);
-
-  useEffect(() => {
-    if (actionState?.success && actionState.slots) {
-      setPendingSlots(actionState.slots);
-    }
-  }, [actionState]);
 
   const disciplinePanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -955,23 +944,6 @@ export default function MeuCursoPage({
       ? getDisciplineSlug(slot.disciplineSlug)
       : resolveDisciplineSlugFromScheduleName(slot.discipline, course);
     if (resolved) router.push(`/disciplinas/${resolved}`);
-  };
-
-  const confirmParsedSlots = () => {
-    if (!pendingSlots) return;
-    const asWeeklySlots: WeeklySlot[] = pendingSlots.map((s) => ({
-      id: s.id,
-      day: s.day,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      discipline: s.discipline,
-      room: s.room,
-      professor: s.professor,
-      type: s.type,
-    }));
-    setMySchedule(asWeeklySlots);
-    setPendingSlots(null);
-    setScheduleMode("view");
   };
 
   // ── Grid helpers ───────────────────────────────────────────────
@@ -1061,6 +1033,36 @@ export default function MeuCursoPage({
 
   const activePeriods = useMemo(() => getActivePeriods(mySchedule), [mySchedule]);
 
+  const applyBlockToGrid = (
+  day: string,
+  periodKey: string,
+  cell: GridCell,
+  length: number
+) => {
+  const startIndex = filteredPeriods.findIndex((p) => p.key === periodKey);
+  if (startIndex < 0) return;
+
+  setManualGrid((prev) => {
+    const next = { ...prev };
+
+    for (let i = 0; i < length; i++) {
+      const period = filteredPeriods[startIndex + i];
+      if (!period) break;
+
+      const key: GridKey = `${day}|${period.key}`;
+
+      next[key] = {
+        disciplineId: cell.disciplineId,
+        room: cell.room || globalRoom,
+        professor: cell.professor,
+        type: cell.type,
+      };
+    }
+
+    return next;
+  });
+};
+
   const scheduleProfessors = useMemo(() => {
     const map = new Map<string, { discipline: string; professor: string; room?: string }>();
     for (const slot of mySchedule) {
@@ -1085,10 +1087,7 @@ export default function MeuCursoPage({
     (c) => c.disciplineId
   ).length;
 
-  /* ── SELECT STYLES ─────────────────────────────────────────────
-     Reutilizável: fundo escuro sólido, texto branco, borda visível,
-     seta nativa oculta e substituída por ícone posicionado.
-  ──────────────────────────────────────────────────────────────── */
+  /* ── SELECT STYLES ───────────────────────────────────────────── */
   const selectBase =
     "w-full appearance-none rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-slate-100 " +
     "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 " +
@@ -1098,12 +1097,11 @@ export default function MeuCursoPage({
     "w-full appearance-none rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 " +
     "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition";
 
-  /* Wrapper que adiciona a seta */
   const SelectWrap = ({
     children,
     className = "",
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     className?: string;
   }) => (
     <div className={`relative ${className}`}>
@@ -1389,7 +1387,6 @@ export default function MeuCursoPage({
       ══════════════════════════════════════════ */}
       {activeTab === "horario" && (
         <div className="space-y-4">
-          {/* ── VIEW ── */}
           {scheduleMode === "view" && (
             <>
               {mySchedule.length === 0 ? (
@@ -1399,35 +1396,23 @@ export default function MeuCursoPage({
                     Ainda não tens horário configurado
                   </p>
                   <p className="mt-1 text-sm text-slate-500">
-                    Importa o teu horário em PDF ou preenche manualmente
+                    Preenche o teu horário manualmente
                   </p>
-                  <div className="mt-6 flex flex-wrap justify-center gap-3">
-                    <button
-                      onClick={() => setScheduleMode("upload")}
-                      className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
-                    >
-                      <Upload size={16} /> Importar PDF
-                    </button>
+                  <div className="mt-6 flex justify-center">
                     <button
                       onClick={() => {
                         setManualGrid({});
                         setScheduleMode("manual");
                       }}
-                      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+                      className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
                     >
-                      <Plus size={16} /> Preencher manual
+                      <Plus size={16} /> Criar horário manualmente
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setScheduleMode("upload")}
-                      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-                    >
-                      <Upload size={14} /> Reimportar PDF
-                    </button>
                     <button
                       onClick={() => {
                         const newGrid: Record<GridKey, GridCell> = {};
@@ -1461,7 +1446,6 @@ export default function MeuCursoPage({
                     </span>
                   </div>
 
-                  {/* Tabela */}
                   <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
                     <div className="border-b border-white/10 px-4 py-4">
                       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1568,19 +1552,18 @@ export default function MeuCursoPage({
                     </div>
                   </div>
 
-                  {/* Legenda tipos */}
                   <div className="flex flex-wrap gap-3 text-[11px]">
-                    {(
-                      Object.entries(TYPE_COLORS) as [WeeklySlot["type"], string][]
-                    ).map(([type, cls]) => (
-                      <span
-                        key={type}
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${cls}`}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        {type}
-                      </span>
-                    ))}
+                    {(Object.entries(TYPE_COLORS) as [WeeklySlot["type"], string][]).map(
+                      ([type, cls]) => (
+                        <span
+                          key={type}
+                          className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${cls}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {type}
+                        </span>
+                      )
+                    )}
                   </div>
 
                   {scheduleProfessors.length > 0 && (
@@ -1611,129 +1594,6 @@ export default function MeuCursoPage({
             </>
           )}
 
-          {/* ── UPLOAD ── */}
-          {scheduleMode === "upload" && (
-            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Importar Horário</h2>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Seleciona o PDF do teu horário — o texto é extraído automaticamente
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setScheduleMode("view");
-                    setPendingSlots(null);
-                  }}
-                  className="text-sm text-slate-400 hover:text-white"
-                >
-                  Cancelar
-                </button>
-              </div>
-
-              <form action={formAction} className="space-y-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <div className="flex-1">
-                    <label className="mb-1.5 block text-sm font-medium text-slate-300">
-                      Ficheiro PDF
-                    </label>
-                    <input
-                      type="file"
-                      name="file"
-                      accept=".pdf"
-                      required
-                      className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-slate-300 file:mr-4 file:rounded file:border-0 file:bg-indigo-600 file:px-3 file:py-1 file:text-xs file:font-medium file:text-white hover:file:bg-indigo-500"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="flex shrink-0 items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isPending ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" /> A processar...
-                      </>
-                    ) : (
-                      <>
-                        <Upload size={16} /> Extrair horário
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-
-              {actionState && !isPending && (
-                <div
-                  className={`mt-4 rounded-xl border p-4 ${
-                    actionState.success
-                      ? "border-emerald-500/20 bg-emerald-500/10"
-                      : "border-red-500/20 bg-red-500/10"
-                  }`}
-                >
-                  {actionState.success && pendingSlots ? (
-                    <>
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <CheckCircle2 size={18} />
-                        <p className="font-semibold">
-                          {pendingSlots.length} aulas extraídas com sucesso!
-                        </p>
-                      </div>
-                      <div className="mt-4 max-h-60 space-y-1.5 overflow-auto">
-                        {pendingSlots.map((slot, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs"
-                          >
-                            <span className="font-semibold text-slate-200">
-                              {slot.day} · {slot.startTime}–{slot.endTime}
-                            </span>
-                            <span className="ml-2 text-slate-400">{slot.discipline}</span>
-                            {slot.room && (
-                              <span className="ml-2 text-slate-500">· {slot.room}</span>
-                            )}
-                            {slot.type && (
-                              <span className="ml-2 rounded bg-indigo-500/20 px-1.5 py-0.5 text-[10px] text-indigo-300">
-                                {slot.type}
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={confirmParsedSlots}
-                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
-                      >
-                        <CheckCircle2 size={16} /> Confirmar e usar este horário
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2 text-red-400">
-                        <AlertCircle size={18} />
-                        <p className="font-semibold">Erro na extração</p>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-300">{actionState.error}</p>
-                      {actionState.extractedText && (
-                        <details className="mt-3">
-                          <summary className="cursor-pointer text-xs text-slate-500">
-                            Ver texto extraído
-                          </summary>
-                          <pre className="mt-2 max-h-48 overflow-auto rounded bg-black/30 p-3 text-[10px] text-slate-400">
-                            {actionState.extractedText}
-                          </pre>
-                        </details>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── MANUAL ── */}
           {scheduleMode === "manual" && (
             <ManualScheduleEditor
               currentYear={currentYear}
@@ -1752,7 +1612,8 @@ export default function MeuCursoPage({
               onGetCell={getGridCell}
               onGlobalRoomChange={handleGlobalRoomChange}
               onPeriodGroupChange={setManualPeriodGroup}
-              onSave={saveManual}
+              onApplyBlock={applyBlockToGrid}
+              onSave={saveManual}   
               onCancel={() => setScheduleMode("view")}
             />
           )}
@@ -1770,14 +1631,6 @@ export default function MeuCursoPage({
 /* ================================================================
    MANUAL SCHEDULE EDITOR
 ================================================================ */
-type GridCell = {
-  disciplineId: string;
-  room: string;
-  professor: string;
-  type: WeeklySlot["type"];
-};
-type GridKey = string;
-
 type ManualScheduleEditorProps = {
   currentYear: number;
   currentSemester: number;
@@ -1790,11 +1643,22 @@ type ManualScheduleEditorProps = {
   filledCellCount: number;
   selectBase: string;
   selectSm: string;
-  SelectWrap: React.ComponentType<{ children: React.ReactNode; className?: string }>;
-  onUpdateCell: (day: string, periodKey: string, field: keyof GridCell, value: string) => void;
+  SelectWrap: ComponentType<{ children: ReactNode; className?: string }>;
+  onUpdateCell: (
+    day: string,
+    periodKey: string,
+    field: keyof GridCell,
+    value: string
+  ) => void;
   onGetCell: (day: string, periodKey: string) => GridCell;
   onGlobalRoomChange: (room: string) => void;
   onPeriodGroupChange: (group: FixedPeriod["group"]) => void;
+  onApplyBlock: (
+    day: string,
+    periodKey: string,
+    cell: GridCell,
+    length: number
+  ) => void;
   onSave: () => void;
   onCancel: () => void;
 };
@@ -1809,29 +1673,71 @@ function ManualScheduleEditor({
   filteredPeriods,
   saving,
   filledCellCount,
-  selectBase,
+  selectBase: _selectBase,
   selectSm,
   SelectWrap,
   onUpdateCell,
   onGetCell,
   onGlobalRoomChange,
   onPeriodGroupChange,
+  onApplyBlock,
   onSave,
   onCancel,
 }: ManualScheduleEditorProps) {
   const hasAnyEntry = filledCellCount > 0;
 
-  // Track professor per discipline (applies to all cells of that discipline)
-  const [profMap, setProfMap] = useState<Record<string, string>>({});
+  // Bloco automático: 1, 2 ou 3 tempos
+  const [autoBlockSize, setAutoBlockSize] = useState<1 | 2 | 3>(1);
+
+  // Professor por disciplina
+  const [profMap, setProfMap] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const cell of Object.values(manualGrid)) {
+      if (cell.disciplineId && cell.professor && !initial[cell.disciplineId]) {
+        initial[cell.disciplineId] = cell.professor;
+      }
+    }
+    return initial;
+  });
 
   const setProfessor = (discId: string, val: string) => {
     setProfMap((prev) => ({ ...prev, [discId]: val }));
+
+    // actualiza todas as células dessa disciplina já preenchidas
     Object.entries(manualGrid)
       .filter(([, c]) => c.disciplineId === discId)
       .forEach(([key]) => {
         const [day, pk] = key.split("|");
         onUpdateCell(day, pk, "professor", val);
       });
+  };
+
+  const handleDisciplineChange = (
+    day: string,
+    periodKey: string,
+    disciplineId: string,
+    currentCell: GridCell
+  ) => {
+    if (!disciplineId) {
+      onUpdateCell(day, periodKey, "disciplineId", "");
+      return;
+    }
+
+    const nextCell: GridCell = {
+      disciplineId,
+      room: currentCell.room || globalRoom,
+      professor: profMap[disciplineId] ?? currentCell.professor ?? "",
+      type: currentCell.type || "Teórica",
+    };
+
+    // Aplica o bloco inteiro: 1, 2 ou 3 tempos
+    onApplyBlock(day, periodKey, nextCell, autoBlockSize);
+  };
+
+  const applyFromCurrentCell = (day: string, periodKey: string) => {
+    const cell = onGetCell(day, periodKey);
+    if (!cell.disciplineId) return;
+    onApplyBlock(day, periodKey, cell, autoBlockSize);
   };
 
   return (
@@ -1841,89 +1747,127 @@ function ManualScheduleEditor({
         <div>
           <h2 className="text-lg font-semibold text-white">Preenchimento Manual</h2>
           <p className="mt-0.5 text-xs text-slate-500">
-            {currentYear}º Ano · {currentSemester}º Semestre — seleciona a disciplina em
-            cada tempo
+            {currentYear}º Ano · {currentSemester}º Semestre — selecciona a disciplina em cada tempo
           </p>
         </div>
         <button
+          type="button"
           onClick={onCancel}
-          className="rounded-lg p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-300 transition"
+          className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
         >
           <X size={18} />
         </button>
       </div>
 
       {/* Global settings */}
-      <div className="border-b border-white/10 bg-white/[0.015] px-5 py-4">
-        <div className="flex flex-wrap items-end gap-4">
-          {/* Sala global */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Sala (padrão para todas as aulas)
-            </label>
-            <input
-              type="text"
-              value={globalRoom}
-              onChange={(e) => onGlobalRoomChange(e.target.value)}
-              placeholder="ex: S.03"
-              className="w-44 rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
-            />
-            <p className="text-[10px] text-slate-600">
-              Aplica-se a todas as células sem sala específica
-            </p>
-          </div>
+      {/* Global settings */}
+<div className="border-b border-white/10 bg-white/[0.015] px-5 py-4">
+  <div className="flex flex-wrap items-start gap-6">
+    
+    {/* Sala global */}
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        Sala (padrão para todas as aulas)
+      </label>
+      <input
+        type="text"
+        value={globalRoom}
+        onChange={(e) => onGlobalRoomChange(e.target.value)}
+        placeholder="ex: S.03"
+        className="w-36 rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+      />
+      <p className="text-[10px] text-slate-600">
+        Aplica-se a todas as células sem sala específica
+      </p>
+    </div>
 
-          {/* Turno */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Turno
-            </label>
-            <div className="flex gap-1">
-              {(
-                [
-                  { key: "manha", label: "Manhã" },
-                  { key: "tarde", label: "Tarde" },
-                  { key: "noite", label: "Noite" },
-                ] as { key: FixedPeriod["group"]; label: string }[]
-              ).map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onPeriodGroupChange(key)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-                    manualPeriodGroup === key
-                      ? "bg-indigo-600 text-white"
-                      : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+    {/* Divider */}
+    <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
 
-          {filledCellCount > 0 && (
-            <div className="ml-auto flex items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2">
-              <CheckCircle2 size={13} className="text-indigo-400" />
-              <span className="text-xs text-indigo-300">
-                {filledCellCount}{" "}
-                {filledCellCount === 1 ? "tempo preenchido" : "tempos preenchidos"}
-              </span>
-            </div>
-          )}
-        </div>
+    {/* Turno */}
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        Turno
+      </label>
+      <div className="flex gap-1">
+        {(
+          [
+            { key: "manha", label: "Manhã" },
+            { key: "tarde", label: "Tarde" },
+            { key: "noite", label: "Noite" },
+          ] as { key: FixedPeriod["group"]; label: string }[]
+        ).map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onPeriodGroupChange(key)}
+            className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
+              manualPeriodGroup === key
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+    </div>
+
+    {/* Divider */}
+    <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
+
+    {/* Bloco automático */}
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        Bloco automático
+      </label>
+      <div className="flex gap-1">
+        {([1, 2, 3] as const).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setAutoBlockSize(n)}
+            className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
+              autoBlockSize === n
+                ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+                : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            {n === 1 ? "1 tempo" : `${n} tempos`}
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-slate-600">
+        Ao escolher uma disciplina, ela é copiada para os tempos seguintes
+      </p>
+    </div>
+
+    {/* Contador de células preenchidas */}
+    {filledCellCount > 0 && (
+      <>
+        <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
+        <div className="flex items-center self-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2">
+          <CheckCircle2 size={13} className="text-indigo-400" />
+          <span className="text-xs text-indigo-300">
+            {filledCellCount}{" "}
+            {filledCellCount === 1 ? "tempo preenchido" : "tempos preenchidos"}
+          </span>
+        </div>
+      </>
+    )}
+  </div>
+</div>
 
       {/* Info */}
       <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300">
         <Info size={13} className="mt-0.5 shrink-0" />
         <span>
-          Os horários fixos são os mesmos do ISAF. Seleciona a disciplina em cada célula
-          — células vazias são ignoradas.
+          Os horários fixos são os mesmos do ISAF. Selecciona a disciplina em cada célula
+          — células vazias são ignoradas. Quando o bloco automático estiver activo, os tempos seguintes são preenchidos automaticamente.
         </span>
       </div>
 
-      {/* ── GRID ── */}
+      {/* GRID */}
       <div className="overflow-x-auto p-5">
         <table
           className="w-full border-collapse"
@@ -1944,6 +1888,7 @@ function ManualScheduleEditor({
               ))}
             </tr>
           </thead>
+
           <tbody>
             {filteredPeriods.map((period, idx) => (
               <tr key={period.key}>
@@ -1978,12 +1923,17 @@ function ManualScheduleEditor({
                       }`}
                     >
                       <div className="space-y-1.5">
-                        {/* SELECT: Disciplina */}
+                        {/* DISCIPLINA */}
                         <SelectWrap>
                           <select
                             value={cell.disciplineId}
                             onChange={(e) =>
-                              onUpdateCell(day, period.key, "disciplineId", e.target.value)
+                              handleDisciplineChange(
+                                day,
+                                period.key,
+                                e.target.value,
+                                cell
+                              )
                             }
                             className={`${selectSm} ${
                               hasDisc
@@ -2000,7 +1950,7 @@ function ManualScheduleEditor({
                           </select>
                         </SelectWrap>
 
-                        {/* Nome completo da disciplina seleccionada */}
+                        {/* Nome completo */}
                         {hasDisc && (() => {
                           const disc = disciplines.find((d) => d.id === cell.disciplineId);
                           return disc ? (
@@ -2013,10 +1963,9 @@ function ManualScheduleEditor({
                           ) : null;
                         })()}
 
-                        {/* Campos extra: Sala + Tipo (só quando preenchido) */}
+                        {/* Campos extra */}
                         {hasDisc && (
                           <div className="space-y-1">
-                            {/* INPUT: Sala */}
                             <input
                               type="text"
                               value={cell.room}
@@ -2027,7 +1976,6 @@ function ManualScheduleEditor({
                               className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
                             />
 
-                            {/* SELECT: Tipo */}
                             <SelectWrap>
                               <select
                                 value={cell.type}
@@ -2046,6 +1994,29 @@ function ManualScheduleEditor({
                                 <option value="Teórico-Prática">Teórico-Prática</option>
                               </select>
                             </SelectWrap>
+
+                            <input
+                              type="text"
+                              value={cell.professor}
+                              onChange={(e) =>
+                                onUpdateCell(day, period.key, "professor", e.target.value)
+                              }
+                              placeholder="Professor"
+                              className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                            />
+
+                            {/* Auto-aplicar bloco */}
+                            <button
+                              type="button"
+                              onClick={() => applyFromCurrentCell(day, period.key)}
+                              className="flex w-full items-center justify-center gap-2 rounded-md border border-indigo-500/30 bg-indigo-600/10 px-2 py-1.5 text-[11px] font-medium text-indigo-300 transition hover:bg-indigo-600/20"
+                            >
+                              <RefreshCw size={11} />
+                              Aplicar{" "}
+                              {autoBlockSize === 1
+                                ? "esta aula"
+                                : `bloco de ${autoBlockSize} tempos`}
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2058,13 +2029,13 @@ function ManualScheduleEditor({
         </table>
       </div>
 
-      {/* ── Professores por disciplina ── */}
+      {/* Professores por disciplina */}
       {disciplines.length > 0 && (
         <div className="border-t border-white/10 px-5 pb-4 pt-4">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             Professor por disciplina{" "}
             <span className="normal-case font-normal text-slate-600">
-              (opcional — aplica-se a todas as aulas da disciplina)
+              (aplica-se a todas as aulas dessa disciplina)
             </span>
           </p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

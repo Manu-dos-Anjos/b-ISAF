@@ -1,21 +1,58 @@
-// middleware.ts — RAIZ do projecto
+// middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const PUBLIC_ROUTES = [
+  "/login",
+  "/register",
+  "/favicon.ico",
+];
+
+const PUBLIC_PREFIXES = [
+  "/_next",
+  "/images",
+  "/logo",
+];
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
-    request: { headers: request.headers },
+    request: {
+      headers: request.headers,
+    },
   });
 
+  const pathname = request.nextUrl.pathname;
+
+  /* =========================================================
+     Ignorar assets estáticos rapidamente
+  ========================================================= */
+  const isPublic =
+    PUBLIC_ROUTES.includes(pathname) ||
+    PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+
+  /* =========================================================
+     Supabase SSR client
+  ========================================================= */
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll(); },
+        getAll() {
+          return request.cookies.getAll();
+        },
+
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request: { headers: request.headers } });
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
@@ -24,36 +61,55 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
+  /* =========================================================
+     Verificar utilizador autenticado
+  ========================================================= */
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Rotas públicas — sem autenticação
-  const isPublicRoute =
-    pathname.startsWith("/login")    ||
-    pathname.startsWith("/register") ||  // ← adicionado
-    pathname.startsWith("/_next")   ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/logo")    ||
-    pathname.startsWith("/images")  ||
-    pathname.startsWith("/public");
-
-  // Sem sessão → redirect para login
-  if (!user && !isPublicRoute) {
+  /* =========================================================
+     Sem sessão → redirect login
+  ========================================================= */
+  if (!user && !isPublic) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
+
+    // Guardar rota original
+    loginUrl.searchParams.set(
+      "next",
+      pathname + request.nextUrl.search
+    );
+
     return NextResponse.redirect(loginUrl);
   }
 
-  // Com sessão e a tentar aceder ao login ou register → redirect para home
-  if (user && (pathname.startsWith("/login") || pathname.startsWith("/register"))) {
+  /* =========================================================
+     Já autenticado → impedir login/register
+  ========================================================= */
+  if (
+    user &&
+    (pathname.startsWith("/login") ||
+      pathname.startsWith("/register"))
+  ) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
   return response;
 }
 
+/* =========================================================
+   Matcher
+========================================================= */
+
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    /*
+     * Ignora:
+     * - _next/static
+     * - _next/image
+     * - favicon.ico
+     * - ficheiros públicos
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

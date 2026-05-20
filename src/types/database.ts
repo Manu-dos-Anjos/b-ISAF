@@ -1,4 +1,3 @@
-
 // src/types/database.ts
 
 export type Json =
