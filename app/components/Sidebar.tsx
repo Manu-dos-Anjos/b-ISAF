@@ -219,7 +219,7 @@ export default function Sidebar({
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4 dark:border-white/10">
           <div className="flex items-center gap-4">
             <Image
-              src="/logo.svg"
+              src="/logo_dark.svg"
               alt="b-ISAF Logo"
               width={32}
               height={32}

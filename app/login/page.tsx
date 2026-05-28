@@ -1,7 +1,13 @@
 // app/login/page.tsx
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
@@ -28,10 +34,10 @@ import { useSupabase } from "@/app/lib/context/SupabaseContext";
 ================================================================ */
 
 const STATS = [
-  { icon: Users, value: "3 000+", label: "Estudantes activos" },
+  { icon: Users, value: "2 000+", label: "Estudantes activos" },
   { icon: BookOpen, value: "38", label: "Disciplinas" },
   { icon: GraduationCap, value: "3", label: "Cursos de licenciatura" },
-  { icon: Award, value: "10+", label: "Anos de experiência" },
+  { icon: Award, value: "8+", label: "Anos de experiência" },
 ];
 
 const COURSES = [
@@ -92,6 +98,13 @@ const REG_INIT: RegForm = {
 
 function extractStudentNumber(email: string): string {
   return email.trim().split("@")[0]?.trim() ?? "";
+}
+
+function studentNumberToEmail(studentNumber: string): string {
+  const value = studentNumber.trim().replace(/\s+/g, "");
+  if (!value) return "";
+  if (value.includes("@")) return value.toLowerCase();
+  return `${value.toLowerCase()}@${ISAF_DOMAIN}`;
 }
 
 function isIsafEmail(email: string): boolean {
@@ -379,10 +392,15 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [loginEmail, setLoginEmail] = useState("");
+  // LOGIN
+  const [loginStudentNumber, setLoginStudentNumber] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPass, setShowLoginPass] = useState(false);
 
+  // RESET
+  const [resetEmail, setResetEmail] = useState("");
+
+  // REGISTO
   const [regStep, setRegStep] = useState<RegStep>(1);
   const [regForm, setRegForm] = useState<RegForm>(REG_INIT);
   const [showPass, setShowPass] = useState(false);
@@ -406,10 +424,16 @@ export default function LoginPage() {
   function switchMode(next: Mode) {
     clearFeedback();
     setMode(next);
+
     if (next === "register") {
       setRegStep(1);
       setRegForm(REG_INIT);
       setShowPass(false);
+    }
+
+    if (next === "login") {
+      setSuccess(null);
+      setError(null);
     }
   }
 
@@ -422,10 +446,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const email = studentNumberToEmail(loginStudentNumber);
+
+      if (!loginStudentNumber.trim()) {
+        throw new Error("Indica o número de estudante.");
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
+        email,
         password: loginPassword,
       });
+
       if (error) throw error;
 
       const next = searchParams.get("next") ?? "/";
@@ -447,9 +478,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/login/nova-password`,
       });
+
       if (error) throw error;
       setSuccess("Email enviado! Verifica a tua caixa de entrada.");
     } catch (err: unknown) {
@@ -563,7 +595,8 @@ export default function LoginPage() {
         router.refresh();
       } else {
         setMode("login");
-        setLoginEmail(regForm.email);
+        setLoginStudentNumber(derivedStudentNumber);
+        setLoginPassword("");
         setRegForm(REG_INIT);
         setSuccess("Conta criada! Verifica o teu email para confirmares e depois entra.");
       }
@@ -587,7 +620,7 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-slate-400">
             {mode === "reset"
               ? "Indica o teu email para receberes o link de recuperação."
-              : "Introduz as tuas credenciais para aceder à plataforma."}
+              : "Introduz o teu número de estudante e a password para aceder à plataforma."}
           </p>
         </div>
 
@@ -595,25 +628,52 @@ export default function LoginPage() {
           <Feedback error={error} success={success} />
 
           <form onSubmit={mode === "reset" ? handleReset : handleLogin} className="space-y-5">
-            <div>
-              <FieldLabel>Email institucional</FieldLabel>
-              <div className="relative">
-                <Mail
-                  size={15}
-                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-                />
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="000000@isaf.co.ao"
-                  required
-                  autoComplete="email"
-                  disabled={loading}
-                  className={`${inputCls} h-12 pl-10 pr-4`}
-                />
+            {mode === "login" ? (
+              <div>
+                <FieldLabel>Número de estudante</FieldLabel>
+                <div className="relative">
+                  <User
+                    size={15}
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                  />
+                  <input
+                    type="text"
+                    value={loginStudentNumber}
+                    onChange={(e) => setLoginStudentNumber(e.target.value)}
+                    placeholder="000000"
+                    required
+                    inputMode="numeric"
+                    autoComplete="username"
+                    disabled={loading}
+                    className={`${inputCls} h-12 pl-10 pr-4`}
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  O sistema adiciona automaticamente{" "}
+                  <span className="font-mono">@{ISAF_DOMAIN}</span>
+                </p>
               </div>
-            </div>
+            ) : (
+              <div>
+                <FieldLabel>Email institucional</FieldLabel>
+                <div className="relative">
+                  <Mail
+                    size={15}
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                  />
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="000000@isaf.co.ao"
+                    required
+                    autoComplete="email"
+                    disabled={loading}
+                    className={`${inputCls} h-12 pl-10 pr-4`}
+                  />
+                </div>
+              </div>
+            )}
 
             {mode === "login" && (
               <div>
