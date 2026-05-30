@@ -26,6 +26,7 @@ export interface Database {
           is_active:        boolean
           created_at:       string
           updated_at:       string
+          schedule_reset_at: string | null
         }
         Insert: {
           id:                string
@@ -41,6 +42,7 @@ export interface Database {
           is_active?:        boolean
           created_at?:       string
           updated_at?:       string
+          schedule_reset_at?: string | null
         }
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>
       }
@@ -219,6 +221,45 @@ export interface Database {
           added_at?:     string
         }
         Update: Partial<Database["public"]["Tables"]["student_extra_disciplines"]["Insert"]>
+      }
+      // Adicionar dentro de Tables em src/types/database.ts
+
+      schedule_slots: {
+        Row: {
+          id:               string
+          student_id:       string
+          course_id:        string
+          year:             number
+          semester:         number
+          day:              string
+          start_time:       string
+          end_time:         string
+          discipline:       string
+          discipline_slug:  string | null
+          room:             string | null
+          professor:        string | null
+          type:             string
+          created_at:       string
+          updated_at:       string
+        }
+        Insert: {
+          id?:               string
+          student_id:        string
+          course_id:         string
+          year:              number
+          semester:          number
+          day:               string
+          start_time:        string
+          end_time:          string
+          discipline:        string
+          discipline_slug?:  string | null
+          room?:             string | null
+          professor?:        string | null
+          type:              string
+          created_at?:       string
+          updated_at?:       string
+        }
+        Update: Partial<Database["public"]["Tables"]["schedule_slots"]["Insert"]>
       }
     }
     Views:     Record<string, never>

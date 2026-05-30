@@ -1,7 +1,8 @@
+// app/(app)/disciplinas/DisciplineCard.tsx
 import Link from "next/link";
 import Image from "next/image";
 import {
-  Book,
+  BookOpen,
   Headphones,
   FileText,
   Trophy,
@@ -10,23 +11,44 @@ import {
   MapPin,
   ArrowRight,
 } from "lucide-react";
-import { iconMap, type Discipline } from "@/app/lib/mockData";
+
+/* ================================================================
+   TIPOS
+================================================================ */
+
+export type DisciplineCardData = {
+  id:              string;
+  title:           string;
+  code:            string | null;
+  href:            string;
+  coverUrl:        string | null;
+  progress:        number;
+  year:            string;   // "1º Ano"
+  semester:        string;   // "1º Semestre"
+  lessonCount:     number;
+  chaptersCount:   number;
+  contentCounts:   { audio: number; slide: number; quiz: number };
+};
 
 export type DisciplineScheduleInfo = {
   professor?: string | null;
   nextClass?: {
-    day: string;
+    day:       string;
     startTime: string;
-    endTime: string;
-    room?: string;
-    type: "Teórica" | "Prática" | "Teórico-Prática";
+    endTime:   string;
+    room?:     string;
+    type:      "Teórica" | "Prática" | "Teórico-Prática";
   } | null;
 };
 
 type Props = {
-  discipline: Discipline;
+  discipline:   DisciplineCardData;
   scheduleInfo?: DisciplineScheduleInfo | null;
 };
+
+/* ================================================================
+   CONSTANTES
+================================================================ */
 
 const TYPE_DOT: Record<string, string> = {
   "Teórica":         "bg-blue-500",
@@ -40,26 +62,19 @@ const TYPE_BADGE: Record<string, string> = {
   "Teórico-Prática": "bg-violet-500/10 text-violet-400 ring-violet-500/20",
 };
 
-function getContentCounts(discipline: Discipline) {
-  const counts = { audio: 0, slide: 0, quiz: 0 };
-  for (const chapter of discipline.chapters ?? []) {
-    for (const topic of chapter.topics ?? []) {
-      for (const content of topic.contents ?? []) {
-        if (content.type === "audio") counts.audio++;
-        else if (content.type === "slide") counts.slide++;
-        else if (content.type === "quiz") counts.quiz++;
-      }
-    }
-  }
-  return counts;
-}
+const DAYS_ORDER = [
+  "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado",
+] as const;
+
+/* ================================================================
+   COMPONENTE PRINCIPAL
+================================================================ */
 
 export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
-  const Icon   = iconMap[discipline.icon] ?? Book;
-  const counts = getContentCounts(discipline);
-  const next   = scheduleInfo?.nextClass;
-
-  const hasContent = counts.audio > 0 || counts.slide > 0 || counts.quiz > 0;
+  const { contentCounts: counts } = discipline;
+  const next    = scheduleInfo?.nextClass;
+  const hasContent =
+    counts.audio > 0 || counts.slide > 0 || counts.quiz > 0;
 
   return (
     <Link
@@ -67,40 +82,47 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:hover:shadow-none dark:hover:border-white/20"
     >
       {/* ── Capa ── */}
-      <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5">
+      <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5">
         {discipline.coverUrl ? (
           <Image
             src={discipline.coverUrl}
-            alt={`Capa da disciplina ${discipline.title}`}
+            alt={`Capa de ${discipline.title}`}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         ) : (
-          <div className="absolute inset-0 bg-linear-to-br from-slate-700 via-slate-800 to-slate-950">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
             <div className="absolute inset-0 opacity-30 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
           </div>
         )}
 
-        {/* Véu gradiente — mais denso na base para garantir legibilidade do título */}
-        <div className="absolute inset-0 bg-linear-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
+        {/* Véu */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
 
         {/* Badge ano · semestre */}
         <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-sm dark:bg-slate-950/70 dark:text-white">
-          <Icon size={13} className="opacity-80" />
-          <span>{discipline.year} · {discipline.semester}</span>
+          <BookOpen size={11} className="opacity-70" />
+          <span>
+            {discipline.year} · {discipline.semester}
+          </span>
         </div>
 
         {/* Progresso circular */}
         <div className="absolute right-3 top-3">
-          <CircularProgress value={discipline.progress ?? 0} />
+          <CircularProgress value={discipline.progress} />
         </div>
 
-        {/* ── Título com sombra de texto e pill de fundo para fundos claros ── */}
+        {/* Título */}
         <div className="absolute bottom-3 left-3 right-3">
           <h3 className="line-clamp-2 text-sm font-bold leading-snug text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
             {discipline.title}
           </h3>
+          {discipline.code && (
+            <p className="mt-0.5 text-[10px] font-medium text-white/50">
+              {discipline.code}
+            </p>
+          )}
         </div>
       </div>
 
@@ -113,7 +135,7 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-white/5">
               <User size={11} className="text-slate-500 dark:text-slate-400" />
             </div>
-            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
+            <p className="truncate text-xs font-medium text-slate-600 dark:text-slate-300">
               {scheduleInfo.professor}
             </p>
           </div>
@@ -122,7 +144,7 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-white/5">
               <User size={11} className="text-slate-400 dark:text-slate-600" />
             </div>
-            <p className="text-xs text-slate-400 dark:text-slate-600 italic">
+            <p className="text-xs italic text-slate-400 dark:text-slate-600">
               Docente não definido
             </p>
           </div>
@@ -130,14 +152,21 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
 
         {/* Próxima aula */}
         {next ? (
-          <div className={`flex items-start gap-2 rounded-xl px-3 py-2 ring-1 ${TYPE_BADGE[next.type]}`}>
-            <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_DOT[next.type]}`} />
+          <div
+            className={`flex items-start gap-2 rounded-xl px-3 py-2 ring-1 ${TYPE_BADGE[next.type]}`}
+          >
+            <span
+              className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_DOT[next.type]}`}
+            />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
                 Próxima aula · {next.type}
               </p>
               <p className="mt-0.5 text-xs font-medium leading-snug">
-                {next.day}, {next.startTime}–{next.endTime}
+                {next.day}, {next.startTime}
+                {next.endTime !== next.startTime && (
+                  <span className="opacity-70"> – {next.endTime}</span>
+                )}
                 {next.room && (
                   <span className="ml-1.5 inline-flex items-center gap-0.5 opacity-60">
                     <MapPin size={9} />
@@ -149,7 +178,7 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/[0.03]">
-            <Clock size={11} className="text-slate-400 shrink-0" />
+            <Clock size={11} className="shrink-0 text-slate-400" />
             <p className="text-[11px] text-slate-400 dark:text-slate-600">
               Sem aulas agendadas
             </p>
@@ -159,29 +188,17 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
         {/* Separador */}
         <div className="h-px bg-slate-100 dark:bg-white/5" />
 
-        {/* Conteúdos disponíveis */}
+        {/* Conteúdos */}
         {hasContent ? (
           <div className="flex items-center gap-2">
             {counts.audio > 0 && (
-              <ContentBadge
-                icon={Headphones}
-                count={counts.audio}
-                label="áudio"
-              />
+              <ContentBadge icon={Headphones} count={counts.audio} label="áudio" />
             )}
             {counts.slide > 0 && (
-              <ContentBadge
-                icon={FileText}
-                count={counts.slide}
-                label="slide"
-              />
+              <ContentBadge icon={FileText} count={counts.slide} label="slide" />
             )}
             {counts.quiz > 0 && (
-              <ContentBadge
-                icon={Trophy}
-                count={counts.quiz}
-                label="quiz"
-              />
+              <ContentBadge icon={Trophy} count={counts.quiz} label="quiz" />
             )}
             <ArrowRight
               size={13}
@@ -191,7 +208,9 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
         ) : (
           <div className="flex items-center justify-between">
             <p className="text-[11px] text-slate-400 dark:text-slate-600">
-              {discipline.lessonCount ?? 0} aulas · sem conteúdos ainda
+              {discipline.chaptersCount}{" "}
+              {discipline.chaptersCount === 1 ? "capítulo" : "capítulos"} · sem
+              conteúdos ainda
             </p>
             <ArrowRight
               size={13}
@@ -205,13 +224,13 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
           <div className="mb-1 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 dark:text-slate-600">Progresso</p>
             <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-400">
-              {discipline.progress ?? 0}%
+              {discipline.progress}%
             </p>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
             <div
-              className="h-full rounded-full bg-linear-to-r from-blue-500 to-indigo-500 transition-all duration-500"
-              style={{ width: `${discipline.progress ?? 0}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+              style={{ width: `${discipline.progress}%` }}
             />
           </div>
         </div>
@@ -222,12 +241,8 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
 
 /* ================================================================
    SUB-COMPONENTES
-   ================================================================ */
+================================================================ */
 
-/**
- * Todos os badges de conteúdo usam a mesma paleta azul
- * (igual ao badge de áudio original).
- */
 function ContentBadge({
   icon: Icon,
   count,
@@ -240,7 +255,8 @@ function ContentBadge({
   return (
     <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500 dark:bg-blue-500/10 dark:text-blue-400">
       <Icon size={10} />
-      {count} {label}{count !== 1 ? "s" : ""}
+      {count} {label}
+      {count !== 1 ? "s" : ""}
     </span>
   );
 }
@@ -274,7 +290,9 @@ function CircularProgress({ value }: { value: number }) {
           </linearGradient>
         </defs>
       </svg>
-      <span className="absolute text-[9px] font-bold text-white">{value}%</span>
+      <span className="absolute text-[9px] font-bold text-white">
+        {value}%
+      </span>
     </div>
   );
 }

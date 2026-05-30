@@ -1,4 +1,4 @@
-// app/(protected)/meu-curso/MeuCursoPage.tsx
+// app/components/meu-curso/MeuCursoPage.tsx
 "use client";
 
 import {
@@ -34,6 +34,8 @@ import {
   Loader2,
   Edit3,
 } from "lucide-react";
+import { useSchedule } from "@/app/lib/hooks/useSchedule";
+import { useScheduleReset } from "@/app/lib/hooks/useScheduleReset";
 
 /* ================================================================
    TIPOS
@@ -172,7 +174,6 @@ const DISCIPLINE_SLUGS: Record<string, string> = {
   "igf-4-2-md": "marketing-digital",
   "igf-4-2-grh": "gestao-de-recursos-humanos",
   "igf-4-2-tfc": "trabalho-final-de-curso",
-
   "cf-1-1-cpe": "comunicacao-pessoal-e-empresarial",
   "cf-1-1-li1": "lingua-inglesa-i",
   "cf-1-1-mi": "metodologias-de-investigacao-cientifica",
@@ -213,12 +214,12 @@ const DISCIPLINE_SLUGS: Record<string, string> = {
   "cf-4-2-eci": "economia-e-comercio-internacionais",
   "cf-4-2-scg": "sistemas-de-controlo-de-gestao",
   "cf-4-2-tfc": "trabalho-final-de-curso",
-
   "gbs-1-1-cpe": "comunicacao-pessoal-e-empresarial",
   "gbs-1-1-li1": "lingua-inglesa-i",
   "gbs-1-1-mi": "metodologias-de-investigacao-cientifica",
   "gbs-1-1-ii": "introducao-a-informatica",
   "gbs-1-1-mat1": "matematica-i",
+  "gbs-1-2-cpe": "comunicacao-pessoal-e-empresarial",
   "gbs-1-2-li2": "lingua-inglesa-ii",
   "gbs-1-2-iog": "introducao-as-organizacoes-e-a-gestao",
   "gbs-1-2-cg1": "contabilidade-geral-i",
@@ -274,10 +275,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 768,
             disciplines: [
-              { id: "igf-1-1-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "igf-1-1-li1", name: "Inglês I" },
-              { id: "igf-1-1-mi", name: "Metodologias de Investigação Científica" },
-              { id: "igf-1-1-fsi", name: "Fundamentos de Sistemas de Informação" },
+              { id: "igf-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
+              { id: "igf-1-1-li1",  name: "Língua Inglesa I" },
+              { id: "igf-1-1-mi",   name: "Metodologias de Investigação Científica" },
+              { id: "igf-1-1-fsi",  name: "Fundamentos de Sistemas de Informação" },
               { id: "igf-1-1-mat1", name: "Matemática I" },
             ],
           },
@@ -286,7 +287,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "igf-1-2-cg1", name: "Contabilidade Geral I" },
-              { id: "igf-1-2-li2", name: "Inglês II" },
+              { id: "igf-1-2-li2", name: "Língua Inglesa II" },
               { id: "igf-1-2-iog", name: "Introdução às Organizações e à Gestão" },
               { id: "igf-1-2-arq", name: "Arquitetura de Computadores" },
               { id: "igf-1-2-mat2", name: "Matemática II" },
@@ -301,22 +302,22 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 768,
             disciplines: [
-              { id: "igf-2-1-cg2", name: "Contabilidade Geral II" },
+              { id: "igf-2-1-cg2",   name: "Contabilidade Geral II" },
               { id: "igf-2-1-prog1", name: "Programação I" },
-              { id: "igf-2-1-sd", name: "Sistemas Digitais" },
-              { id: "igf-2-1-cof", name: "Cálculo e Operações Financeiras" },
-              { id: "igf-2-1-ie", name: "Introdução à Economia" },
+              { id: "igf-2-1-sd",    name: "Sistemas Digitais" },
+              { id: "igf-2-1-cof",   name: "Cálculo e Operações Financeiras" },
+              { id: "igf-2-1-ie",    name: "Introdução à Economia" },
             ],
           },
           {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "igf-2-2-co", name: "Comportamento Organizacional" },
+              { id: "igf-2-2-co",    name: "Comportamento Organizacional" },
               { id: "igf-2-2-prog2", name: "Programação II" },
-              { id: "igf-2-2-bd1", name: "Base de Dados I" },
-              { id: "igf-2-2-cant", name: "Contabilidade Analítica" },
-              { id: "igf-2-2-pe", name: "Probabilidades e Estatística" },
+              { id: "igf-2-2-bd1",   name: "Base de Dados I" },
+              { id: "igf-2-2-cant",  name: "Contabilidade Analítica" },
+              { id: "igf-2-2-pe",    name: "Probabilidades e Estatística" },
             ],
           },
         ],
@@ -329,10 +330,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "igf-3-1-mdsi", name: "Metodologia de Desenvolvimento de Sistemas de Informação" },
-              { id: "igf-3-1-fe", name: "Finanças Empresariais" },
-              { id: "igf-3-1-bd2", name: "Base de Dados II" },
-              { id: "igf-3-1-rc", name: "Redes de Computadores" },
-              { id: "igf-3-1-so1", name: "Sistemas Operativos I" },
+              { id: "igf-3-1-fe",   name: "Finanças Empresariais" },
+              { id: "igf-3-1-bd2",  name: "Base de Dados II" },
+              { id: "igf-3-1-rc",   name: "Redes de Computadores" },
+              { id: "igf-3-1-so1",  name: "Sistemas Operativos I" },
             ],
           },
           {
@@ -341,7 +342,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             disciplines: [
               { id: "igf-3-2-qsi", name: "Qualidade de Sistemas de Informação" },
               { id: "igf-3-2-grn", name: "Gestão de Redes Informáticas" },
-              { id: "igf-3-2-ds", name: "Desenvolvimento de Software" },
+              { id: "igf-3-2-ds",  name: "Desenvolvimento de Software" },
               { id: "igf-3-2-ltw", name: "Linguagens e Tecnologias Web" },
               { id: "igf-3-2-so2", name: "Sistemas Operativos II" },
             ],
@@ -355,20 +356,20 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 1216,
             disciplines: [
-              { id: "igf-4-1-di", name: "Direito Informático" },
+              { id: "igf-4-1-di",   name: "Direito Informático" },
               { id: "igf-4-1-sirn", name: "Segurança Informática em Redes de Sistemas" },
-              { id: "igf-4-1-tm", name: "Tecnologias Multimédia" },
+              { id: "igf-4-1-tm",   name: "Tecnologias Multimédia" },
               { id: "igf-4-1-fisc", name: "Fiscalidade" },
-              { id: "igf-4-1-tfc", name: "Trabalho Final de Curso", annual: true },
+              { id: "igf-4-1-tfc",  name: "Trabalho Final de Curso", annual: true },
             ],
           },
           {
             number: 2,
             totalHours: 1216,
             disciplines: [
-              { id: "igf-4-2-ai", name: "Auditoria Informática" },
-              { id: "igf-4-2-ce", name: "Comércio Electrónico" },
-              { id: "igf-4-2-md", name: "Marketing Digital" },
+              { id: "igf-4-2-ai",  name: "Auditoria Informática" },
+              { id: "igf-4-2-ce",  name: "Comércio Electrónico" },
+              { id: "igf-4-2-md",  name: "Marketing Digital" },
               { id: "igf-4-2-grh", name: "Gestão de Recursos Humanos" },
               { id: "igf-4-2-tfc", name: "Trabalho Final de Curso", annual: true },
             ],
@@ -389,10 +390,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 768,
             disciplines: [
-              { id: "cf-1-1-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "cf-1-1-li1", name: "Inglês I" },
-              { id: "cf-1-1-mi", name: "Metodologias de Investigação Científica" },
-              { id: "cf-1-1-ii", name: "Introdução à Informática" },
+              { id: "cf-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
+              { id: "cf-1-1-li1",  name: "Língua Inglesa I" },
+              { id: "cf-1-1-mi",   name: "Metodologias de Investigação Científica" },
+              { id: "cf-1-1-ii",   name: "Introdução à Informática" },
               { id: "cf-1-1-mat1", name: "Matemática I" },
             ],
           },
@@ -400,10 +401,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "cf-1-2-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "cf-1-2-li2", name: "Inglês II" },
-              { id: "cf-1-2-iog", name: "Introdução às Organizações e à Gestão" },
-              { id: "cf-1-2-cg1", name: "Contabilidade Geral I" },
+              { id: "cf-1-2-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
+              { id: "cf-1-2-li2",  name: "Língua Inglesa II" },
+              { id: "cf-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
+              { id: "cf-1-2-cg1",  name: "Contabilidade Geral I" },
               { id: "cf-1-2-mat2", name: "Matemática II" },
             ],
           },
@@ -416,10 +417,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 768,
             disciplines: [
-              { id: "cf-2-1-cg2", name: "Contabilidade Geral II" },
-              { id: "cf-2-1-li3", name: "Inglês III" },
-              { id: "cf-2-1-me1", name: "Microeconomia I" },
-              { id: "cf-2-1-cof", name: "Cálculo e Operações Financeiras" },
+              { id: "cf-2-1-cg2",  name: "Contabilidade Geral II" },
+              { id: "cf-2-1-li3",  name: "Língua Inglesa III" },
+              { id: "cf-2-1-me1",  name: "Microeconomia I" },
+              { id: "cf-2-1-cof",  name: "Cálculo e Operações Financeiras" },
               { id: "cf-2-1-est1", name: "Estatística I" },
             ],
           },
@@ -427,10 +428,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "cf-2-2-ca", name: "Contabilidade Analítica" },
-              { id: "cf-2-2-li4", name: "Inglês IV" },
-              { id: "cf-2-2-me2", name: "Microeconomia II" },
-              { id: "cf-2-2-de", name: "Direito das Empresas" },
+              { id: "cf-2-2-ca",   name: "Contabilidade Analítica" },
+              { id: "cf-2-2-li4",  name: "Língua Inglesa IV" },
+              { id: "cf-2-2-me2",  name: "Microeconomia II" },
+              { id: "cf-2-2-de",   name: "Direito das Empresas" },
               { id: "cf-2-2-est2", name: "Estatística II" },
             ],
           },
@@ -445,7 +446,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             disciplines: [
               { id: "cf-3-1-cpco", name: "Contabilidade, Planeamento e Controlo Orçamental" },
               { id: "cf-3-1-mac1", name: "Macroeconomia I" },
-              { id: "cf-3-1-dc", name: "Direito Comercial" },
+              { id: "cf-3-1-dc",   name: "Direito Comercial" },
               { id: "cf-3-1-fin1", name: "Finanças I" },
               { id: "cf-3-1-mkt1", name: "Marketing I" },
             ],
@@ -456,7 +457,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             disciplines: [
               { id: "cf-3-2-fisc", name: "Fiscalidade" },
               { id: "cf-3-2-mac2", name: "Macroeconomia II" },
-              { id: "cf-3-2-epe", name: "Estratégia e Planeamento da Empresa" },
+              { id: "cf-3-2-epe",  name: "Estratégia e Planeamento da Empresa" },
               { id: "cf-3-2-fin2", name: "Finanças II" },
               { id: "cf-3-2-mkt2", name: "Marketing II" },
             ],
@@ -470,7 +471,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 1216,
             disciplines: [
-              { id: "cf-4-1-he", name: "História Económica" },
+              { id: "cf-4-1-he",  name: "História Económica" },
               { id: "cf-4-1-grh", name: "Gestão de Recursos Humanos" },
               { id: "cf-4-1-mpf", name: "Mercados e Produtos Financeiros" },
               { id: "cf-4-1-caa", name: "Contabilidade Analítica Avançada" },
@@ -504,10 +505,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 768,
             disciplines: [
-              { id: "gbs-1-1-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "gbs-1-1-li1", name: "Inglês I" },
-              { id: "gbs-1-1-mi", name: "Metodologias de Investigação Científica" },
-              { id: "gbs-1-1-ii", name: "Introdução à Informática" },
+              { id: "gbs-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
+              { id: "gbs-1-1-li1",  name: "Língua Inglesa I" },
+              { id: "gbs-1-1-mi",   name: "Metodologias de Investigação Científica" },
+              { id: "gbs-1-1-ii",   name: "Introdução à Informática" },
               { id: "gbs-1-1-mat1", name: "Matemática I" },
             ],
           },
@@ -515,9 +516,9 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "gbs-1-2-li2", name: "Inglês II" },
-              { id: "gbs-1-2-iog", name: "Introdução às Organizações e à Gestão" },
-              { id: "gbs-1-2-cg1", name: "Contabilidade Geral I" },
+              { id: "gbs-1-2-li2",  name: "Língua Inglesa II" },
+              { id: "gbs-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
+              { id: "gbs-1-2-cg1",  name: "Contabilidade Geral I" },
               { id: "gbs-1-2-mat2", name: "Matemática II" },
             ],
           },
@@ -531,7 +532,7 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "gbs-2-1-cg2", name: "Contabilidade Geral II" },
-              { id: "gbs-2-1-li3", name: "Inglês III" },
+              { id: "gbs-2-1-li3", name: "Língua Inglesa III" },
               { id: "gbs-2-1-est", name: "Estatística" },
               { id: "gbs-2-1-cof", name: "Cálculo e Operações Financeiras" },
               { id: "gbs-2-1-tsi", name: "Tecnologias e Sistemas de Informação" },
@@ -541,9 +542,9 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "gbs-2-2-ca", name: "Contabilidade Analítica" },
-              { id: "gbs-2-2-li4", name: "Inglês IV" },
-              { id: "gbs-2-2-co", name: "Comportamento Organizacional" },
+              { id: "gbs-2-2-ca",  name: "Contabilidade Analítica" },
+              { id: "gbs-2-2-li4", name: "Língua Inglesa IV" },
+              { id: "gbs-2-2-co",  name: "Comportamento Organizacional" },
               { id: "gbs-2-2-mpf", name: "Mercados e Produtos Financeiros" },
               { id: "gbs-2-2-irs", name: "Introdução ao Risco e Seguro" },
             ],
@@ -558,20 +559,20 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "gbs-3-1-cpco", name: "Contabilidade, Planeamento e Controlo Orçamental" },
-              { id: "gbs-3-1-fe", name: "Finanças Empresariais" },
-              { id: "gbs-3-1-dab", name: "Direito na Actividade Bancária" },
-              { id: "gbs-3-1-agr", name: "Análise e Gestão de Risco" },
-              { id: "gbs-3-1-fcb", name: "Financiamento e Crédito Bancário" },
+              { id: "gbs-3-1-fe",   name: "Finanças Empresariais" },
+              { id: "gbs-3-1-dab",  name: "Direito na Actividade Bancária" },
+              { id: "gbs-3-1-agr",  name: "Análise e Gestão de Risco" },
+              { id: "gbs-3-1-fcb",  name: "Financiamento e Crédito Bancário" },
             ],
           },
           {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "gbs-3-2-das", name: "Direito na Actividade Seguradora" },
-              { id: "gbs-3-2-opb", name: "Operações e Prática Bancária" },
-              { id: "gbs-3-2-fpf", name: "Fiscalidade de Produtos Financeiros" },
-              { id: "gbs-3-2-aef", name: "Análise Económico-Financeira" },
+              { id: "gbs-3-2-das",  name: "Direito na Actividade Seguradora" },
+              { id: "gbs-3-2-opb",  name: "Operações e Prática Bancária" },
+              { id: "gbs-3-2-fpf",  name: "Fiscalidade de Produtos Financeiros" },
+              { id: "gbs-3-2-aef",  name: "Análise Económico-Financeira" },
               { id: "gbs-3-2-svsa", name: "Seguro de Vida, Saúde e Acidentes" },
             ],
           },
@@ -584,11 +585,11 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 1,
             totalHours: 1216,
             disciplines: [
-              { id: "gbs-4-1-ops", name: "Operações e Prática Seguradora" },
-              { id: "gbs-4-1-grh", name: "Gestão de Recursos Humanos" },
-              { id: "gbs-4-1-eai", name: "Economia Angolana e Internacional" },
+              { id: "gbs-4-1-ops",  name: "Operações e Prática Seguradora" },
+              { id: "gbs-4-1-grh",  name: "Gestão de Recursos Humanos" },
+              { id: "gbs-4-1-eai",  name: "Economia Angolana e Internacional" },
               { id: "gbs-4-1-spnv", name: "Seguros de Propriedade e Não-Vida" },
-              { id: "gbs-4-1-tfc", name: "Trabalho Final de Curso", annual: true },
+              { id: "gbs-4-1-tfc",  name: "Trabalho Final de Curso", annual: true },
             ],
           },
           {
@@ -596,10 +597,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 1216,
             disciplines: [
               { id: "gbs-4-2-afbs", name: "Auditoria Financeira Banca e Seguros" },
-              { id: "gbs-4-2-msf", name: "Marketing de Serviços Financeiros" },
+              { id: "gbs-4-2-msf",  name: "Marketing de Serviços Financeiros" },
               { id: "gbs-4-2-gapf", name: "Gestão de Activos, Passivos e Fundos de Pensões" },
-              { id: "gbs-4-2-scg", name: "Sistemas de Controlo de Gestão" },
-              { id: "gbs-4-2-tfc", name: "Trabalho Final de Curso", annual: true },
+              { id: "gbs-4-2-scg",  name: "Sistemas de Controlo de Gestão" },
+              { id: "gbs-4-2-tfc",  name: "Trabalho Final de Curso", annual: true },
             ],
           },
         ],
@@ -614,18 +615,18 @@ const CURRICULUM: Record<CourseId, CourseData> = {
 const DAYS_ORDER = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"] as const;
 
 const TYPE_COLORS: Record<WeeklySlot["type"], string> = {
-  Teórica: "border-blue-500/30 bg-blue-500/10 text-blue-300",
-  Prática: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  Teórica:           "border-blue-500/30 bg-blue-500/10 text-blue-300",
+  Prática:           "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
   "Teórico-Prática": "border-violet-500/30 bg-violet-500/10 text-violet-300",
 };
 
 const DAY_LABELS: Record<WeeklySlot["day"], string> = {
   Segunda: "Segunda-Feira",
-  Terça: "Terça-Feira",
-  Quarta: "Quarta-Feira",
-  Quinta: "Quinta-Feira",
-  Sexta: "Sexta-Feira",
-  Sábado: "Sábado",
+  Terça:   "Terça-Feira",
+  Quarta:  "Quarta-Feira",
+  Quinta:  "Quinta-Feira",
+  Sexta:   "Sexta-Feira",
+  Sábado:  "Sábado",
 };
 
 /* ================================================================
@@ -663,10 +664,10 @@ function getDisciplineShortName(name: string) {
     "metodologias de investigacao cientifica": "Met. Inv.",
     "matematica i": "Matem I",
     "matematica ii": "Matem II",
-    "ingles i": "Inglês I",
-    "ingles ii": "Inglês II",
-    "ingles iii": "Inglês III",
-    "ingles iv": "Inglês IV",
+    "lingua inglesa i": "Inglês I",
+    "lingua inglesa ii": "Inglês II",
+    "lingua inglesa iii": "Inglês III",
+    "lingua inglesa iv": "Inglês IV",
     "contabilidade geral i": "CG I",
     "contabilidade geral ii": "CG II",
     "contabilidade analitica": "Cont. Analítica",
@@ -759,7 +760,7 @@ function resolveDisciplineSlugFromScheduleName(name: string, course: CourseData)
   for (const year of course.years) {
     for (const sem of year.semesters) {
       for (const disc of sem.disciplines) {
-        const full = normalizeText(disc.name);
+        const full  = normalizeText(disc.name);
         const short = normalizeText(getDisciplineShortName(disc.name));
         if (
           normalizedName === full ||
@@ -804,7 +805,18 @@ type Tab = "curriculo" | "horario" | "mudanca";
 type ScheduleMode = "view" | "manual";
 
 /* ================================================================
-   COMPONENTE PRINCIPAL
+   TIPOS INTERNOS
+================================================================ */
+type GridCell = {
+  disciplineId: string;
+  room: string;
+  professor: string;
+  type: WeeklySlot["type"];
+};
+type GridKey = string;
+
+/* ================================================================
+   PROPS
 ================================================================ */
 type Props = {
   courseId: CourseId;
@@ -814,32 +826,29 @@ type Props = {
   studentNumber?: string | null;
 };
 
-type GridCell = {
-  disciplineId: string;
-  room: string;
-  professor: string;
-  type: WeeklySlot["type"];
-};
-type GridKey = string;
-
+/* ================================================================
+   COMPONENTE PRINCIPAL
+================================================================ */
 export default function MeuCursoPage({
   courseId = "informatica-gestao-financeira",
   currentYear = 1,
   currentSemester = 1,
-  studentName = "Manuel dos Anjos",
+  studentName = "Estudante",
   studentNumber,
 }: Props) {
+  useScheduleReset();
   const course = CURRICULUM[courseId];
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const tabFromUrl = (searchParams.get("tab") as Tab) ?? "curriculo";
-  const modeParam = searchParams.get("mode");
-  const modeFromUrl: ScheduleMode = modeParam === "manual" ? "manual" : "view";
+  // ── URL state ──────────────────────────────────────────────
+  const tabFromUrl  = (searchParams.get("tab")  as Tab)          ?? "curriculo";
+  const modeParam   = searchParams.get("mode");
+  const modeFromUrl : ScheduleMode = modeParam === "manual" ? "manual" : "view";
 
-  const [activeTab, setActiveTabState] = useState<Tab>(tabFromUrl);
-  const [scheduleMode, setScheduleModeState] = useState<ScheduleMode>(modeFromUrl);
+  const [activeTab,      setActiveTabState]      = useState<Tab>(tabFromUrl);
+  const [scheduleMode,   setScheduleModeState]   = useState<ScheduleMode>(modeFromUrl);
 
   const setActiveTab = (tab: Tab) => {
     setActiveTabState(tab);
@@ -856,22 +865,30 @@ export default function MeuCursoPage({
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
+  // ── Currículo state ────────────────────────────────────────
   const [selectedDisciplineId, setSelectedDisciplineId] = useState<string | null>(null);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([currentYear]));
-
-  const [mySchedule, setMySchedule] = useState<WeeklySlot[]>([]);
-  const [manualGrid, setManualGrid] = useState<Record<GridKey, GridCell>>({});
-  const [globalRoom, setGlobalRoom] = useState<string>("S.03");
-  const [manualPeriodGroup, setManualPeriodGroup] = useState<FixedPeriod["group"]>("tarde");
-  const [saving, setSaving] = useState(false);
-
   const disciplinePanelRef = useRef<HTMLDivElement | null>(null);
 
-  // ── Current semester disciplines ──────────────────────────────
+  // ── Horário (Supabase) ─────────────────────────────────────
+  const {
+    schedule:     mySchedule,
+    isLoading:    scheduleLoading,
+    isSaving:     scheduleSaving,
+    error:        scheduleError,
+    saveSchedule,
+  } = useSchedule();
+
+  // ── Editor manual state ────────────────────────────────────
+  const [manualGrid,         setManualGrid]         = useState<Record<GridKey, GridCell>>({});
+  const [globalRoom,         setGlobalRoom]         = useState<string>("S.03");
+  const [manualPeriodGroup,  setManualPeriodGroup]  = useState<FixedPeriod["group"]>("tarde");
+
+  // ── Disciplinas do semestre actual ─────────────────────────
   const currentSemesterDisciplines = useMemo(() => {
     const yearData = course.years.find((y) => y.year === currentYear);
     if (!yearData) return [];
-    const semData = yearData.semesters.find((s) => s.number === currentSemester);
+    const semData  = yearData.semesters.find((s) => s.number === currentSemester);
     return semData?.disciplines ?? [];
   }, [course, currentYear, currentSemester]);
 
@@ -880,6 +897,7 @@ export default function MeuCursoPage({
     [manualPeriodGroup]
   );
 
+  // ── Disciplina seleccionada ────────────────────────────────
   const selectedDiscipline = useMemo(() => {
     if (!selectedDisciplineId) return null;
     for (const year of course.years) {
@@ -903,6 +921,7 @@ export default function MeuCursoPage({
     return () => window.clearTimeout(id);
   }, [selectedDiscipline]);
 
+  // ── Helpers currículo ──────────────────────────────────────
   const toggleYear = (year: number) => {
     setExpandedYears((prev) => {
       const next = new Set(prev);
@@ -920,20 +939,16 @@ export default function MeuCursoPage({
 
   const statusIcon = (status: DisciplineStatus) => {
     switch (status) {
-      case "completed":
-        return <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />;
-      case "current":
-        return <Circle size={14} className="text-blue-400 shrink-0 fill-blue-400/30" />;
-      case "upcoming":
-        return <Circle size={14} className="text-slate-500 shrink-0" />;
+      case "completed": return <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />;
+      case "current":   return <Circle size={14} className="text-blue-400 shrink-0 fill-blue-400/30" />;
+      case "upcoming":  return <Circle size={14} className="text-slate-500 shrink-0" />;
     }
-    return null;
   };
 
   const statusLabel: Record<DisciplineStatus, string> = {
     completed: "Concluída",
-    current: "Em curso",
-    upcoming: "A frequentar",
+    current:   "Em curso",
+    upcoming:  "A frequentar",
   };
 
   const goToDiscipline = (id: string) =>
@@ -946,17 +961,15 @@ export default function MeuCursoPage({
     if (resolved) router.push(`/disciplinas/${resolved}`);
   };
 
-  // ── Grid helpers ───────────────────────────────────────────────
+  // ── Grid helpers ───────────────────────────────────────────
   const getGridCell = (day: string, periodKey: string): GridCell => {
     const key: GridKey = `${day}|${periodKey}`;
-    return (
-      manualGrid[key] ?? {
-        disciplineId: "",
-        room: globalRoom,
-        professor: "",
-        type: "Teórica",
-      }
-    );
+    return manualGrid[key] ?? {
+      disciplineId: "",
+      room:         globalRoom,
+      professor:    "",
+      type:         "Teórica",
+    };
   };
 
   const updateGridCell = (
@@ -966,17 +979,21 @@ export default function MeuCursoPage({
     value: string
   ) => {
     const key: GridKey = `${day}|${periodKey}`;
-    setManualGrid((prev) => ({
-      ...prev,
-      [key]: {
+    setManualGrid((prev) => {
+      const existing = prev[key] ?? {
         disciplineId: "",
-        room: globalRoom,
-        professor: "",
-        type: "Teórica",
-        ...prev[key],
-        [field]: value,
-      },
-    }));
+        room:         globalRoom,
+        professor:    "",
+        type:         "Teórica",
+      };
+      return {
+        ...prev,
+        [key]: {
+          ...existing,
+          [field]: value,
+        },
+      };
+    });
   };
 
   const handleGlobalRoomChange = (newRoom: string) => {
@@ -992,8 +1009,34 @@ export default function MeuCursoPage({
     });
   };
 
-  const saveManual = () => {
-    setSaving(true);
+  const applyBlockToGrid = (
+    day: string,
+    periodKey: string,
+    cell: GridCell,
+    length: number
+  ) => {
+    const startIndex = filteredPeriods.findIndex((p) => p.key === periodKey);
+    if (startIndex < 0) return;
+
+    setManualGrid((prev) => {
+      const next = { ...prev };
+      for (let i = 0; i < length; i++) {
+        const period = filteredPeriods[startIndex + i];
+        if (!period) break;
+        const key: GridKey = `${day}|${period.key}`;
+        next[key] = {
+          disciplineId: cell.disciplineId,
+          room:         cell.room || globalRoom,
+          professor:    cell.professor,
+          type:         cell.type,
+        };
+      }
+      return next;
+    });
+  };
+
+  // ── Guardar horário no Supabase ────────────────────────────
+  const saveManual = async () => {
     const slots: WeeklySlot[] = [];
     let counter = 0;
 
@@ -1001,27 +1044,31 @@ export default function MeuCursoPage({
       if (!cell.disciplineId) continue;
       const [day, periodKey] = key.split("|");
       const period = getPeriodByKey(periodKey);
-      const disc = currentSemesterDisciplines.find((d) => d.id === cell.disciplineId);
+      const disc   = currentSemesterDisciplines.find((d) => d.id === cell.disciplineId);
       if (!period || !disc) continue;
 
       slots.push({
-        id: `manual-${counter++}`,
-        day: day as WeeklySlot["day"],
-        startTime: period.startTime,
-        endTime: period.endTime,
-        discipline: disc.name,
+        id:             `manual-${counter++}`,
+        day:            day as WeeklySlot["day"],
+        startTime:      period.startTime,
+        endTime:        period.endTime,
+        discipline:     disc.name,
         disciplineSlug: getDisciplineSlug(disc.id),
-        room: cell.room || globalRoom,
-        professor: cell.professor,
-        type: cell.type,
+        room:           cell.room || globalRoom,
+        professor:      cell.professor,
+        type:           cell.type,
       });
     }
 
-    setMySchedule(slots);
-    setSaving(false);
-    setScheduleMode("view");
+    try {
+      await saveSchedule(slots);
+      setScheduleMode("view");
+    } catch {
+      // scheduleError já contém a mensagem
+    }
   };
 
+  // ── Computed ───────────────────────────────────────────────
   const scheduleByDay = useMemo(() => {
     const map: Record<string, WeeklySlot[]> = {};
     for (const day of DAYS_ORDER) map[day] = [];
@@ -1033,47 +1080,13 @@ export default function MeuCursoPage({
 
   const activePeriods = useMemo(() => getActivePeriods(mySchedule), [mySchedule]);
 
-  const applyBlockToGrid = (
-  day: string,
-  periodKey: string,
-  cell: GridCell,
-  length: number
-) => {
-  const startIndex = filteredPeriods.findIndex((p) => p.key === periodKey);
-  if (startIndex < 0) return;
-
-  setManualGrid((prev) => {
-    const next = { ...prev };
-
-    for (let i = 0; i < length; i++) {
-      const period = filteredPeriods[startIndex + i];
-      if (!period) break;
-
-      const key: GridKey = `${day}|${period.key}`;
-
-      next[key] = {
-        disciplineId: cell.disciplineId,
-        room: cell.room || globalRoom,
-        professor: cell.professor,
-        type: cell.type,
-      };
-    }
-
-    return next;
-  });
-};
-
   const scheduleProfessors = useMemo(() => {
     const map = new Map<string, { discipline: string; professor: string; room?: string }>();
     for (const slot of mySchedule) {
       if (!slot.professor) continue;
       const key = normalizeText(slot.discipline);
       if (!map.has(key)) {
-        map.set(key, {
-          discipline: slot.discipline,
-          professor: slot.professor,
-          room: slot.room,
-        });
+        map.set(key, { discipline: slot.discipline, professor: slot.professor, room: slot.room });
       }
     }
     return Array.from(map.values());
@@ -1083,16 +1096,9 @@ export default function MeuCursoPage({
     (((currentYear - 1) * 2 + (currentSemester - 1)) / 8) * 100
   );
 
-  const filledCellCount = Object.values(manualGrid).filter(
-    (c) => c.disciplineId
-  ).length;
+  const filledCellCount = Object.values(manualGrid).filter((c) => c.disciplineId).length;
 
-  /* ── SELECT STYLES ───────────────────────────────────────────── */
-  const selectBase =
-    "w-full appearance-none rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-slate-100 " +
-    "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 " +
-    "transition placeholder-slate-500";
-
+  // ── Estilos partilhados ────────────────────────────────────
   const selectSm =
     "w-full appearance-none rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 " +
     "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition";
@@ -1113,8 +1119,20 @@ export default function MeuCursoPage({
     </div>
   );
 
+  /* ==============================================================
+     RENDER
+  ============================================================== */
   return (
     <div className="space-y-6">
+
+      {/* ── Erro de horário ── */}
+      {scheduleError && (
+        <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+          <AlertCircle size={15} className="shrink-0" />
+          <span>{scheduleError}</span>
+        </div>
+      )}
+
       {/* ── Cabeçalho ── */}
       <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 md:p-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
@@ -1140,6 +1158,7 @@ export default function MeuCursoPage({
               )}
             </div>
           </div>
+
           <div className="flex shrink-0 flex-col items-end gap-1 text-right">
             <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">
               Progresso
@@ -1162,13 +1181,13 @@ export default function MeuCursoPage({
           {(["curriculo", "horario", "mudanca"] as Tab[]).map((tab) => {
             const labels: Record<Tab, string> = {
               curriculo: "Grelha Curricular",
-              horario: "Horário Semanal",
-              mudanca: "Mudar de Curso",
+              horario:   "Horário Semanal",
+              mudanca:   "Mudar de Curso",
             };
             const icons: Record<Tab, ElementType> = {
               curriculo: Layers,
-              horario: Calendar,
-              mudanca: RefreshCw,
+              horario:   Calendar,
+              mudanca:   RefreshCw,
             };
             const Icon = icons[tab];
             return (
@@ -1197,8 +1216,8 @@ export default function MeuCursoPage({
         <div className="space-y-4">
           {course.years.map((yearData) => {
             const isCurrentYear = yearData.year === currentYear;
-            const isExpanded = expandedYears.has(yearData.year);
-            const isCompleted = yearData.year < currentYear;
+            const isExpanded    = expandedYears.has(yearData.year);
+            const isCompleted   = yearData.year < currentYear;
 
             return (
               <div
@@ -1233,11 +1252,7 @@ export default function MeuCursoPage({
                       {yearData.year}
                     </div>
                     <div>
-                      <p
-                        className={`font-semibold ${
-                          isCurrentYear ? "text-white" : "text-slate-300"
-                        }`}
-                      >
+                      <p className={`font-semibold ${isCurrentYear ? "text-white" : "text-slate-300"}`}>
                         {yearData.year}º Ano
                         {isCurrentYear && (
                           <span className="ml-2 rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-medium text-indigo-300">
@@ -1255,25 +1270,22 @@ export default function MeuCursoPage({
                       </p>
                     </div>
                   </div>
-                  {isExpanded ? (
-                    <ChevronDown size={16} className="text-slate-400" />
-                  ) : (
-                    <ChevronRight size={16} className="text-slate-400" />
-                  )}
+                  {isExpanded
+                    ? <ChevronDown  size={16} className="text-slate-400" />
+                    : <ChevronRight size={16} className="text-slate-400" />
+                  }
                 </button>
 
                 {isExpanded && (
                   <div className="grid divide-y divide-white/5 bg-slate-950/30 md:grid-cols-2 md:divide-x md:divide-y-0">
                     {yearData.semesters.map((sem) => {
-                      const semStatus = getDisciplineStatus(yearData.year, sem.number);
+                      const semStatus   = getDisciplineStatus(yearData.year, sem.number);
                       const isSemCurrent = semStatus === "current";
                       return (
                         <div key={sem.number} className="p-4">
                           <div
                             className={`mb-3 flex items-center gap-2 border-b pb-2 ${
-                              isSemCurrent
-                                ? "border-indigo-500/30"
-                                : "border-white/5"
+                              isSemCurrent ? "border-indigo-500/30" : "border-white/5"
                             }`}
                           >
                             <div
@@ -1291,20 +1303,15 @@ export default function MeuCursoPage({
                           </div>
                           <div className="space-y-1.5">
                             {sem.disciplines.map((disc) => {
-                              const discStatus = getDisciplineStatus(
-                                yearData.year,
-                                sem.number
-                              );
+                              const discStatus = getDisciplineStatus(yearData.year, sem.number);
                               const isSelected = selectedDisciplineId === disc.id;
-                              const isCurrent = discStatus === "current";
+                              const isCurrent  = discStatus === "current";
                               return (
                                 <button
                                   key={disc.id}
                                   type="button"
                                   onClick={() =>
-                                    setSelectedDisciplineId(
-                                      isSelected ? null : disc.id
-                                    )
+                                    setSelectedDisciplineId(isSelected ? null : disc.id)
                                   }
                                   className={`group flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
                                     isSelected
@@ -1317,9 +1324,7 @@ export default function MeuCursoPage({
                                   {statusIcon(discStatus)}
                                   <span
                                     className={`flex-1 leading-snug ${
-                                      isSelected
-                                        ? "text-indigo-200"
-                                        : "text-slate-300"
+                                      isSelected ? "text-indigo-200" : "text-slate-300"
                                     }`}
                                   >
                                     {disc.name}
@@ -1387,9 +1392,17 @@ export default function MeuCursoPage({
       ══════════════════════════════════════════ */}
       {activeTab === "horario" && (
         <div className="space-y-4">
-          {scheduleMode === "view" && (
+
+          {/* Loading do horário */}
+          {scheduleLoading ? (
+            <div className="flex items-center justify-center gap-3 py-16">
+              <Loader2 size={20} className="animate-spin text-indigo-400" />
+              <p className="text-sm text-slate-400">A carregar horário…</p>
+            </div>
+          ) : scheduleMode === "view" ? (
             <>
               {mySchedule.length === 0 ? (
+                /* ── Sem horário ── */
                 <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-10 text-center">
                   <Calendar size={48} className="mx-auto mb-4 text-slate-600" />
                   <p className="text-lg font-semibold text-slate-300">
@@ -1411,10 +1424,12 @@ export default function MeuCursoPage({
                   </div>
                 </div>
               ) : (
+                /* ── Horário preenchido ── */
                 <>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => {
+                        // Pré-preencher a grid com o horário existente
                         const newGrid: Record<GridKey, GridCell> = {};
                         for (const slot of mySchedule) {
                           const periodKey = `${slot.startTime}-${slot.endTime}`;
@@ -1424,9 +1439,9 @@ export default function MeuCursoPage({
                           );
                           newGrid[key] = {
                             disciplineId: disc?.id ?? "",
-                            room: slot.room ?? globalRoom,
-                            professor: slot.professor ?? "",
-                            type: slot.type,
+                            room:         slot.room ?? globalRoom,
+                            professor:    slot.professor ?? "",
+                            type:         slot.type,
                           };
                         }
                         setManualGrid(newGrid);
@@ -1434,18 +1449,19 @@ export default function MeuCursoPage({
                       }}
                       className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
                     >
-                      <Edit3 size={14} /> Editar manual
+                      <Edit3 size={14} /> Editar horário
                     </button>
                   </div>
 
                   <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.08] px-4 py-3 text-xs text-blue-300">
                     <Info size={14} className="mt-0.5 shrink-0" />
                     <span>
-                      <strong>Clica em qualquer aula</strong> para aceder ao conteúdo da
-                      disciplina.
+                      <strong>Clica em qualquer aula</strong> para aceder ao conteúdo
+                      da disciplina.
                     </span>
                   </div>
 
+                  {/* Tabela de horário */}
                   <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
                     <div className="border-b border-white/10 px-4 py-4">
                       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1475,7 +1491,7 @@ export default function MeuCursoPage({
                       <table className="min-w-[980px] w-full border-collapse">
                         <thead>
                           <tr className="bg-white/[0.03]">
-                            <th className="border-b border-r border-white/10 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 w-24">
+                            <th className="w-24 border-b border-r border-white/10 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                               Hora
                             </th>
                             {DAYS_ORDER.map((day) => (
@@ -1492,7 +1508,7 @@ export default function MeuCursoPage({
                           {activePeriods.map((period, idx) => (
                             <tr key={period.key} className="group">
                               <td
-                                className={`border-r border-b border-white/10 px-3 py-3 align-middle ${
+                                className={`border-b border-r border-white/10 px-3 py-3 align-middle ${
                                   idx % 2 === 0 ? "bg-white/[0.02]" : "bg-white/[0.04]"
                                 }`}
                               >
@@ -1511,9 +1527,7 @@ export default function MeuCursoPage({
                                   <td
                                     key={`${day}-${period.key}`}
                                     className={`border-b border-r border-white/10 px-2 py-2 align-middle last:border-r-0 ${
-                                      idx % 2 === 0
-                                        ? "bg-slate-950/30"
-                                        : "bg-slate-950/45"
+                                      idx % 2 === 0 ? "bg-slate-950/30" : "bg-slate-950/45"
                                     }`}
                                   >
                                     {slot ? (
@@ -1537,9 +1551,7 @@ export default function MeuCursoPage({
                                       </button>
                                     ) : (
                                       <div className="flex min-h-[56px] items-center justify-center rounded-xl border border-dashed border-white/5 bg-white/[0.015]">
-                                        <span className="text-[10px] text-slate-700">
-                                          —
-                                        </span>
+                                        <span className="text-[10px] text-slate-700">—</span>
                                       </div>
                                     )}
                                   </td>
@@ -1552,6 +1564,7 @@ export default function MeuCursoPage({
                     </div>
                   </div>
 
+                  {/* Legenda tipos */}
                   <div className="flex flex-wrap gap-3 text-[11px]">
                     {(Object.entries(TYPE_COLORS) as [WeeklySlot["type"], string][]).map(
                       ([type, cls]) => (
@@ -1566,6 +1579,7 @@ export default function MeuCursoPage({
                     )}
                   </div>
 
+                  {/* Professores */}
                   {scheduleProfessors.length > 0 && (
                     <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
                       <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
@@ -1592,9 +1606,8 @@ export default function MeuCursoPage({
                 </>
               )}
             </>
-          )}
-
-          {scheduleMode === "manual" && (
+          ) : (
+            /* ── Editor manual ── */
             <ManualScheduleEditor
               currentYear={currentYear}
               currentSemester={currentSemester}
@@ -1603,9 +1616,8 @@ export default function MeuCursoPage({
               globalRoom={globalRoom}
               manualPeriodGroup={manualPeriodGroup}
               filteredPeriods={filteredPeriods}
-              saving={saving}
+              saving={scheduleSaving}
               filledCellCount={filledCellCount}
-              selectBase={selectBase}
               selectSm={selectSm}
               SelectWrap={SelectWrap}
               onUpdateCell={updateGridCell}
@@ -1613,7 +1625,7 @@ export default function MeuCursoPage({
               onGlobalRoomChange={handleGlobalRoomChange}
               onPeriodGroupChange={setManualPeriodGroup}
               onApplyBlock={applyBlockToGrid}
-              onSave={saveManual}   
+              onSave={saveManual}
               onCancel={() => setScheduleMode("view")}
             />
           )}
@@ -1623,7 +1635,9 @@ export default function MeuCursoPage({
       {/* ══════════════════════════════════════════
           TAB: MUDANÇA DE CURSO
       ══════════════════════════════════════════ */}
-      {activeTab === "mudanca" && <CourseChangeSection currentCourseId={courseId} />}
+      {activeTab === "mudanca" && (
+        <CourseChangeSection currentCourseId={courseId} />
+      )}
     </div>
   );
 }
@@ -1641,24 +1655,13 @@ type ManualScheduleEditorProps = {
   filteredPeriods: FixedPeriod[];
   saving: boolean;
   filledCellCount: number;
-  selectBase: string;
   selectSm: string;
   SelectWrap: ComponentType<{ children: ReactNode; className?: string }>;
-  onUpdateCell: (
-    day: string,
-    periodKey: string,
-    field: keyof GridCell,
-    value: string
-  ) => void;
+  onUpdateCell: (day: string, periodKey: string, field: keyof GridCell, value: string) => void;
   onGetCell: (day: string, periodKey: string) => GridCell;
   onGlobalRoomChange: (room: string) => void;
   onPeriodGroupChange: (group: FixedPeriod["group"]) => void;
-  onApplyBlock: (
-    day: string,
-    periodKey: string,
-    cell: GridCell,
-    length: number
-  ) => void;
+  onApplyBlock: (day: string, periodKey: string, cell: GridCell, length: number) => void;
   onSave: () => void;
   onCancel: () => void;
 };
@@ -1673,7 +1676,6 @@ function ManualScheduleEditor({
   filteredPeriods,
   saving,
   filledCellCount,
-  selectBase: _selectBase,
   selectSm,
   SelectWrap,
   onUpdateCell,
@@ -1685,11 +1687,8 @@ function ManualScheduleEditor({
   onCancel,
 }: ManualScheduleEditorProps) {
   const hasAnyEntry = filledCellCount > 0;
-
-  // Bloco automático: 1, 2 ou 3 tempos
   const [autoBlockSize, setAutoBlockSize] = useState<1 | 2 | 3>(1);
 
-  // Professor por disciplina
   const [profMap, setProfMap] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const cell of Object.values(manualGrid)) {
@@ -1702,8 +1701,6 @@ function ManualScheduleEditor({
 
   const setProfessor = (discId: string, val: string) => {
     setProfMap((prev) => ({ ...prev, [discId]: val }));
-
-    // actualiza todas as células dessa disciplina já preenchidas
     Object.entries(manualGrid)
       .filter(([, c]) => c.disciplineId === discId)
       .forEach(([key]) => {
@@ -1722,15 +1719,12 @@ function ManualScheduleEditor({
       onUpdateCell(day, periodKey, "disciplineId", "");
       return;
     }
-
     const nextCell: GridCell = {
       disciplineId,
-      room: currentCell.room || globalRoom,
+      room:      currentCell.room || globalRoom,
       professor: profMap[disciplineId] ?? currentCell.professor ?? "",
-      type: currentCell.type || "Teórica",
+      type:      currentCell.type || "Teórica",
     };
-
-    // Aplica o bloco inteiro: 1, 2 ou 3 tempos
     onApplyBlock(day, periodKey, nextCell, autoBlockSize);
   };
 
@@ -1759,115 +1753,109 @@ function ManualScheduleEditor({
         </button>
       </div>
 
-      {/* Global settings */}
-      {/* Global settings */}
-<div className="border-b border-white/10 bg-white/[0.015] px-5 py-4">
-  <div className="flex flex-wrap items-start gap-6">
-    
-    {/* Sala global */}
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        Sala (padrão para todas as aulas)
-      </label>
-      <input
-        type="text"
-        value={globalRoom}
-        onChange={(e) => onGlobalRoomChange(e.target.value)}
-        placeholder="ex: S.03"
-        className="w-36 rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
-      />
-      <p className="text-[10px] text-slate-600">
-        Aplica-se a todas as células sem sala específica
-      </p>
-    </div>
+      {/* Configurações globais */}
+      <div className="border-b border-white/10 bg-white/[0.015] px-5 py-4">
+        <div className="flex flex-wrap items-start gap-6">
 
-    {/* Divider */}
-    <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
+          {/* Sala global */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Sala (padrão)
+            </label>
+            <input
+              type="text"
+              value={globalRoom}
+              onChange={(e) => onGlobalRoomChange(e.target.value)}
+              placeholder="ex: S.03"
+              className="w-32 rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+            />
+          </div>
 
-    {/* Turno */}
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        Turno
-      </label>
-      <div className="flex gap-1">
-        {(
-          [
-            { key: "manha", label: "Manhã" },
-            { key: "tarde", label: "Tarde" },
-            { key: "noite", label: "Noite" },
-          ] as { key: FixedPeriod["group"]; label: string }[]
-        ).map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onPeriodGroupChange(key)}
-            className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
-              manualPeriodGroup === key
-                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
+          <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
 
-    {/* Divider */}
-    <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
+          {/* Turno */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Turno
+            </label>
+            <div className="flex gap-1">
+              {(
+                [
+                  { key: "manha", label: "Manhã" },
+                  { key: "tarde", label: "Tarde" },
+                  { key: "noite", label: "Noite" },
+                ] as { key: FixedPeriod["group"]; label: string }[]
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onPeriodGroupChange(key)}
+                  className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
+                    manualPeriodGroup === key
+                      ? "bg-indigo-600 text-white"
+                      : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-    {/* Bloco automático */}
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        Bloco automático
-      </label>
-      <div className="flex gap-1">
-        {([1, 2, 3] as const).map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => setAutoBlockSize(n)}
-            className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
-              autoBlockSize === n
-                ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
-                : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            {n === 1 ? "1 tempo" : `${n} tempos`}
-          </button>
-        ))}
-      </div>
-      <p className="text-[10px] text-slate-600">
-        Ao escolher uma disciplina, ela é copiada para os tempos seguintes
-      </p>
-    </div>
+          <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
 
-    {/* Contador de células preenchidas */}
-    {filledCellCount > 0 && (
-      <>
-        <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
-        <div className="flex items-center self-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2">
-          <CheckCircle2 size={13} className="text-indigo-400" />
-          <span className="text-xs text-indigo-300">
-            {filledCellCount}{" "}
-            {filledCellCount === 1 ? "tempo preenchido" : "tempos preenchidos"}
-          </span>
+          {/* Bloco automático */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Bloco automático
+            </label>
+            <div className="flex gap-1">
+              {([1, 2, 3] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setAutoBlockSize(n)}
+                  className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
+                    autoBlockSize === n
+                      ? "bg-emerald-600 text-white"
+                      : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  {n === 1 ? "1 tempo" : `${n} tempos`}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-600">
+              Ao escolher uma disciplina preenche os tempos seguintes
+            </p>
+          </div>
+
+          {/* Contador */}
+          {filledCellCount > 0 && (
+            <>
+              <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
+              <div className="flex items-center self-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2">
+                <CheckCircle2 size={13} className="text-indigo-400" />
+                <span className="text-xs text-indigo-300">
+                  {filledCellCount}{" "}
+                  {filledCellCount === 1 ? "tempo preenchido" : "tempos preenchidos"}
+                </span>
+              </div>
+            </>
+          )}
         </div>
-      </>
-    )}
-  </div>
-</div>
+      </div>
 
       {/* Info */}
       <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300">
         <Info size={13} className="mt-0.5 shrink-0" />
         <span>
-          Os horários fixos são os mesmos do ISAF. Selecciona a disciplina em cada célula
-          — células vazias são ignoradas. Quando o bloco automático estiver activo, os tempos seguintes são preenchidos automaticamente.
+          Selecciona a disciplina em cada célula. Células vazias são ignoradas.
+          Com bloco automático activo, os tempos seguintes são preenchidos automaticamente.
         </span>
       </div>
 
-      {/* GRID */}
+      {/* Grid */}
       <div className="overflow-x-auto p-5">
         <table
           className="w-full border-collapse"
@@ -1875,7 +1863,7 @@ function ManualScheduleEditor({
         >
           <thead>
             <tr>
-              <th className="border border-white/10 bg-slate-900/80 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 w-20">
+              <th className="w-20 border border-white/10 bg-slate-900/80 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Hora
               </th>
               {DAYS_ORDER.map((day) => (
@@ -1888,11 +1876,9 @@ function ManualScheduleEditor({
               ))}
             </tr>
           </thead>
-
           <tbody>
             {filteredPeriods.map((period, idx) => (
               <tr key={period.key}>
-                {/* Hora */}
                 <td
                   className={`border border-white/10 px-2 py-2 align-middle text-center ${
                     idx % 2 === 0 ? "bg-white/[0.02]" : "bg-white/[0.04]"
@@ -1905,10 +1891,8 @@ function ManualScheduleEditor({
                     {period.endTime}
                   </span>
                 </td>
-
-                {/* Células por dia */}
                 {DAYS_ORDER.map((day) => {
-                  const cell = onGetCell(day, period.key);
+                  const cell    = onGetCell(day, period.key);
                   const hasDisc = !!cell.disciplineId;
 
                   return (
@@ -1923,17 +1907,12 @@ function ManualScheduleEditor({
                       }`}
                     >
                       <div className="space-y-1.5">
-                        {/* DISCIPLINA */}
+                        {/* Disciplina */}
                         <SelectWrap>
                           <select
                             value={cell.disciplineId}
                             onChange={(e) =>
-                              handleDisciplineChange(
-                                day,
-                                period.key,
-                                e.target.value,
-                                cell
-                              )
+                              handleDisciplineChange(day, period.key, e.target.value, cell)
                             }
                             className={`${selectSm} ${
                               hasDisc
@@ -1955,7 +1934,7 @@ function ManualScheduleEditor({
                           const disc = disciplines.find((d) => d.id === cell.disciplineId);
                           return disc ? (
                             <p
-                              className="px-0.5 text-[9px] leading-tight text-indigo-300/80 line-clamp-1"
+                              className="line-clamp-1 px-0.5 text-[9px] leading-tight text-indigo-300/80"
                               title={disc.name}
                             >
                               {disc.name}
@@ -1973,19 +1952,13 @@ function ManualScheduleEditor({
                                 onUpdateCell(day, period.key, "room", e.target.value)
                               }
                               placeholder="Sala"
-                              className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                              className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none transition"
                             />
-
                             <SelectWrap>
                               <select
                                 value={cell.type}
                                 onChange={(e) =>
-                                  onUpdateCell(
-                                    day,
-                                    period.key,
-                                    "type",
-                                    e.target.value as WeeklySlot["type"]
-                                  )
+                                  onUpdateCell(day, period.key, "type", e.target.value)
                                 }
                                 className={selectSm}
                               >
@@ -1994,7 +1967,6 @@ function ManualScheduleEditor({
                                 <option value="Teórico-Prática">Teórico-Prática</option>
                               </select>
                             </SelectWrap>
-
                             <input
                               type="text"
                               value={cell.professor}
@@ -2002,10 +1974,8 @@ function ManualScheduleEditor({
                                 onUpdateCell(day, period.key, "professor", e.target.value)
                               }
                               placeholder="Professor"
-                              className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+                              className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none transition"
                             />
-
-                            {/* Auto-aplicar bloco */}
                             <button
                               type="button"
                               onClick={() => applyFromCurrentCell(day, period.key)}
@@ -2013,9 +1983,7 @@ function ManualScheduleEditor({
                             >
                               <RefreshCw size={11} />
                               Aplicar{" "}
-                              {autoBlockSize === 1
-                                ? "esta aula"
-                                : `bloco de ${autoBlockSize} tempos`}
+                              {autoBlockSize === 1 ? "esta aula" : `bloco de ${autoBlockSize} tempos`}
                             </button>
                           </div>
                         )}
@@ -2044,7 +2012,7 @@ function ManualScheduleEditor({
                 key={disc.id}
                 className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2"
               >
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <p
                     className="truncate text-[11px] font-semibold text-slate-300"
                     title={disc.name}
@@ -2082,7 +2050,7 @@ function ManualScheduleEditor({
         >
           {saving ? (
             <>
-              <Loader2 size={16} className="animate-spin" /> A guardar...
+              <Loader2 size={16} className="animate-spin" /> A guardar…
             </>
           ) : (
             <>
@@ -2115,13 +2083,13 @@ function DisciplinePanel({
 }) {
   const statusColors: Record<DisciplineStatus, string> = {
     completed: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
-    current: "bg-blue-500/10 border-blue-500/20 text-blue-300",
-    upcoming: "bg-slate-500/10 border-slate-500/20 text-slate-400",
+    current:   "bg-blue-500/10 border-blue-500/20 text-blue-300",
+    upcoming:  "bg-slate-500/10 border-slate-500/20 text-slate-400",
   };
   const statusLabel: Record<DisciplineStatus, string> = {
     completed: "Concluída",
-    current: "Em curso",
-    upcoming: "A frequentar",
+    current:   "Em curso",
+    upcoming:  "A frequentar",
   };
 
   return (
@@ -2183,8 +2151,7 @@ function DisciplinePanel({
             onClick={onGoToDiscipline}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600/10 px-4 py-2.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-600/20"
           >
-            <BookOpen size={14} /> Ir para a disciplina completa{" "}
-            <ChevronRight size={14} />
+            <BookOpen size={14} /> Ir para a disciplina completa <ChevronRight size={14} />
           </button>
         </div>
       ) : (
@@ -2213,9 +2180,7 @@ function DisciplinePanel({
    COURSE CHANGE SECTION
 ================================================================ */
 function CourseChangeSection({ currentCourseId }: { currentCourseId: CourseId }) {
-  const otherCourses = Object.values(CURRICULUM).filter(
-    (c) => c.id !== currentCourseId
-  );
+  const otherCourses = Object.values(CURRICULUM).filter((c) => c.id !== currentCourseId);
 
   return (
     <div className="space-y-5">
@@ -2234,9 +2199,7 @@ function CourseChangeSection({ currentCourseId }: { currentCourseId: CourseId })
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
         <div className="border-b border-white/10 bg-white/[0.03] px-5 py-4">
           <h2 className="font-semibold text-slate-100">Requisitos para Mudança de Curso</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Conforme o Regulamento Académico do ISAF
-          </p>
+          <p className="mt-0.5 text-xs text-slate-500">Conforme o Regulamento Académico do ISAF</p>
         </div>
         <div className="divide-y divide-white/5 px-5">
           {[
@@ -2312,9 +2275,9 @@ function CourseChangeSection({ currentCourseId }: { currentCourseId: CourseId })
         </div>
         <div className="grid gap-3 p-5 sm:grid-cols-3">
           {[
-            { icon: Phone, label: "Telefone", value: "+244 222 000 000" },
-            { icon: Mail, label: "Email", value: "secretaria@isaf.co.ao" },
-            { icon: MapPin, label: "Localização", value: "Luanda, Angola" },
+            { icon: Phone, label: "Telefone",    value: "+244 222 000 000"   },
+            { icon: Mail,  label: "Email",       value: "secretaria@isaf.co.ao" },
+            { icon: MapPin,label: "Localização", value: "Luanda, Angola"     },
           ].map(({ icon: Icon, label, value }) => (
             <div
               key={label}
