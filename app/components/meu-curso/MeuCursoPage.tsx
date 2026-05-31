@@ -28,14 +28,41 @@ import {
   Phone,
   Mail,
   MapPin,
-  Headphones,
-  PresentationIcon,
   Plus,
   Loader2,
   Edit3,
 } from "lucide-react";
+import {
+  useDisciplineStudyPlan,
+} from "@/app/lib/hooks/useDisciplineStudyPlan";
 import { useSchedule } from "@/app/lib/hooks/useSchedule";
 import { useScheduleReset } from "@/app/lib/hooks/useScheduleReset";
+
+/* ================================================================
+   SCROLLBAR CLASSES
+================================================================ */
+
+/** Scrollbar vertical — usada nos painéis com overflow-y */
+const SCROLLBAR_Y = [
+  "scrollbar-thin",
+  "scrollbar-track-transparent",
+  "[&::-webkit-scrollbar]:w-1.5",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
+  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
+].join(" ");
+
+/** Scrollbar horizontal — usada nos chips e na tabela */
+const SCROLLBAR_X = [
+  "scrollbar-thin",
+  "scrollbar-track-transparent",
+  "[&::-webkit-scrollbar]:h-1",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
+  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
+].join(" ");
 
 /* ================================================================
    TIPOS
@@ -286,10 +313,10 @@ const CURRICULUM: Record<CourseId, CourseData> = {
             number: 2,
             totalHours: 768,
             disciplines: [
-              { id: "igf-1-2-cg1", name: "Contabilidade Geral I" },
-              { id: "igf-1-2-li2", name: "Língua Inglesa II" },
-              { id: "igf-1-2-iog", name: "Introdução às Organizações e à Gestão" },
-              { id: "igf-1-2-arq", name: "Arquitetura de Computadores" },
+              { id: "igf-1-2-cg1",  name: "Contabilidade Geral I" },
+              { id: "igf-1-2-li2",  name: "Língua Inglesa II" },
+              { id: "igf-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
+              { id: "igf-1-2-arq",  name: "Arquitetura de Computadores" },
               { id: "igf-1-2-mat2", name: "Matemática II" },
             ],
           },
@@ -632,6 +659,11 @@ const DAY_LABELS: Record<WeeklySlot["day"], string> = {
 /* ================================================================
    HELPERS
 ================================================================ */
+function getDisciplineCodeFromId(id: string): string {
+  const parts = id.split("-");
+  return parts[parts.length - 1].toUpperCase();
+}
+
 function normalizeText(value: string) {
   return value
     .normalize("NFD")
@@ -826,6 +858,12 @@ type Props = {
   studentNumber?: string | null;
 };
 
+const COURSE_UUIDS: Record<CourseId, string> = {
+  "informatica-gestao-financeira": "60313e51-2b89-4c1d-9737-6606c9d5e999",
+  "contabilidade-financas":        "4c41b444-b985-40e0-8449-bdf3156cf3ab",
+  "gestao-bancaria-seguros":       "724e59d4-8acb-4235-9698-18a325f4ffe5",
+};
+
 /* ================================================================
    COMPONENTE PRINCIPAL
 ================================================================ */
@@ -847,8 +885,8 @@ export default function MeuCursoPage({
   const modeParam   = searchParams.get("mode");
   const modeFromUrl : ScheduleMode = modeParam === "manual" ? "manual" : "view";
 
-  const [activeTab,      setActiveTabState]      = useState<Tab>(tabFromUrl);
-  const [scheduleMode,   setScheduleModeState]   = useState<ScheduleMode>(modeFromUrl);
+  const [activeTab,    setActiveTabState]    = useState<Tab>(tabFromUrl);
+  const [scheduleMode, setScheduleModeState] = useState<ScheduleMode>(modeFromUrl);
 
   const setActiveTab = (tab: Tab) => {
     setActiveTabState(tab);
@@ -872,17 +910,17 @@ export default function MeuCursoPage({
 
   // ── Horário (Supabase) ─────────────────────────────────────
   const {
-    schedule:     mySchedule,
-    isLoading:    scheduleLoading,
-    isSaving:     scheduleSaving,
-    error:        scheduleError,
+    schedule:  mySchedule,
+    isLoading: scheduleLoading,
+    isSaving:  scheduleSaving,
+    error:     scheduleError,
     saveSchedule,
   } = useSchedule();
 
   // ── Editor manual state ────────────────────────────────────
-  const [manualGrid,         setManualGrid]         = useState<Record<GridKey, GridCell>>({});
-  const [globalRoom,         setGlobalRoom]         = useState<string>("S.03");
-  const [manualPeriodGroup,  setManualPeriodGroup]  = useState<FixedPeriod["group"]>("tarde");
+  const [manualGrid,        setManualGrid]        = useState<Record<GridKey, GridCell>>({});
+  const [globalRoom,        setGlobalRoom]        = useState<string>("S.03");
+  const [manualPeriodGroup, setManualPeriodGroup] = useState<FixedPeriod["group"]>("tarde");
 
   // ── Disciplinas do semestre actual ─────────────────────────
   const currentSemesterDisciplines = useMemo(() => {
@@ -951,8 +989,8 @@ export default function MeuCursoPage({
     upcoming:  "A frequentar",
   };
 
-  const goToDiscipline = (id: string) =>
-    router.push(`/disciplinas/${getDisciplineSlug(id)}`);
+  const goToDiscipline = (disciplineId: string) =>
+    router.push(`/disciplinas/${disciplineId}`);
 
   const goToScheduleDiscipline = (slot: WeeklySlot) => {
     const resolved = slot.disciplineSlug
@@ -986,13 +1024,7 @@ export default function MeuCursoPage({
         professor:    "",
         type:         "Teórica",
       };
-      return {
-        ...prev,
-        [key]: {
-          ...existing,
-          [field]: value,
-        },
-      };
+      return { ...prev, [key]: { ...existing, [field]: value } };
     });
   };
 
@@ -1017,7 +1049,6 @@ export default function MeuCursoPage({
   ) => {
     const startIndex = filteredPeriods.findIndex((p) => p.key === periodKey);
     if (startIndex < 0) return;
-
     setManualGrid((prev) => {
       const next = { ...prev };
       for (let i = 0; i < length; i++) {
@@ -1039,14 +1070,12 @@ export default function MeuCursoPage({
   const saveManual = async () => {
     const slots: WeeklySlot[] = [];
     let counter = 0;
-
     for (const [key, cell] of Object.entries(manualGrid)) {
       if (!cell.disciplineId) continue;
       const [day, periodKey] = key.split("|");
       const period = getPeriodByKey(periodKey);
       const disc   = currentSemesterDisciplines.find((d) => d.id === cell.disciplineId);
       if (!period || !disc) continue;
-
       slots.push({
         id:             `manual-${counter++}`,
         day:            day as WeeklySlot["day"],
@@ -1059,7 +1088,6 @@ export default function MeuCursoPage({
         type:           cell.type,
       });
     }
-
     try {
       await saveSchedule(slots);
       setScheduleMode("view");
@@ -1279,7 +1307,7 @@ export default function MeuCursoPage({
                 {isExpanded && (
                   <div className="grid divide-y divide-white/5 bg-slate-950/30 md:grid-cols-2 md:divide-x md:divide-y-0">
                     {yearData.semesters.map((sem) => {
-                      const semStatus   = getDisciplineStatus(yearData.year, sem.number);
+                      const semStatus    = getDisciplineStatus(yearData.year, sem.number);
                       const isSemCurrent = semStatus === "current";
                       return (
                         <div key={sem.number} className="p-4">
@@ -1364,10 +1392,9 @@ export default function MeuCursoPage({
                           selectedDiscipline.year,
                           selectedDiscipline.semester
                         )}
+                        courseId={courseId}
                         onClose={() => setSelectedDisciplineId(null)}
-                        onGoToDiscipline={() =>
-                          goToDiscipline(selectedDiscipline.discipline.id)
-                        }
+                        onGoToDiscipline={goToDiscipline}
                       />
                     </div>
                   )}
@@ -1392,8 +1419,6 @@ export default function MeuCursoPage({
       ══════════════════════════════════════════ */}
       {activeTab === "horario" && (
         <div className="space-y-4">
-
-          {/* Loading do horário */}
           {scheduleLoading ? (
             <div className="flex items-center justify-center gap-3 py-16">
               <Loader2 size={20} className="animate-spin text-indigo-400" />
@@ -1402,7 +1427,6 @@ export default function MeuCursoPage({
           ) : scheduleMode === "view" ? (
             <>
               {mySchedule.length === 0 ? (
-                /* ── Sem horário ── */
                 <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-10 text-center">
                   <Calendar size={48} className="mx-auto mb-4 text-slate-600" />
                   <p className="text-lg font-semibold text-slate-300">
@@ -1413,10 +1437,7 @@ export default function MeuCursoPage({
                   </p>
                   <div className="mt-6 flex justify-center">
                     <button
-                      onClick={() => {
-                        setManualGrid({});
-                        setScheduleMode("manual");
-                      }}
+                      onClick={() => { setManualGrid({}); setScheduleMode("manual"); }}
                       className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
                     >
                       <Plus size={16} /> Criar horário manualmente
@@ -1424,12 +1445,10 @@ export default function MeuCursoPage({
                   </div>
                 </div>
               ) : (
-                /* ── Horário preenchido ── */
                 <>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => {
-                        // Pré-preencher a grid com o horário existente
                         const newGrid: Record<GridKey, GridCell> = {};
                         for (const slot of mySchedule) {
                           const periodKey = `${slot.startTime}-${slot.endTime}`;
@@ -1456,8 +1475,7 @@ export default function MeuCursoPage({
                   <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.08] px-4 py-3 text-xs text-blue-300">
                     <Info size={14} className="mt-0.5 shrink-0" />
                     <span>
-                      <strong>Clica em qualquer aula</strong> para aceder ao conteúdo
-                      da disciplina.
+                      <strong>Clica em qualquer aula</strong> para aceder ao conteúdo da disciplina.
                     </span>
                   </div>
 
@@ -1466,9 +1484,7 @@ export default function MeuCursoPage({
                     <div className="border-b border-white/10 px-4 py-4">
                       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                         <div>
-                          <h2 className="text-lg font-semibold text-white">
-                            Horário Semanal
-                          </h2>
+                          <h2 className="text-lg font-semibold text-white">Horário Semanal</h2>
                           <p className="text-xs text-slate-500">
                             Estruturado conforme os horários do ISAF
                           </p>
@@ -1487,7 +1503,8 @@ export default function MeuCursoPage({
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* ── Tabela com scrollbar horizontal integrada ── */}
+                    <div className={`overflow-x-auto ${SCROLLBAR_X}`}>
                       <table className="min-w-[980px] w-full border-collapse">
                         <thead>
                           <tr className="bg-white/[0.03]">
@@ -1607,7 +1624,6 @@ export default function MeuCursoPage({
               )}
             </>
           ) : (
-            /* ── Editor manual ── */
             <ManualScheduleEditor
               currentYear={currentYear}
               currentSemester={currentSemester}
@@ -1756,7 +1772,6 @@ function ManualScheduleEditor({
       {/* Configurações globais */}
       <div className="border-b border-white/10 bg-white/[0.015] px-5 py-4">
         <div className="flex flex-wrap items-start gap-6">
-
           {/* Sala global */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -1855,8 +1870,8 @@ function ManualScheduleEditor({
         </span>
       </div>
 
-      {/* Grid */}
-      <div className="overflow-x-auto p-5">
+      {/* ── Grid com scrollbar horizontal integrada ── */}
+      <div className={`overflow-x-auto p-5 ${SCROLLBAR_X}`}>
         <table
           className="w-full border-collapse"
           style={{ minWidth: `${80 + DAYS_ORDER.length * 148}px` }}
@@ -1894,7 +1909,6 @@ function ManualScheduleEditor({
                 {DAYS_ORDER.map((day) => {
                   const cell    = onGetCell(day, period.key);
                   const hasDisc = !!cell.disciplineId;
-
                   return (
                     <td
                       key={`${day}-${period.key}`}
@@ -2049,13 +2063,9 @@ function ManualScheduleEditor({
           className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? (
-            <>
-              <Loader2 size={16} className="animate-spin" /> A guardar…
-            </>
+            <><Loader2 size={16} className="animate-spin" /> A guardar…</>
           ) : (
-            <>
-              <CheckCircle2 size={16} /> Guardar Horário
-            </>
+            <><CheckCircle2 size={16} /> Guardar Horário</>
           )}
         </button>
       </div>
@@ -2071,6 +2081,7 @@ function DisciplinePanel({
   year,
   semester,
   status,
+  courseId,
   onClose,
   onGoToDiscipline,
 }: {
@@ -2078,14 +2089,51 @@ function DisciplinePanel({
   year: number;
   semester: number;
   status: DisciplineStatus;
+  courseId: CourseId;
   onClose: () => void;
-  onGoToDiscipline: () => void;
+  onGoToDiscipline: (disciplineId: string) => void;
 }) {
+  const courseUUID     = COURSE_UUIDS[courseId];
+  const disciplineCode = getDisciplineCodeFromId(discipline.id);
+  const isInteractive  = status === "current";
+
+  const { result, isLoading, error } = useDisciplineStudyPlan({
+    courseUUID,
+    year,
+    semester,
+    disciplineCode,
+    enabled: true,
+  });
+
+  const chapters = result?.chapters ?? [];
+
+  const [activeChapterId, setActiveChapterId] = useState<string>("");
+
+  useEffect(() => {
+    if (chapters.length === 0) {
+      setActiveChapterId("");
+      return;
+    }
+    setActiveChapterId((current) => {
+      const exists = chapters.some((ch) => ch.id === current);
+      return exists ? current : chapters[0].id;
+    });
+  }, [chapters]);
+
+  const activeChapter =
+    chapters.find((ch) => ch.id === activeChapterId) ?? chapters[0] ?? null;
+
+  const openDiscipline = () => {
+    if (!result?.disciplineId) return;
+    onGoToDiscipline(result.disciplineId);
+  };
+
   const statusColors: Record<DisciplineStatus, string> = {
     completed: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
     current:   "bg-blue-500/10 border-blue-500/20 text-blue-300",
     upcoming:  "bg-slate-500/10 border-slate-500/20 text-slate-400",
   };
+
   const statusLabel: Record<DisciplineStatus, string> = {
     completed: "Concluída",
     current:   "Em curso",
@@ -2094,6 +2142,7 @@ function DisciplinePanel({
 
   return (
     <div className="border-t border-indigo-500/20 bg-indigo-950/30 px-5 py-5">
+      {/* ── Cabeçalho ── */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400">
@@ -2107,6 +2156,7 @@ function DisciplinePanel({
             </p>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
           <span
             className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusColors[status]}`}
@@ -2123,53 +2173,164 @@ function DisciplinePanel({
         </div>
       </div>
 
-      {discipline.topics && discipline.topics.length > 0 ? (
-        <div className="space-y-1.5">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-            Temas e Capítulos — clica para aceder ao conteúdo
-          </p>
-          {discipline.topics.map((topic, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={onGoToDiscipline}
-              className="group flex w-full items-start gap-2.5 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5 text-left text-sm text-slate-300 transition hover:border-indigo-500/30 hover:bg-indigo-950/40"
-            >
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-indigo-600/20 text-[10px] font-bold text-indigo-400">
-                {idx + 1}
-              </span>
-              <span className="flex-1 leading-snug">{topic}</span>
-              <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                <Headphones size={12} className="text-indigo-400" />
-                <PresentationIcon size={12} className="text-indigo-400" />
-                <ChevronRight size={12} className="text-indigo-400" />
-              </div>
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={onGoToDiscipline}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600/10 px-4 py-2.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-600/20"
-          >
-            <BookOpen size={14} /> Ir para a disciplina completa <ChevronRight size={14} />
-          </button>
+      <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+        {isInteractive
+          ? "Plano de estudo — semestre corrente"
+          : "Plano de estudo — só visualização"}
+      </p>
+
+      {/* ── Estados ── */}
+      {isLoading ? (
+        <div className="flex items-center justify-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-6">
+          <Loader2 size={16} className="animate-spin text-indigo-400" />
+          <p className="text-sm text-slate-400">A carregar plano de estudo…</p>
         </div>
-      ) : (
+      ) : error ? (
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
+          <p className="text-sm font-semibold text-rose-300">
+            Não foi possível carregar o plano
+          </p>
+          <p className="mt-1 text-xs text-rose-200/80">{error}</p>
+        </div>
+      ) : chapters.length === 0 ? (
         <div className="space-y-3">
           <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-center">
             <Layers size={24} className="mx-auto mb-2 text-slate-600" />
-            <p className="text-sm font-medium text-slate-400">Plano de estudo a carregar</p>
+            <p className="text-sm font-medium text-slate-400">
+              Plano de estudo ainda não disponível
+            </p>
             <p className="mt-1 text-xs text-slate-600">
-              Os temas e capítulos são carregados do Supabase.
+              Os capítulos e temas serão inseridos brevemente.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onGoToDiscipline}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600/10 px-4 py-2.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-600/20"
-          >
-            <BookOpen size={14} /> Ir para a disciplina <ChevronRight size={14} />
-          </button>
+
+          {isInteractive && (
+            <button
+              type="button"
+              onClick={openDiscipline}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600/10 px-4 py-2.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-600/20"
+            >
+              <BookOpen size={14} />
+              Ir para a disciplina
+              <ChevronRight size={14} />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* ── Chips dos capítulos — scrollbar horizontal integrada ── */}
+          <div className={`flex gap-2 overflow-x-auto pb-2 ${SCROLLBAR_X}`}>
+            {chapters.map((chapter, idx) => {
+              const isActive = chapter.id === activeChapter?.id;
+              return (
+                <button
+                  key={chapter.id}
+                  type="button"
+                  onClick={() => setActiveChapterId(chapter.id)}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition ${
+                    isActive
+                      ? "border-indigo-500/40 bg-indigo-600/15 text-indigo-200"
+                      : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:bg-white/[0.05] hover:text-slate-200"
+                  }`}
+                  title={chapter.title}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/20 text-[10px] font-bold">
+                    {idx + 1}
+                  </span>
+                  <span className="max-w-[11rem] truncate">{chapter.title}</span>
+                  <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] text-slate-300">
+                    {chapter.topics.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Capítulo activo ── */}
+          {activeChapter && (
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-white/[0.03]">
+              <div className="flex items-start justify-between gap-3 border-b border-white/5 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-600/20 text-[10px] font-bold text-indigo-400">
+                      {chapters.findIndex((c) => c.id === activeChapter.id) + 1}
+                    </span>
+                    <h4 className="truncate text-sm font-semibold text-slate-200">
+                      {activeChapter.title}
+                    </h4>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {activeChapter.status} · {activeChapter.topics.length} tema(s)
+                  </p>
+                </div>
+
+                {isInteractive && (
+                  <button
+                    type="button"
+                    onClick={openDiscipline}
+                    className="shrink-0 rounded-lg border border-indigo-500/30 bg-indigo-600/10 px-3 py-2 text-[11px] font-medium text-indigo-300 transition hover:bg-indigo-600/20"
+                  >
+                    Abrir disciplina
+                  </button>
+                )}
+              </div>
+
+              {/* ── Tópicos em grelha compacta ── */}
+              <div className="p-4">
+                {activeChapter.topics.length > 0 ? (
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {activeChapter.topics.map((topic, topicIdx) =>
+                      isInteractive ? (
+                        <button
+                          key={topic.id}
+                          type="button"
+                          onClick={openDiscipline}
+                          className="group flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-white/5 bg-black/10 px-3 py-2.5 text-left text-sm text-slate-300 transition hover:border-indigo-500/30 hover:bg-indigo-950/30"
+                        >
+                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-600/15 text-[10px] font-bold text-indigo-300">
+                            {topicIdx + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+                            {topic.title}
+                          </span>
+                          <ChevronRight size={12} className="mt-1 shrink-0 text-indigo-400" />
+                        </button>
+                      ) : (
+                        <div
+                          key={topic.id}
+                          className="flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-white/5 bg-black/10 px-3 py-2.5 text-sm text-slate-400"
+                        >
+                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold text-slate-600">
+                            {topicIdx + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+                            {topic.title}
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs text-slate-500">
+                    Este capítulo ainda não tem temas registados.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Acesso rápido ── */}
+          {isInteractive && (
+            <button
+              type="button"
+              onClick={openDiscipline}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600/10 px-4 py-2.5 text-sm font-medium text-indigo-300 transition hover:bg-indigo-600/20"
+            >
+              <BookOpen size={14} />
+              Ir para a disciplina completa
+              <ChevronRight size={14} />
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -2275,9 +2436,9 @@ function CourseChangeSection({ currentCourseId }: { currentCourseId: CourseId })
         </div>
         <div className="grid gap-3 p-5 sm:grid-cols-3">
           {[
-            { icon: Phone, label: "Telefone",    value: "+244 222 000 000"   },
+            { icon: Phone, label: "Telefone",    value: "+244 222 000 000"      },
             { icon: Mail,  label: "Email",       value: "secretaria@isaf.co.ao" },
-            { icon: MapPin,label: "Localização", value: "Luanda, Angola"     },
+            { icon: MapPin,label: "Localização", value: "Luanda, Angola"        },
           ].map(({ icon: Icon, label, value }) => (
             <div
               key={label}

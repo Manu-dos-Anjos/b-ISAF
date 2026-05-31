@@ -133,6 +133,21 @@ const ACTION_BTN =
   "inline-flex min-h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap transition-all duration-200 shadow-sm";
 
 /* ================================================================
+   SCROLLBAR CLASS — integrada na interface
+   ================================================================ */
+const SCROLLBAR_CLASS = [
+  "scrollbar-thin",
+  "scrollbar-track-transparent",
+  "scrollbar-thumb-slate-700/40",
+  "hover:scrollbar-thumb-slate-600/60",
+  "[&::-webkit-scrollbar]:w-1.5",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
+  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
+].join(" ");
+
+/* ================================================================
    COMPONENTE PRINCIPAL
    ================================================================ */
 
@@ -162,6 +177,76 @@ export default function DisciplineClient({ discipline }: Props) {
     "chapters"
   );
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+
+  /* ── Refs dos painéis internos ───────────────────────── */
+  const chaptersPanelRef = useRef<HTMLElement | null>(null);
+  const topicsPanelRef   = useRef<HTMLElement | null>(null);
+
+  /* ── Scroll da página guardado ───────────────────────── */
+  const scrollKey = `dc-scrollY-${discipline.id}`;
+
+  // Restaurar ao montar
+  useEffect(() => {
+    const saved = sessionStorage.getItem(scrollKey);
+    if (!saved) return;
+    const y = parseInt(saved, 10);
+    if (isNaN(y)) return;
+    // double rAF garante que o layout já está estável
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: y, behavior: "instant" });
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [scrollKey]);
+
+  // Guardar continuamente (throttled via rAF) + ao sair
+  useEffect(() => {
+    let ticking = false;
+    const save = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        sessionStorage.setItem(scrollKey, String(Math.round(window.scrollY)));
+        ticking = false;
+      });
+    };
+    const saveOnUnload = () => {
+      sessionStorage.setItem(scrollKey, String(Math.round(window.scrollY)));
+    };
+    window.addEventListener("scroll",       save,          { passive: true });
+    window.addEventListener("beforeunload", saveOnUnload);
+    return () => {
+      window.removeEventListener("scroll",       save);
+      window.removeEventListener("beforeunload", saveOnUnload);
+      saveOnUnload(); // guardar também ao desmontar
+    };
+  }, [scrollKey]);
+
+  /* ── Sync scroll: painel → página (ambos os sentidos) ── */
+  useEffect(() => {
+    const panels = [chaptersPanelRef.current, topicsPanelRef.current]
+      .filter(Boolean) as HTMLElement[];
+
+    const cleanups = panels.map((el) => {
+      let lastScrollTop = el.scrollTop;
+      const handler = () => {
+        const delta    = el.scrollTop - lastScrollTop;
+        lastScrollTop  = el.scrollTop;
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
+        const atTop    = el.scrollTop <= 0;
+        if (atBottom && delta > 0) {
+          window.scrollBy({ top: 120, behavior: "smooth" });
+        } else if (atTop && delta < 0) {
+          window.scrollBy({ top: -120, behavior: "smooth" });
+        }
+      };
+      el.addEventListener("scroll", handler, { passive: true });
+      return () => el.removeEventListener("scroll", handler);
+    });
+
+    return () => cleanups.forEach((fn) => fn());
+  }, []); // refs são estáveis — corre uma vez
 
   /* ── Estado do vídeo ─────────────────────────────────── */
   const videoModalRef        = useRef<HTMLDivElement | null>(null);
@@ -325,11 +410,16 @@ export default function DisciplineClient({ discipline }: Props) {
     if (videoPlaying) { resetControlsTimer(); }
     else {
       setShowControls(true);
-      if (controlsHideTimerRef.current) { window.clearTimeout(controlsHideTimerRef.current); controlsHideTimerRef.current = null; }
+      if (controlsHideTimerRef.current) {
+        window.clearTimeout(controlsHideTimerRef.current);
+        controlsHideTimerRef.current = null;
+      }
     }
   }, [videoPlaying]);
 
-  useEffect(() => () => { if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current); }, []);
+  useEffect(() => () => {
+    if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current);
+  }, []);
 
   /* ── Eventos do vídeo ────────────────────────────────── */
   useEffect(() => {
@@ -346,14 +436,16 @@ export default function DisciplineClient({ discipline }: Props) {
       setVideoCurrentTime(v.currentTime || 0);
       if (v.buffered.length > 0) setVideoBuffered((v.buffered.end(v.buffered.length - 1) / (v.duration || 1)) * 100);
     };
+    const onPlay   = () => setVideoPlaying(true);
+    const onPause  = () => setVideoPlaying(false);
     const onVol    = () => { setVideoVolume(v.volume); setVideoMuted(v.muted || v.volume === 0); if (v.volume > 0) setLastVideoVolume(v.volume); };
     const onEnded  = () => { setVideoPlaying(false); setVideoCurrentTime(v.duration || 0); };
     const onReady  = () => setVideoReady(true);
 
     v.addEventListener("loadedmetadata", onMeta);
     v.addEventListener("timeupdate",     onTime);
-    v.addEventListener("play",           () => setVideoPlaying(true));
-    v.addEventListener("pause",          () => setVideoPlaying(false));
+    v.addEventListener("play",           onPlay);
+    v.addEventListener("pause",          onPause);
     v.addEventListener("volumechange",   onVol);
     v.addEventListener("ended",          onEnded);
     v.addEventListener("canplay",        onReady);
@@ -362,8 +454,8 @@ export default function DisciplineClient({ discipline }: Props) {
     return () => {
       v.removeEventListener("loadedmetadata", onMeta);
       v.removeEventListener("timeupdate",     onTime);
-      v.removeEventListener("play",           () => setVideoPlaying(true));
-      v.removeEventListener("pause",          () => setVideoPlaying(false));
+      v.removeEventListener("play",           onPlay);
+      v.removeEventListener("pause",          onPause);
       v.removeEventListener("volumechange",   onVol);
       v.removeEventListener("ended",          onEnded);
       v.removeEventListener("canplay",        onReady);
@@ -397,8 +489,13 @@ export default function DisciplineClient({ discipline }: Props) {
       if (isResizingTutor) return;
       for (const e of entries) {
         const { width: w, height: h } = e.contentRect;
-        if (w > 0 && h > 0 && (Math.abs(Math.round(w) - tutorSize.width) > 5 || Math.abs(Math.round(h) - tutorSize.height) > 5))
+        if (
+          w > 0 && h > 0 &&
+          (Math.abs(Math.round(w) - tutorSize.width) > 5 ||
+           Math.abs(Math.round(h) - tutorSize.height) > 5)
+        ) {
           setTutorSize({ width: Math.round(w), height: Math.round(h) });
+        }
       }
     });
     if (tutorPanelRef.current) obs.observe(tutorPanelRef.current);
@@ -417,12 +514,12 @@ export default function DisciplineClient({ discipline }: Props) {
       });
     };
     const onUp = () => { setIsDraggingTutor(false); tutorDragRef.current = null; };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup",   onUp);
+    window.addEventListener("pointermove",   onMove);
+    window.addEventListener("pointerup",     onUp);
     window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointermove",   onMove);
+      window.removeEventListener("pointerup",     onUp);
       window.removeEventListener("pointercancel", onUp);
     };
   }, [isDraggingTutor]);
@@ -436,12 +533,12 @@ export default function DisciplineClient({ discipline }: Props) {
       setTutorSheetHeight(clamp(sheetDragRef.current.startHeight + dy / (window.innerHeight / 100), 28, 92));
     };
     const onUp = () => { setIsDraggingSheet(false); sheetDragRef.current = null; };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup",   onUp);
+    window.addEventListener("pointermove",   onMove);
+    window.addEventListener("pointerup",     onUp);
     window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointermove",   onMove);
+      window.removeEventListener("pointerup",     onUp);
       window.removeEventListener("pointercancel", onUp);
     };
   }, [isDraggingSheet]);
@@ -458,21 +555,24 @@ export default function DisciplineClient({ discipline }: Props) {
       setContentPanels((prev) =>
         prev.map((p) =>
           p.id === panelId
-            ? { ...p, position: {
-                x: clamp(e.clientX - offsetX, 8, Math.max(8, window.innerWidth  - rect.width  - 8)),
-                y: clamp(e.clientY - offsetY, 8, Math.max(8, window.innerHeight - rect.height - 8)),
-              }}
+            ? {
+                ...p,
+                position: {
+                  x: clamp(e.clientX - offsetX, 8, Math.max(8, window.innerWidth  - rect.width  - 8)),
+                  y: clamp(e.clientY - offsetY, 8, Math.max(8, window.innerHeight - rect.height - 8)),
+                },
+              }
             : p
         )
       );
     };
     const onUp = () => { setIsDraggingContent(false); contentDragRef.current = null; };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup",   onUp);
+    window.addEventListener("pointermove",   onMove);
+    window.addEventListener("pointerup",     onUp);
     window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointermove",   onMove);
+      window.removeEventListener("pointerup",     onUp);
       window.removeEventListener("pointercancel", onUp);
     };
   }, [isDraggingContent]);
@@ -529,8 +629,12 @@ export default function DisciplineClient({ discipline }: Props) {
     if (!isMobile) {
       try {
         const el = contentPanelRefs.current[id];
-        if (next === 90) { if (document.fullscreenElement) await document.exitFullscreen(); if (el) await el.requestFullscreen(); }
-        else if (document.fullscreenElement) await document.exitFullscreen();
+        if (next === 90) {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          if (el) await el.requestFullscreen();
+        } else if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
       } catch { /* ignore */ }
     }
   };
@@ -561,9 +665,9 @@ export default function DisciplineClient({ discipline }: Props) {
     setContentPanels((prev) => {
       const exists = prev.find((p) => p.id === panelId);
       if (exists) return [...prev.filter((p) => p.id !== panelId), exists];
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const w  = vw < 768 ? Math.min(vw * MOBILE_PANEL_W, vw - 16) : DEFAULT_PANEL_W;
-      const h  = vw < 768 ? Math.min(vh * MOBILE_PANEL_H, vh - 24) : DEFAULT_PANEL_H;
+      const vw  = window.innerWidth, vh = window.innerHeight;
+      const w   = vw < 768 ? Math.min(vw * MOBILE_PANEL_W, vw - 16) : DEFAULT_PANEL_W;
+      const h   = vw < 768 ? Math.min(vh * MOBILE_PANEL_H, vh - 24) : DEFAULT_PANEL_H;
       const off = prev.length * 24;
       return [...prev, {
         id: panelId,
@@ -580,36 +684,36 @@ export default function DisciplineClient({ discipline }: Props) {
      ================================================================ */
 
   const renderContentBtn = (content: TopicContent, topicTitle: string) => {
-  const Icon = getContentIcon(content.type);
-  const cls = getContentButtonClass(content.type);
+    const Icon = getContentIcon(content.type);
+    const cls  = getContentButtonClass(content.type);
 
-  if (content.type === "quiz") {
+    if (content.type === "quiz") {
+      return (
+        <Link
+          key={content.id}
+          href="/avaliacoes"
+          className={`${ACTION_BTN} ${cls}`}
+          title={content.title}
+        >
+          <Icon size={14} />
+          <span>Questionário</span>
+        </Link>
+      );
+    }
+
     return (
-      <Link
+      <button
         key={content.id}
-        href="/avaliacoes"
+        type="button"
+        onClick={() => openContent(content, topicTitle)}
         className={`${ACTION_BTN} ${cls}`}
         title={content.title}
       >
         <Icon size={14} />
-        <span>Questionário</span>
-      </Link>
+        <span>{content.type === "audio" ? "Áudio" : "Slide"}</span>
+      </button>
     );
-  }
-
-  return (
-    <button
-      key={content.id}
-      type="button"
-      onClick={() => openContent(content, topicTitle)}
-      className={`${ACTION_BTN} ${cls}`}
-      title={content.title}
-    >
-      <Icon size={14} />
-      <span>{content.type === "audio" ? "Áudio" : "Slide"}</span>
-    </button>
-  );
-};
+  };
 
   const renderTopicActions = (topic: Topic) => {
     const contents = topic.contents ?? [];
@@ -619,11 +723,12 @@ export default function DisciplineClient({ discipline }: Props) {
         {contents.filter((c) => c.type === "slide").map((c) => renderContentBtn(c, topic.title))}
         {contents.filter((c) => c.type === "quiz").map((c)  => renderContentBtn(c, topic.title))}
         <button
-            type="button"
-            onClick={() => openTutor(topic.title)}
-            className={`${ACTION_BTN} border border-violet-500/30 bg-gradient-to-r from-violet-600/15 to-indigo-600/15 text-violet-300 hover:from-violet-600/25 hover:to-indigo-600/25 hover:border-violet-400/50 hover:text-white shadow-violet-500/10`}>
-            <Sparkles size={14} />
-            <span>Tutor IA</span>
+          type="button"
+          onClick={() => openTutor(topic.title)}
+          className={`${ACTION_BTN} border border-violet-500/30 bg-gradient-to-r from-violet-600/15 to-indigo-600/15 text-violet-300 hover:from-violet-600/25 hover:to-indigo-600/25 hover:border-violet-400/50 hover:text-white shadow-violet-500/10`}
+        >
+          <Sparkles size={14} />
+          <span>Tutor IA</span>
         </button>
       </div>
     );
@@ -669,7 +774,7 @@ export default function DisciplineClient({ discipline }: Props) {
   /* ── Tutor body ──────────────────────────────────────── */
   const renderTutorBody = () => (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+      <div className={`flex-1 space-y-4 overflow-y-auto px-4 py-5 ${SCROLLBAR_CLASS}`}>
         {tutorMessages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
@@ -842,7 +947,13 @@ export default function DisciplineClient({ discipline }: Props) {
           </div>
           <button
             type="button"
-            onClick={() => { setIsVideoLandscape(false); setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0); setIsVideoOpen(true); }}
+            onClick={() => {
+              setIsVideoLandscape(false);
+              setVideoReady(false);
+              setVideoPlaying(false);
+              setVideoCurrentTime(0);
+              setIsVideoOpen(true);
+            }}
             className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
           >
             <PlayCircle size={18} /> Reproduzir vídeo
@@ -853,7 +964,6 @@ export default function DisciplineClient({ discipline }: Props) {
       {/* ── Mobile ───────────────────────────────────────── */}
       <section className="lg:hidden">
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
-          {/* Tab switcher */}
           <div className="border-b border-white/10 p-3">
             <div className="flex gap-1 rounded-xl bg-white/5 p-1">
               {(["chapters", "topics"] as MobileView[]).map((view) => (
@@ -921,8 +1031,12 @@ export default function DisciplineClient({ discipline }: Props) {
 
       {/* ── Desktop ───────────────────────────────────────── */}
       <section className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40 lg:grid lg:h-[42rem] lg:grid-cols-[320px_1fr]">
-        {/* Sidebar */}
-        <aside className="h-full overflow-y-auto border-r border-white/10 bg-black/20 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+
+        {/* Sidebar — capítulos */}
+        <aside
+          ref={chaptersPanelRef}
+          className={`h-full overflow-y-auto border-r border-white/10 bg-black/20 ${SCROLLBAR_CLASS}`}
+        >
           <div className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/90 px-5 py-4 backdrop-blur-sm">
             <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Índice</h2>
           </div>
@@ -931,8 +1045,11 @@ export default function DisciplineClient({ discipline }: Props) {
           </div>
         </aside>
 
-        {/* Main */}
-        <main className="h-full overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+        {/* Main — temas */}
+        <main
+          ref={topicsPanelRef}
+          className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}
+        >
           <div className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/90 px-6 py-4 backdrop-blur-sm">
             <h2 className="text-lg font-bold text-white">{activeChapter?.title}</h2>
             {activeChapter && (
@@ -962,14 +1079,14 @@ export default function DisciplineClient({ discipline }: Props) {
 
       {/* ── Painéis flutuantes (slides) ───────────────────── */}
       {contentPanels.map((panel, index) => {
-        const theme        = getContentPanelTheme(panel.context.content.type);
-        const isBrowserFs  = browserFullscreenPanelId === panel.id;
-        const isAppFs      = !!panel.isFullscreen;
+        const theme       = getContentPanelTheme(panel.context.content.type);
+        const isBrowserFs = browserFullscreenPanelId === panel.id;
+        const isAppFs     = !!panel.isFullscreen;
         const rotation: 0 | 90 = panel.rotation ?? 0;
-        const isMobileLs   = isMobile && rotation === 90;
-        const isAnyFs      = isBrowserFs || isAppFs || isMobileLs;
-        const pw           = panel.size?.width  ?? DEFAULT_PANEL_W;
-        const ph           = panel.size?.height ?? DEFAULT_PANEL_H;
+        const isMobileLs  = isMobile && rotation === 90;
+        const isAnyFs     = isBrowserFs || isAppFs || isMobileLs;
+        const pw          = panel.size?.width  ?? DEFAULT_PANEL_W;
+        const ph          = panel.size?.height ?? DEFAULT_PANEL_H;
 
         return (
           <div
@@ -977,7 +1094,9 @@ export default function DisciplineClient({ discipline }: Props) {
             data-panel-id={panel.id}
             ref={(el) => { contentPanelRefs.current[panel.id] = el; }}
             style={{
-              ...(isAnyFs ? { left: 0, top: 0, right: 0, bottom: 0 } : { left: `${panel.position.x}px`, top: `${panel.position.y}px`, width: `${pw}px`, height: `${ph}px` }),
+              ...(isAnyFs
+                ? { left: 0, top: 0, right: 0, bottom: 0 }
+                : { left: `${panel.position.x}px`, top: `${panel.position.y}px`, width: `${pw}px`, height: `${ph}px` }),
               zIndex: 59 + index,
             }}
             className={`fixed flex flex-col overflow-hidden bg-slate-950/90 backdrop-blur-2xl ${
@@ -1011,16 +1130,36 @@ export default function DisciplineClient({ discipline }: Props) {
               </div>
 
               <div className="flex shrink-0 items-center gap-0.5">
-                <button type="button" onClick={() => void rotatePanelMobile(panel.id)} className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white md:hidden" title="Rodar">
+                <button
+                  type="button"
+                  onClick={() => void rotatePanelMobile(panel.id)}
+                  className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white md:hidden"
+                  title="Rodar"
+                >
                   <RotateCw size={14} />
                 </button>
-                <button type="button" onClick={() => void toggleBrowserFullscreen(panel.id)} className="hidden rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white md:flex" title={isBrowserFs ? "Sair do ecrã inteiro" : "Ecrã inteiro"}>
+                <button
+                  type="button"
+                  onClick={() => void toggleBrowserFullscreen(panel.id)}
+                  className="hidden rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white md:flex"
+                  title={isBrowserFs ? "Sair do ecrã inteiro" : "Ecrã inteiro"}
+                >
                   {isBrowserFs ? <Shrink size={14} /> : <Expand size={14} />}
                 </button>
-                <button type="button" onClick={() => togglePanelFullscreen(panel.id)} className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title={isAppFs ? "Restaurar" : "Maximizar"}>
+                <button
+                  type="button"
+                  onClick={() => togglePanelFullscreen(panel.id)}
+                  className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                  title={isAppFs ? "Restaurar" : "Maximizar"}
+                >
                   {isAppFs ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                 </button>
-                <button type="button" onClick={() => setContentPanels((p) => p.filter((x) => x.id !== panel.id))} className="rounded-xl p-2 text-slate-400 transition hover:bg-red-500/15 hover:text-red-400" title="Fechar">
+                <button
+                  type="button"
+                  onClick={() => setContentPanels((p) => p.filter((x) => x.id !== panel.id))}
+                  className="rounded-xl p-2 text-slate-400 transition hover:bg-red-500/15 hover:text-red-400"
+                  title="Fechar"
+                >
                   <X size={15} />
                 </button>
               </div>
@@ -1055,23 +1194,35 @@ export default function DisciplineClient({ discipline }: Props) {
         <>
           {isMobile && (
             <>
-              <div className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm" onClick={() => setIsTutorOpen(false)} />
+              <div
+                className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm"
+                onClick={() => setIsTutorOpen(false)}
+              />
               <div
                 ref={tutorPanelRef}
                 style={{ height: `${tutorSheetHeight}dvh` }}
                 className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col overflow-hidden rounded-t-3xl border-t border-x border-white/10 bg-slate-950/95 shadow-[0_-20px_60px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
               >
-                {/* Handle + presets */}
                 <div
                   className="flex touch-none cursor-ns-resize select-none justify-center py-3"
-                  onPointerDown={(e) => { sheetDragRef.current = { startY: e.clientY, startHeight: tutorSheetHeight }; setIsDraggingSheet(true); }}
+                  onPointerDown={(e) => {
+                    sheetDragRef.current = { startY: e.clientY, startHeight: tutorSheetHeight };
+                    setIsDraggingSheet(true);
+                  }}
                 >
                   <div className="h-1.5 w-12 rounded-full bg-white/20" />
                 </div>
                 <div className="flex justify-center gap-2 pb-2">
                   {[35, 62, 88].map((h) => (
-                    <button key={h} type="button" onClick={() => setTutorSheetHeight(h)}
-                      className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${Math.abs(tutorSheetHeight - h) < 5 ? "bg-violet-600 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"}`}
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setTutorSheetHeight(h)}
+                      className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${
+                        Math.abs(tutorSheetHeight - h) < 5
+                          ? "bg-violet-600 text-white"
+                          : "bg-white/5 text-slate-400 hover:bg-white/10"
+                      }`}
                     >
                       {h === 35 ? "Compacto" : h === 62 ? "Médio" : "Grande"}
                     </button>
@@ -1094,15 +1245,30 @@ export default function DisciplineClient({ discipline }: Props) {
                   : { left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px`, width: `${tutorSize.width}px`, height: `${tutorSize.height}px` }
               }
               className={`fixed z-[60] flex flex-col overflow-hidden rounded-3xl border border-white/10 ring-1 ring-white/5 bg-slate-950/90 shadow-2xl shadow-black/60 backdrop-blur-2xl ${
-                isTutorFullscreen ? "max-w-none max-h-none" : isTutorMinimized ? "resize-none" : "resize min-w-[340px] min-h-[450px] max-w-[90vw] max-h-[90vh]"
+                isTutorFullscreen
+                  ? "max-w-none max-h-none"
+                  : isTutorMinimized
+                  ? "resize-none"
+                  : "resize min-w-[340px] min-h-[450px] max-w-[90vw] max-h-[90vh]"
               }`}
             >
               {renderTutorHeader(true)}
               {!isTutorFullscreen && !isTutorMinimized && (
                 <div className="shrink-0 flex justify-center gap-2 border-b border-white/10 px-4 py-2.5">
-                  {[{ label: "Compacto", width: 380, height: 520 }, { label: "Médio", width: 420, height: 580 }, { label: "Grande", width: 520, height: 680 }].map((p) => (
-                    <button key={p.label} type="button" onClick={() => applyTutorPreset(p.width, p.height)}
-                      className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${Math.abs(tutorSize.width - p.width) < 20 && Math.abs(tutorSize.height - p.height) < 20 ? "bg-violet-600 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"}`}
+                  {[
+                    { label: "Compacto", width: 380, height: 520 },
+                    { label: "Médio",    width: 420, height: 580 },
+                    { label: "Grande",   width: 520, height: 680 },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => applyTutorPreset(p.width, p.height)}
+                      className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${
+                        Math.abs(tutorSize.width - p.width) < 20 && Math.abs(tutorSize.height - p.height) < 20
+                          ? "bg-violet-600 text-white"
+                          : "bg-white/5 text-slate-400 hover:bg-white/10"
+                      }`}
                     >
                       {p.label}
                     </button>
@@ -1119,12 +1285,18 @@ export default function DisciplineClient({ discipline }: Props) {
       {isVideoOpen && discipline.introVideoUrl && (
         <>
           <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md" onClick={closeVideo} />
-
           <div
             className="fixed z-[121]"
             style={
               shouldRotateVideo
-                ? { position: "fixed", top: "50%", left: "50%", width: "100dvh", height: "100dvw", transform: "translate(-50%, -50%) rotate(90deg)", transformOrigin: "center center", overflow: "hidden" }
+                ? {
+                    position: "fixed",
+                    top: "50%", left: "50%",
+                    width: "100dvh", height: "100dvw",
+                    transform: "translate(-50%, -50%) rotate(90deg)",
+                    transformOrigin: "center center",
+                    overflow: "hidden",
+                  }
                 : { inset: 0 }
             }
           >
@@ -1140,7 +1312,6 @@ export default function DisciplineClient({ discipline }: Props) {
               }`}
               style={!shouldRotateVideo ? { height: "100dvh" } : undefined}
             >
-              {/* Vídeo */}
               <div className="absolute inset-0 bg-black">
                 {!videoReady && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
@@ -1151,11 +1322,11 @@ export default function DisciplineClient({ discipline }: Props) {
                 <video
                   ref={videoRef}
                   className={`h-full w-full ${shouldRotateVideo ? "object-cover" : "object-contain"}`}
-                  playsInline preload="metadata"
+                  playsInline
+                  preload="metadata"
                   src={discipline.introVideoUrl}
                   onClick={toggleControls}
                 />
-                {/* Play overlay */}
                 {!videoPlaying && videoReady && showControls && (
                   <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                     <button
@@ -1169,7 +1340,7 @@ export default function DisciplineClient({ discipline }: Props) {
                 )}
               </div>
 
-              {/* Header flutuante */}
+              {/* Barra superior do vídeo */}
               <div
                 className={`absolute left-0 right-0 top-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-4 py-4 md:px-6 md:py-5 transition-all duration-300 ease-out ${
                   showControls ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
@@ -1205,7 +1376,7 @@ export default function DisciplineClient({ discipline }: Props) {
                 </div>
               </div>
 
-              {/* Footer flutuante (controlos) */}
+              {/* Controlos inferiores do vídeo */}
               <div
                 className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${
                   showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"
@@ -1213,7 +1384,7 @@ export default function DisciplineClient({ discipline }: Props) {
                 style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}
               >
                 <div className="space-y-4">
-                  {/* Barra de progresso */}
+                  {/* Progress bar */}
                   <div className="group relative h-2 cursor-pointer rounded-full bg-white/15" onClick={handleProgressClick}>
                     <div className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-all" style={{ width: `${videoBuffered}%` }} />
                     <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all" style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }} />
@@ -1222,13 +1393,10 @@ export default function DisciplineClient({ discipline }: Props) {
                       style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }}
                     />
                   </div>
-
-                  {/* Tempo */}
                   <div className="flex items-center justify-between text-xs tabular-nums text-slate-400">
                     <span>{formatTime(videoCurrentTime)}</span>
                     <span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span>
                   </div>
-
                   {/* Botões */}
                   <div className="flex items-center gap-2.5">
                     <button
@@ -1238,27 +1406,37 @@ export default function DisciplineClient({ discipline }: Props) {
                     >
                       {videoPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-0.5" />}
                     </button>
-
-                    <button type="button" onClick={() => skipVideo(-15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="-15s">
+                    <button
+                      type="button"
+                      onClick={() => skipVideo(-15)}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                      title="-15s"
+                    >
                       <SkipBack size={16} />
                     </button>
-
-                    <button type="button" onClick={() => skipVideo(15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="+15s">
+                    <button
+                      type="button"
+                      onClick={() => skipVideo(15)}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                      title="+15s"
+                    >
                       <SkipForward size={16} />
                     </button>
-
                     <div className="hidden items-center gap-2.5 border-l border-white/10 pl-2.5 sm:flex">
-                      <button type="button" onClick={toggleVideoMute} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10">
+                      <button
+                        type="button"
+                        onClick={toggleVideoMute}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                      >
                         {videoMuted || videoVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                       </button>
                       <input
-                        type="range" min={0} max={1} step={0.05} value={videoMuted ? 0 : videoVolume}
+                        type="range" min={0} max={1} step={0.05}
+                        value={videoMuted ? 0 : videoVolume}
                         onChange={(e) => handleVolumeChange(Number(e.target.value))}
                         className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
                       />
                     </div>
-
-                    {/* Velocidade */}
                     <div className="relative ml-auto">
                       <button
                         type="button"

@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/app/lib/supabase/client";
+import { createClient } from "@/app/lib/supabase/client";
 
 /* ================================================================
    TIPOS
@@ -22,79 +22,109 @@ export type StudyPlanChapter = {
   topics: StudyPlanTopic[];
 };
 
-export type StudyPlanDiscipline = {
-  id: string;
-  code: string | null;
-  name: string;
-  cover_image_url: string | null;
-  intro_video_url: string | null;
+export type StudyPlanResult = {
+  disciplineId: string;   // UUID real da disciplina
+  disciplineCode: string; // ex: "FSI"
   chapters: StudyPlanChapter[];
+};
+
+type Params = {
+  courseUUID: string;   // UUID do curso
+  year: number;
+  semester: number;
+  disciplineCode: string; // código da disciplina ex: "CPE", "FSI"
+  enabled?: boolean;
 };
 
 /* ================================================================
    HOOK
 ================================================================ */
 
-export function useDisciplineStudyPlan(
-  disciplineCode?: string,
-  enabled: boolean = true
-) {
-  const [studyPlan, setStudyPlan] = useState<StudyPlanDiscipline | null>(null);
+export function useDisciplineStudyPlan({
+  courseUUID,
+  year,
+  semester,
+  disciplineCode,
+  enabled = true,
+}: Params) {
+  const [result,    setResult]    = useState<StudyPlanResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error,     setError]     = useState<string | null>(null);
 
   useEffect(() => {
-    if (!disciplineCode || !enabled) {
-      setStudyPlan(null);
+    if (!courseUUID || !disciplineCode || !enabled) {
+      setResult(null);
       setError(null);
       setIsLoading(false);
       return;
     }
 
     let cancelled = false;
+    const supabase = createClient();
 
     async function load() {
       setIsLoading(true);
       setError(null);
 
       try {
-        /* ── disciplina ── */
-        const { data: disciplineRow, error: disciplineError } = await supabase
-          .from("disciplines")
-          .select("id, code, name, cover_image_url, intro_video_url")
-          .eq("code", disciplineCode)
-          .eq("is_active", true)
-          .maybeSingle();
+        /* ── 1. encontrar o discipline_id via discipline_courses ── */
+        const { data: dcRows, error: dcError } = await supabase
+          .from("discipline_courses")
+          .select(`
+            discipline_id,
+            disciplines (
+              id,
+              code,
+              name,
+              is_active
+            )
+          `)
+          .eq("course_id", courseUUID)
+          .eq("year",      year)
+          .eq("semester",  semester);
 
         if (cancelled) return;
+        if (dcError) throw dcError;
 
-        if (disciplineError) {
-          throw disciplineError;
-        }
+        /* ── encontrar a disciplina pelo code ── */
+        const match = (dcRows ?? []).find((row) => {
+          const disc = row.disciplines as {
+            id: string;
+            code: string;
+            name: string;
+            is_active: boolean;
+          } | null;
+          return disc?.code === disciplineCode && disc?.is_active === true;
+        });
 
-        if (!disciplineRow) {
-          setStudyPlan(null);
-          setError("Disciplina não encontrada no Supabase.");
+        if (!match) {
+          setResult(null);
+          setError(null); // sem erro — disciplina simplesmente não tem conteúdo ainda
           return;
         }
 
-        /* ── capítulos ── */
+        const disciplineId = match.discipline_id;
+        const disc = match.disciplines as {
+          id: string;
+          code: string;
+          name: string;
+          is_active: boolean;
+        };
+
+        /* ── 2. buscar capítulos ── */
         const { data: chaptersData, error: chaptersError } = await supabase
           .from("chapters")
           .select("id, title, order_index, status, is_active")
-          .eq("discipline_id", disciplineRow.id)
+          .eq("discipline_id", disciplineId)
           .eq("is_active", true)
           .order("order_index", { ascending: true });
 
         if (cancelled) return;
+        if (chaptersError) throw chaptersError;
 
-        if (chaptersError) {
-          throw chaptersError;
-        }
+        const chapterIds = (chaptersData ?? []).map((ch) => ch.id);
 
-        const chapterIds = (chaptersData ?? []).map((chapter) => chapter.id);
-
-        /* ── tópicos ── */
+        /* ── 3. buscar tópicos ── */
         let topicsData: {
           id: string;
           chapter_id: string;
@@ -112,50 +142,48 @@ export function useDisciplineStudyPlan(
             .order("order_index", { ascending: true });
 
           if (cancelled) return;
-
-          if (topicsError) {
-            throw topicsError;
-          }
+          if (topicsError) throw topicsError;
 
           topicsData = topicsRows ?? [];
         }
 
-        /* ── mapear tópicos por capítulo ── */
+        /* ── 4. mapear tópicos por capítulo ── */
         const topicsByChapter = new Map<string, StudyPlanTopic[]>();
 
         for (const topic of topicsData) {
           const list = topicsByChapter.get(topic.chapter_id) ?? [];
           list.push({
-            id: topic.id,
-            title: topic.title,
+            id:          topic.id,
+            title:       topic.title,
             order_index: topic.order_index,
           });
           topicsByChapter.set(topic.chapter_id, list);
         }
 
-        /* ── montar estrutura final ── */
-        const chapters = (chaptersData ?? []).map((chapter) => ({
-          id: chapter.id,
-          title: chapter.title,
-          order_index: chapter.order_index,
-          status: chapter.status,
-          topics: topicsByChapter.get(chapter.id) ?? [],
+        /* ── 5. estrutura final ── */
+        const chapters: StudyPlanChapter[] = (chaptersData ?? []).map((ch) => ({
+          id:          ch.id,
+          title:       ch.title,
+          order_index: ch.order_index,
+          status:      ch.status,
+          topics:      topicsByChapter.get(ch.id) ?? [],
         }));
 
         if (cancelled) return;
 
-        setStudyPlan({
-          id: disciplineRow.id,
-          code: disciplineRow.code,
-          name: disciplineRow.name,
-          cover_image_url: disciplineRow.cover_image_url,
-          intro_video_url: disciplineRow.intro_video_url,
+        setResult({
+          disciplineId:   disc.id,
+          disciplineCode: disc.code,
           chapters,
         });
       } catch (err) {
         if (cancelled) return;
-        setStudyPlan(null);
-        setError(err instanceof Error ? err.message : "Erro inesperado ao carregar o plano.");
+        setResult(null);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Erro inesperado ao carregar o plano de estudo."
+        );
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -163,10 +191,8 @@ export function useDisciplineStudyPlan(
 
     void load();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [disciplineCode, enabled]);
+    return () => { cancelled = true; };
+  }, [courseUUID, year, semester, disciplineCode, enabled]);
 
-  return { studyPlan, isLoading, error };
+  return { result, isLoading, error };
 }
