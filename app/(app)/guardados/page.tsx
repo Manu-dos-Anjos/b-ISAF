@@ -1,23 +1,53 @@
 // app/guardados/page.tsx
-import { Bookmark } from "lucide-react";
-import { Metadata } from "next";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { createServerClient } from "@supabase/ssr";
+import type { Database, Profile } from "@/src/types/database";
+import GuardadosClient from "./GuardadosClient";
+import { getSavedItems } from "@/app/actions/saved";
 
-export const metadata: Metadata = { title: "Guardados · b-ISAF" };
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Guardados | B-ISAF" };
 
-export default function GuardadosPage() {
+export default async function GuardadosPage() {
+  const cookieStore = await cookies();
+
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll() {},
+      },
+    }
+  );
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (!profile) redirect("/login");
+
+  const savedItems = await getSavedItems(profile.id);
+
+  const discMap = new Map<string, { id: string; name: string }>();
+  for (const item of savedItems) {
+    if (!discMap.has(item.disciplineId)) {
+      discMap.set(item.disciplineId, { id: item.disciplineId, name: item.disciplineName });
+    }
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10">
-        <Bookmark size={28} className="text-indigo-400" />
-      </div>
-      <h1 className="mt-4 text-xl font-bold text-slate-900 dark:text-white">Guardados</h1>
-      <p className="mt-2 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-        Os teus áudios, slides e quizzes favoritos aparecem aqui.
-        Esta secção está em desenvolvimento — Fase 3 do roadmap.
-      </p>
-      <span className="mt-4 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
-        Em breve
-      </span>
-    </div>
+    <GuardadosClient
+      profile={profile as Profile}
+      savedItems={savedItems}
+      disciplines={Array.from(discMap.values())}
+    />
   );
 }

@@ -3,7 +3,6 @@
 
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import {
   ChevronRight,
@@ -33,16 +32,19 @@ import {
   Monitor,
   Smartphone,
   Layers,
+  Bookmark,
 } from "lucide-react";
 
-import SlideViewer  from "@/app/components/slides/SlideViewer";
-import QuizPlayer   from "@/app/components/quiz/QuizPlayer";
+import SlideViewer from "@/app/components/slides/SlideViewer";
+import QuizPlayer from "@/app/components/quiz/QuizPlayer";
 import { useLocalStorageState } from "@/app/lib/hooks/useLocalStorageState";
+import { useSupabase } from "@/app/lib/context/SupabaseContext";
+import { saveItem, removeSavedItem } from "@/app/actions/saved";
 import type { Discipline, Chapter, Topic, TopicContent } from "@/app/lib/mockData";
 
 /* ================================================================
    TIPOS
-   ================================================================ */
+================================================================ */
 
 type DisciplineWithVideo = Discipline & { introVideoUrl?: string };
 type Props = { discipline: DisciplineWithVideo };
@@ -53,18 +55,18 @@ type TutorDragState = { offsetX: number; offsetY: number };
 
 type ContentPanelContext = {
   discipline: string;
-  chapter:    string;
-  topic:      string;
-  content:    TopicContent;
+  chapter: string;
+  topic: string;
+  content: TopicContent;
 };
 
 type FloatingContentPanel = {
-  id:           string;
-  context:      ContentPanelContext;
-  position:     { x: number; y: number };
-  size?:        { width: number; height: number };
+  id: string;
+  context: ContentPanelContext;
+  position: { x: number; y: number };
+  size?: { width: number; height: number };
   isFullscreen?: boolean;
-  rotation?:    0 | 90;
+  rotation?: 0 | 90;
 };
 
 type FloatingContentDragState = {
@@ -73,24 +75,27 @@ type FloatingContentDragState = {
   offsetY: number;
 };
 
-/* ── Tipo para o quiz activo ── */
 type ActiveQuiz = {
-  contentId:     string;
-  title:         string;
-  chapterTitle:  string;
+  contentId: string;
+  title: string;
+  chapterTitle: string;
   timeLimitSecs: number | null;
 };
 
 /* ================================================================
    HELPERS VISUAIS
-   ================================================================ */
+================================================================ */
 
 function getContentIcon(type: TopicContent["type"]) {
   switch (type) {
-    case "audio": return Headphones;
-    case "slide": return FileText;
-    case "quiz":  return Trophy;
-    default:      return PlayCircle;
+    case "audio":
+      return Headphones;
+    case "slide":
+      return FileText;
+    case "quiz":
+      return Trophy;
+    default:
+      return PlayCircle;
   }
 }
 
@@ -108,11 +113,20 @@ function getContentButtonClass(type: TopicContent["type"]) {
 function getContentPanelTheme(type: TopicContent["type"]) {
   switch (type) {
     case "audio":
-      return { borderClass: "border-blue-500/20",   iconClass: "bg-blue-500/10 text-blue-400"     };
+      return {
+        borderClass: "border-blue-500/20",
+        iconClass: "bg-blue-500/10 text-blue-400",
+      };
     case "slide":
-      return { borderClass: "border-indigo-500/20", iconClass: "bg-indigo-500/10 text-indigo-400" };
+      return {
+        borderClass: "border-indigo-500/20",
+        iconClass: "bg-indigo-500/10 text-indigo-400",
+      };
     default:
-      return { borderClass: "border-white/10",      iconClass: "bg-white/5 text-slate-400"        };
+      return {
+        borderClass: "border-white/10",
+        iconClass: "bg-white/5 text-slate-400",
+      };
   }
 }
 
@@ -129,13 +143,13 @@ function formatTime(sec: number) {
 
 /* ================================================================
    CONSTANTES
-   ================================================================ */
+================================================================ */
 
-const VIDEO_SPEEDS        = [0.5, 0.75, 1, 1.25, 1.5, 2];
-const DEFAULT_PANEL_W     = 544;
-const DEFAULT_PANEL_H     = 420;
-const MOBILE_PANEL_W      = 0.94;
-const MOBILE_PANEL_H      = 0.82;
+const VIDEO_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const DEFAULT_PANEL_W = 544;
+const DEFAULT_PANEL_H = 420;
+const MOBILE_PANEL_W = 0.94;
+const MOBILE_PANEL_H = 0.82;
 const CONTROLS_HIDE_DELAY = 3000;
 
 const ACTION_BTN =
@@ -155,20 +169,22 @@ const SCROLLBAR_CLASS = [
 
 /* ================================================================
    COMPONENTE PRINCIPAL
-   ================================================================ */
+================================================================ */
 
 export default function DisciplineClient({ discipline }: Props) {
   const chapters = discipline.chapters ?? [];
+
+  const { supabase } = useSupabase();
 
   /* ── Detecção mobile ── */
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
-    window.addEventListener("resize",            check);
+    window.addEventListener("resize", check);
     window.addEventListener("orientationchange", check);
     return () => {
-      window.removeEventListener("resize",            check);
+      window.removeEventListener("resize", check);
       window.removeEventListener("orientationchange", check);
     };
   }, []);
@@ -189,7 +205,7 @@ export default function DisciplineClient({ discipline }: Props) {
 
   /* ── Refs dos painéis internos ── */
   const chaptersPanelRef = useRef<HTMLElement | null>(null);
-  const topicsPanelRef   = useRef<HTMLElement | null>(null);
+  const topicsPanelRef = useRef<HTMLElement | null>(null);
 
   /* ── Scroll da página guardado ── */
   const scrollKey = `dc-scrollY-${discipline.id}`;
@@ -201,7 +217,7 @@ export default function DisciplineClient({ discipline }: Props) {
     if (isNaN(y)) return;
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        window.scrollTo({ top: y, behavior: "instant" });
+        window.scrollTo({ top: y });
       });
     });
     return () => cancelAnimationFrame(id);
@@ -220,10 +236,10 @@ export default function DisciplineClient({ discipline }: Props) {
     const saveOnUnload = () => {
       sessionStorage.setItem(scrollKey, String(Math.round(window.scrollY)));
     };
-    window.addEventListener("scroll",       save,          { passive: true });
+    window.addEventListener("scroll", save, { passive: true });
     window.addEventListener("beforeunload", saveOnUnload);
     return () => {
-      window.removeEventListener("scroll",       save);
+      window.removeEventListener("scroll", save);
       window.removeEventListener("beforeunload", saveOnUnload);
       saveOnUnload();
     };
@@ -231,18 +247,20 @@ export default function DisciplineClient({ discipline }: Props) {
 
   /* ── Sync scroll painel → página ── */
   useEffect(() => {
-    const panels = [chaptersPanelRef.current, topicsPanelRef.current]
-      .filter(Boolean) as HTMLElement[];
+    const panels = [chaptersPanelRef.current, topicsPanelRef.current].filter(
+      Boolean
+    ) as HTMLElement[];
 
     const cleanups = panels.map((el) => {
       let lastScrollTop = el.scrollTop;
       const handler = () => {
-        const delta   = el.scrollTop - lastScrollTop;
+        const delta = el.scrollTop - lastScrollTop;
         lastScrollTop = el.scrollTop;
         const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
-        const atTop    = el.scrollTop <= 0;
-        if (atBottom && delta > 0) window.scrollBy({ top:  120, behavior: "smooth" });
-        if (atTop    && delta < 0) window.scrollBy({ top: -120, behavior: "smooth" });
+        const atTop = el.scrollTop <= 0;
+        if (atBottom && delta > 0)
+          window.scrollBy({ top: 120, behavior: "smooth" });
+        if (atTop && delta < 0) window.scrollBy({ top: -120, behavior: "smooth" });
       };
       el.addEventListener("scroll", handler, { passive: true });
       return () => el.removeEventListener("scroll", handler);
@@ -252,56 +270,95 @@ export default function DisciplineClient({ discipline }: Props) {
   }, []);
 
   /* ── Estado do vídeo ── */
-  const videoModalRef        = useRef<HTMLDivElement | null>(null);
-  const videoRef             = useRef<HTMLVideoElement | null>(null);
+  const videoModalRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
 
-  const [isVideoLandscape,  setIsVideoLandscape]  = useState(false);
-  const [videoReady,        setVideoReady]        = useState(false);
-  const [videoPlaying,      setVideoPlaying]      = useState(false);
-  const [videoCurrentTime,  setVideoCurrentTime]  = useState(0);
-  const [videoDuration,     setVideoDuration]     = useState(0);
-  const [videoVolume,       setVideoVolume]       = useState(1);
-  const [lastVideoVolume,   setLastVideoVolume]   = useState(1);
-  const [videoMuted,        setVideoMuted]        = useState(false);
-  const [videoSpeed,        setVideoSpeed]        = useState(1);
-  const [showSpeedMenu,     setShowSpeedMenu]     = useState(false);
-  const [videoBuffered,     setVideoBuffered]     = useState(0);
-  const [showControls,      setShowControls]      = useState(true);
+  const [isVideoLandscape, setIsVideoLandscape] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoVolume, setVideoVolume] = useState(1);
+  const [lastVideoVolume, setLastVideoVolume] = useState(1);
+  const [videoMuted, setVideoMuted] = useState(false);
+  const [videoSpeed, setVideoSpeed] = useState(1);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [videoBuffered, setVideoBuffered] = useState(0);
+  const [showControls, setShowControls] = useState(true);
 
   /* ── Tutor IA ── */
-  const [isTutorOpen,       setIsTutorOpen]       = useLocalStorageState<boolean>(`dc-tutorOpen-${discipline.id}`,       false);
-  const [isTutorMinimized,  setIsTutorMinimized]  = useLocalStorageState<boolean>(`dc-tutorMinimized-${discipline.id}`,  false);
-  const [isTutorFullscreen, setIsTutorFullscreen] = useLocalStorageState<boolean>(`dc-tutorFullscreen-${discipline.id}`, false);
-  const [tutorInput,        setTutorInput]        = useState("");
-  const [tutorMessages,     setTutorMessages]     = useLocalStorageState<TutorMessage[]>(
-    `dc-tutorMessages-${discipline.id}`,
-    [{ role: "assistant", text: "Olá! Sou o Tutor IA. Pergunta-me sobre este tema e eu ajudo-te com base no conteúdo da disciplina." }]
+  const [isTutorOpen, setIsTutorOpen] = useLocalStorageState<boolean>(
+    `dc-tutorOpen-${discipline.id}`,
+    false
   );
-  const [tutorContext,     setTutorContext]     = useLocalStorageState<TutorContext | null>(`dc-tutorContext-${discipline.id}`,   null);
-  const [tutorPosition,    setTutorPosition]    = useLocalStorageState(`dc-tutorPosition-${discipline.id}`,                     { x: 0, y: 0 });
-  const [tutorSize,        setTutorSize]        = useLocalStorageState(`dc-tutorSize-${discipline.id}`,                         { width: 420, height: 580 });
-  const [hasTutorPosition, setHasTutorPosition] = useLocalStorageState<boolean>(`dc-hasTutorPos-${discipline.id}`,              false);
-  const [isDraggingTutor,  setIsDraggingTutor]  = useState(false);
-  const [isResizingTutor,  setIsResizingTutor]  = useState(false);
-  const [tutorSheetHeight, setTutorSheetHeight] = useLocalStorageState<number>(`dc-tutorSheetH-${discipline.id}`,                62);
-  const [isDraggingSheet,  setIsDraggingSheet]  = useState(false);
+  const [isTutorMinimized, setIsTutorMinimized] = useLocalStorageState<boolean>(
+    `dc-tutorMinimized-${discipline.id}`,
+    false
+  );
+  const [isTutorFullscreen, setIsTutorFullscreen] = useLocalStorageState<boolean>(
+    `dc-tutorFullscreen-${discipline.id}`,
+    false
+  );
+  const [tutorInput, setTutorInput] = useState("");
+  const [tutorMessages, setTutorMessages] = useLocalStorageState<TutorMessage[]>(
+    `dc-tutorMessages-${discipline.id}`,
+    [
+      {
+        role: "assistant",
+        text: "Olá! Sou o Tutor IA. Pergunta-me sobre este tema e eu ajudo-te com base no conteúdo da disciplina.",
+      },
+    ]
+  );
+  const [tutorContext, setTutorContext] = useLocalStorageState<TutorContext | null>(
+    `dc-tutorContext-${discipline.id}`,
+    null
+  );
+  const [tutorPosition, setTutorPosition] = useLocalStorageState(
+    `dc-tutorPosition-${discipline.id}`,
+    { x: 0, y: 0 }
+  );
+  const [tutorSize, setTutorSize] = useLocalStorageState(
+    `dc-tutorSize-${discipline.id}`,
+    { width: 420, height: 580 }
+  );
+  const [hasTutorPosition, setHasTutorPosition] = useLocalStorageState<boolean>(
+    `dc-hasTutorPos-${discipline.id}`,
+    false
+  );
+  const [isDraggingTutor, setIsDraggingTutor] = useState(false);
+  const [isResizingTutor, setIsResizingTutor] = useState(false);
+  const [tutorSheetHeight, setTutorSheetHeight] = useLocalStorageState<number>(
+    `dc-tutorSheetH-${discipline.id}`,
+    62
+  );
+  const [isDraggingSheet, setIsDraggingSheet] = useState(false);
 
-  const sheetDragRef   = useRef<{ startY: number; startHeight: number } | null>(null);
-  const tutorPanelRef  = useRef<HTMLDivElement | null>(null);
-  const tutorDragRef   = useRef<TutorDragState | null>(null);
+  const sheetDragRef = useRef<{ startY: number; startHeight: number } | null>(
+    null
+  );
+  const tutorPanelRef = useRef<HTMLDivElement | null>(null);
+  const tutorDragRef = useRef<TutorDragState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   /* ── Áudio global ── */
   const audioPlayer = useAudioPlayer();
 
   /* ── Painéis flutuantes ── */
-  const [contentPanels,            setContentPanels]            = useLocalStorageState<FloatingContentPanel[]>(`dc-contentPanels-${discipline.id}`, []);
-  const [isDraggingContent,        setIsDraggingContent]        = useState(false);
-  const [browserFullscreenPanelId, setBrowserFullscreenPanelId] = useState<string | null>(null);
+  const [contentPanels, setContentPanels] = useLocalStorageState<
+    FloatingContentPanel[]
+  >(`dc-contentPanels-${discipline.id}`, []);
+  const [isDraggingContent, setIsDraggingContent] = useState(false);
+  const [browserFullscreenPanelId, setBrowserFullscreenPanelId] = useState<
+    string | null
+  >(null);
 
-  const contentDragRef   = useRef<FloatingContentDragState | null>(null);
+  const contentDragRef = useRef<FloatingContentDragState | null>(null);
   const contentPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  /* ── Guardados ── */
+  const [savedContentIds, setSavedContentIds] = useState<Set<string>>(new Set());
+  const [savingContentId, setSavingContentId] = useState<string | null>(null);
 
   /* ── Fullscreen listener ── */
   useEffect(() => {
@@ -313,11 +370,72 @@ export default function DisciplineClient({ discipline }: Props) {
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
+  /* ── Carregar guardados ── */
+  useEffect(() => {
+    const loadSaved = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } = await (supabase as any)
+        .from("saved_items")
+        .select("content_id")
+        .eq("student_id", user.id);
+
+      if (!error && data) {
+        setSavedContentIds(
+          new Set((data as { content_id: string }[]).map((item) => item.content_id))
+        );
+      }
+    };
+
+    void loadSaved();
+  }, [supabase]);
+
+  /* ── Toggle guardado ── */
+  const toggleSaved = async (contentId: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    setSavingContentId(contentId);
+
+    try {
+      if (savedContentIds.has(contentId)) {
+        const { data: saved } = await (supabase as any)
+          .from("saved_items")
+          .select("id")
+          .eq("student_id", user.id)
+          .eq("content_id", contentId)
+          .maybeSingle();
+
+        if (saved?.id) {
+          await removeSavedItem(saved.id);
+        }
+
+        setSavedContentIds((prev) => {
+          const next = new Set(prev);
+          next.delete(contentId);
+          return next;
+        });
+      } else {
+        await saveItem(user.id, contentId);
+        setSavedContentIds((prev) => new Set(prev).add(contentId));
+      }
+    } finally {
+      setSavingContentId(null);
+    }
+  };
+
   const toggleBrowserFullscreen = async (panelId: string) => {
     const el = contentPanelRefs.current[panelId];
     if (!el) return;
     try {
-      if (document.fullscreenElement?.dataset?.panelId === panelId) {
+      if (document.fullscreenElement?.id === panelId) {
         await document.exitFullscreen();
       } else {
         if (document.fullscreenElement) await document.exitFullscreen();
@@ -344,7 +462,11 @@ export default function DisciplineClient({ discipline }: Props) {
   const toggleVideoPlay = async () => {
     const v = videoRef.current;
     if (!v) return;
-    try { v.paused ? await v.play() : v.pause(); } catch { /* ignore */ }
+    try {
+      v.paused ? await v.play() : v.pause();
+    } catch {
+      /* ignore */
+    }
   };
 
   const seekVideo = (t: number) => {
@@ -362,12 +484,16 @@ export default function DisciplineClient({ discipline }: Props) {
     if (!v) return;
     if (videoMuted || v.volume === 0) {
       const restore = lastVideoVolume || 0.7;
-      v.muted = false; v.volume = restore;
-      setVideoMuted(false); setVideoVolume(restore);
+      v.muted = false;
+      v.volume = restore;
+      setVideoMuted(false);
+      setVideoVolume(restore);
     } else {
       setLastVideoVolume(v.volume || 1);
-      v.volume = 0; v.muted = true;
-      setVideoMuted(true); setVideoVolume(0);
+      v.volume = 0;
+      v.muted = true;
+      setVideoMuted(true);
+      setVideoVolume(0);
     }
   };
 
@@ -375,8 +501,10 @@ export default function DisciplineClient({ discipline }: Props) {
     const v = videoRef.current;
     if (!v) return;
     const vol = clamp(val, 0, 1);
-    v.volume = vol; v.muted = vol === 0;
-    setVideoVolume(vol); setVideoMuted(vol === 0);
+    v.volume = vol;
+    v.muted = vol === 0;
+    setVideoVolume(vol);
+    setVideoMuted(vol === 0);
     if (vol > 0) setLastVideoVolume(vol);
   };
 
@@ -413,8 +541,9 @@ export default function DisciplineClient({ discipline }: Props) {
   };
 
   useEffect(() => {
-    if (videoPlaying) { resetControlsTimer(); }
-    else {
+    if (videoPlaying) {
+      resetControlsTimer();
+    } else {
       setShowControls(true);
       if (controlsHideTimerRef.current) {
         window.clearTimeout(controlsHideTimerRef.current);
@@ -423,50 +552,70 @@ export default function DisciplineClient({ discipline }: Props) {
     }
   }, [videoPlaying]); // eslint-disable-line
 
-  useEffect(() => () => {
-    if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current);
+    },
+    []
+  );
 
   /* ── Eventos do vídeo ── */
   useEffect(() => {
     if (!isVideoOpen) return;
-    setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0);
-    setVideoDuration(0);  setVideoMuted(false);   setVideoVolume(1);
-    setVideoSpeed(1);     setShowSpeedMenu(false); setShowControls(true);
+    setVideoReady(false);
+    setVideoPlaying(false);
+    setVideoCurrentTime(0);
+    setVideoDuration(0);
+    setVideoMuted(false);
+    setVideoVolume(1);
+    setVideoSpeed(1);
+    setShowSpeedMenu(false);
+    setShowControls(true);
 
     const v = videoRef.current;
     if (!v) return;
 
-    const onMeta  = () => { setVideoDuration(Number.isFinite(v.duration) ? v.duration : 0); setVideoReady(true); v.playbackRate = 1; };
-    const onTime  = () => {
+    const onMeta = () => {
+      setVideoDuration(Number.isFinite(v.duration) ? v.duration : 0);
+      setVideoReady(true);
+      v.playbackRate = 1;
+    };
+    const onTime = () => {
       setVideoCurrentTime(v.currentTime || 0);
       if (v.buffered.length > 0)
         setVideoBuffered((v.buffered.end(v.buffered.length - 1) / (v.duration || 1)) * 100);
     };
-    const onPlay  = () => setVideoPlaying(true);
+    const onPlay = () => setVideoPlaying(true);
     const onPause = () => setVideoPlaying(false);
-    const onVol   = () => { setVideoVolume(v.volume); setVideoMuted(v.muted || v.volume === 0); if (v.volume > 0) setLastVideoVolume(v.volume); };
-    const onEnded = () => { setVideoPlaying(false); setVideoCurrentTime(v.duration || 0); };
+    const onVol = () => {
+      setVideoVolume(v.volume);
+      setVideoMuted(v.muted || v.volume === 0);
+      if (v.volume > 0) setLastVideoVolume(v.volume);
+    };
+    const onEnded = () => {
+      setVideoPlaying(false);
+      setVideoCurrentTime(v.duration || 0);
+    };
     const onReady = () => setVideoReady(true);
 
     v.addEventListener("loadedmetadata", onMeta);
-    v.addEventListener("timeupdate",     onTime);
-    v.addEventListener("play",           onPlay);
-    v.addEventListener("pause",          onPause);
-    v.addEventListener("volumechange",   onVol);
-    v.addEventListener("ended",          onEnded);
-    v.addEventListener("canplay",        onReady);
-    v.addEventListener("error",          onReady);
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    v.addEventListener("volumechange", onVol);
+    v.addEventListener("ended", onEnded);
+    v.addEventListener("canplay", onReady);
+    v.addEventListener("error", onReady);
 
     return () => {
       v.removeEventListener("loadedmetadata", onMeta);
-      v.removeEventListener("timeupdate",     onTime);
-      v.removeEventListener("play",           onPlay);
-      v.removeEventListener("pause",          onPause);
-      v.removeEventListener("volumechange",   onVol);
-      v.removeEventListener("ended",          onEnded);
-      v.removeEventListener("canplay",        onReady);
-      v.removeEventListener("error",          onReady);
+      v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+      v.removeEventListener("volumechange", onVol);
+      v.removeEventListener("ended", onEnded);
+      v.removeEventListener("canplay", onReady);
+      v.removeEventListener("error", onReady);
     };
   }, [isVideoOpen]);
 
@@ -481,8 +630,11 @@ export default function DisciplineClient({ discipline }: Props) {
     if (!isTutorOpen || hasTutorPosition || isMobile) return;
     const t = window.setTimeout(() => {
       setTutorPosition({
-        x: Math.max(16, window.innerWidth  - tutorSize.width  - 16),
-        y: Math.max(16, window.innerHeight - (isTutorMinimized ? 60 : tutorSize.height) - 16),
+        x: Math.max(16, window.innerWidth - tutorSize.width - 16),
+        y: Math.max(
+          16,
+          window.innerHeight - (isTutorMinimized ? 60 : tutorSize.height) - 16
+        ),
       });
       setHasTutorPosition(true);
     }, 0);
@@ -497,9 +649,10 @@ export default function DisciplineClient({ discipline }: Props) {
       for (const e of entries) {
         const { width: w, height: h } = e.contentRect;
         if (
-          w > 0 && h > 0 &&
-          (Math.abs(Math.round(w) - tutorSize.width)  > 5 ||
-           Math.abs(Math.round(h) - tutorSize.height) > 5)
+          w > 0 &&
+          h > 0 &&
+          (Math.abs(Math.round(w) - tutorSize.width) > 5 ||
+            Math.abs(Math.round(h) - tutorSize.height) > 5)
         ) {
           setTutorSize({ width: Math.round(w), height: Math.round(h) });
         }
@@ -507,7 +660,14 @@ export default function DisciplineClient({ discipline }: Props) {
     });
     if (tutorPanelRef.current) obs.observe(tutorPanelRef.current);
     return () => obs.disconnect();
-  }, [isMobile, isTutorOpen, isTutorFullscreen, isTutorMinimized, isResizingTutor, tutorSize]); // eslint-disable-line
+  }, [
+    isMobile,
+    isTutorOpen,
+    isTutorFullscreen,
+    isTutorMinimized,
+    isResizingTutor,
+    tutorSize,
+  ]); // eslint-disable-line
 
   /* ── Drag: tutor ── */
   useEffect(() => {
@@ -516,17 +676,28 @@ export default function DisciplineClient({ discipline }: Props) {
       if (!tutorDragRef.current || !tutorPanelRef.current) return;
       const rect = tutorPanelRef.current.getBoundingClientRect();
       setTutorPosition({
-        x: clamp(e.clientX - tutorDragRef.current.offsetX, 16, Math.max(16, window.innerWidth  - rect.width  - 16)),
-        y: clamp(e.clientY - tutorDragRef.current.offsetY, 16, Math.max(16, window.innerHeight - rect.height - 16)),
+        x: clamp(
+          e.clientX - tutorDragRef.current.offsetX,
+          16,
+          Math.max(16, window.innerWidth - rect.width - 16)
+        ),
+        y: clamp(
+          e.clientY - tutorDragRef.current.offsetY,
+          16,
+          Math.max(16, window.innerHeight - rect.height - 16)
+        ),
       });
     };
-    const onUp = () => { setIsDraggingTutor(false); tutorDragRef.current = null; };
-    window.addEventListener("pointermove",   onMove);
-    window.addEventListener("pointerup",     onUp);
+    const onUp = () => {
+      setIsDraggingTutor(false);
+      tutorDragRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("pointermove",   onMove);
-      window.removeEventListener("pointerup",     onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
   }, [isDraggingTutor]);
@@ -538,16 +709,23 @@ export default function DisciplineClient({ discipline }: Props) {
       if (!sheetDragRef.current) return;
       const dy = sheetDragRef.current.startY - e.clientY;
       setTutorSheetHeight(
-        clamp(sheetDragRef.current.startHeight + dy / (window.innerHeight / 100), 28, 92)
+        clamp(
+          sheetDragRef.current.startHeight + dy / (window.innerHeight / 100),
+          28,
+          92
+        )
       );
     };
-    const onUp = () => { setIsDraggingSheet(false); sheetDragRef.current = null; };
-    window.addEventListener("pointermove",   onMove);
-    window.addEventListener("pointerup",     onUp);
+    const onUp = () => {
+      setIsDraggingSheet(false);
+      sheetDragRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("pointermove",   onMove);
-      window.removeEventListener("pointerup",     onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
   }, [isDraggingSheet]);
@@ -567,21 +745,32 @@ export default function DisciplineClient({ discipline }: Props) {
             ? {
                 ...p,
                 position: {
-                  x: clamp(e.clientX - offsetX, 8, Math.max(8, window.innerWidth  - rect.width  - 8)),
-                  y: clamp(e.clientY - offsetY, 8, Math.max(8, window.innerHeight - rect.height - 8)),
+                  x: clamp(
+                    e.clientX - offsetX,
+                    8,
+                    Math.max(8, window.innerWidth - rect.width - 8)
+                  ),
+                  y: clamp(
+                    e.clientY - offsetY,
+                    8,
+                    Math.max(8, window.innerHeight - rect.height - 8)
+                  ),
                 },
               }
             : p
         )
       );
     };
-    const onUp = () => { setIsDraggingContent(false); contentDragRef.current = null; };
-    window.addEventListener("pointermove",   onMove);
-    window.addEventListener("pointerup",     onUp);
+    const onUp = () => {
+      setIsDraggingContent(false);
+      contentDragRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("pointermove",   onMove);
-      window.removeEventListener("pointerup",     onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
   }, [isDraggingContent]);
@@ -589,14 +778,18 @@ export default function DisciplineClient({ discipline }: Props) {
   /* ── Computed ── */
   const activeChapter = chapters.find((ch) => ch.id === activeChapterId) ?? chapters[0] ?? null;
 
-  const stats = useMemo(() => ({
-    totalChapters: chapters.length,
-    totalTopics:   chapters.reduce((a, ch) => a + (ch.topics?.length ?? 0), 0),
-    totalContents: chapters.reduce(
-      (a, ch) => a + (ch.topics ?? []).reduce((b, t) => b + (t.contents?.length ?? 0), 0),
-      0
-    ),
-  }), [chapters]);
+  const stats = useMemo(
+    () => ({
+      totalChapters: chapters.length,
+      totalTopics: chapters.reduce((a, ch) => a + (ch.topics?.length ?? 0), 0),
+      totalContents: chapters.reduce(
+        (a, ch) =>
+          a + (ch.topics ?? []).reduce((b, t) => b + (t.contents?.length ?? 0), 0),
+        0
+      ),
+    }),
+    [chapters]
+  );
 
   const shouldRotateVideo = isMobile && isVideoLandscape;
 
@@ -604,13 +797,15 @@ export default function DisciplineClient({ discipline }: Props) {
   const openTutor = (topicTitle: string) => {
     setTutorContext({
       discipline: discipline.title,
-      chapter:    activeChapter?.title ?? "",
-      topic:      topicTitle,
+      chapter: activeChapter?.title ?? "",
+      topic: topicTitle,
     });
-    setTutorMessages([{
-      role: "assistant",
-      text: `Olá! Vamos falar sobre "${topicTitle}". Escreve a tua dúvida.`,
-    }]);
+    setTutorMessages([
+      {
+        role: "assistant",
+        text: `Olá! Vamos falar sobre "${topicTitle}". Escreve a tua dúvida.`,
+      },
+    ]);
     setTutorInput("");
     setIsTutorOpen(true);
     setIsTutorMinimized(false);
@@ -623,10 +818,13 @@ export default function DisciplineClient({ discipline }: Props) {
     setTutorMessages((prev) => [...prev, { role: "user", text }]);
     setTutorInput("");
     setTimeout(() => {
-      setTutorMessages((prev) => [...prev, {
-        role: "assistant",
-        text: `Recebi a tua pergunta sobre "${tutorContext?.topic ?? "este tema"}". Em breve isto vai ser ligado à IA real.`,
-      }]);
+      setTutorMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: `Recebi a tua pergunta sobre "${tutorContext?.topic ?? "este tema"}". Em breve isto vai ser ligado à IA real.`,
+        },
+      ]);
     }, 700);
   };
 
@@ -640,14 +838,16 @@ export default function DisciplineClient({ discipline }: Props) {
 
   const togglePanelFullscreen = (id: string) =>
     setContentPanels((prev) =>
-      prev.map((p) => p.id === id ? { ...p, isFullscreen: !p.isFullscreen } : p)
+      prev.map((p) => (p.id === id ? { ...p, isFullscreen: !p.isFullscreen } : p))
     );
 
   const rotatePanelMobile = async (id: string) => {
     const current = contentPanels.find((p) => p.id === id);
     const next: 0 | 90 = (current?.rotation ?? 0) === 0 ? 90 : 0;
     setContentPanels((prev) =>
-      prev.map((p) => p.id === id ? { ...p, rotation: next, isFullscreen: next === 90 } : p)
+      prev.map((p) =>
+        p.id === id ? { ...p, rotation: next, isFullscreen: next === 90 } : p
+      )
     );
     if (!isMobile) {
       try {
@@ -658,7 +858,9 @@ export default function DisciplineClient({ discipline }: Props) {
         } else if (document.fullscreenElement) {
           await document.exitFullscreen();
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   };
 
@@ -666,7 +868,7 @@ export default function DisciplineClient({ discipline }: Props) {
     setIsResizingTutor(true);
     setTutorSize({ width, height });
     setTutorPosition((prev) => ({
-      x: clamp(prev.x, 16, Math.max(16, window.innerWidth  - width  - 16)),
+      x: clamp(prev.x, 16, Math.max(16, window.innerWidth - width - 16)),
       y: clamp(prev.y, 16, Math.max(16, window.innerHeight - height - 16)),
     }));
     setTimeout(() => setIsResizingTutor(false), 100);
@@ -675,90 +877,128 @@ export default function DisciplineClient({ discipline }: Props) {
   /* ── Abrir conteúdo ── */
   const openContent = (content: TopicContent, topicTitle: string) => {
     if (content.type === "audio") {
-      if (!content.url) { alert("Este áudio ainda não tem URL configurada."); return; }
+      if (!content.url) {
+        alert("Este áudio ainda não tem URL configurada.");
+        return;
+      }
       void audioPlayer.play({
-        id:         content.id,
-        title:      content.title,
-        url:        content.url,
+        id: content.id,
+        title: content.title,
+        url: content.url,
         discipline: discipline.title,
-        chapter:    activeChapter?.title ?? "",
-        topic:      topicTitle,
-        coverUrl:   discipline.coverUrl,
+        chapter: activeChapter?.title ?? "",
+        topic: topicTitle,
+        coverUrl: discipline.coverUrl,
       });
       return;
     }
 
-    const panelId = [discipline.id, activeChapter?.id ?? "ch", topicTitle, content.id].join("-");
+    const panelId = [discipline.id, activeChapter?.id ?? "ch", topicTitle, content.id].join(
+      "-"
+    );
     setContentPanels((prev) => {
       const exists = prev.find((p) => p.id === panelId);
       if (exists) return [...prev.filter((p) => p.id !== panelId), exists];
-      const vw  = window.innerWidth, vh = window.innerHeight;
-      const w   = vw < 768 ? Math.min(vw * MOBILE_PANEL_W, vw - 16) : DEFAULT_PANEL_W;
-      const h   = vw < 768 ? Math.min(vh * MOBILE_PANEL_H, vh - 24) : DEFAULT_PANEL_H;
+      const vw = window.innerWidth,
+        vh = window.innerHeight;
+      const w = vw < 768 ? Math.min(vw * MOBILE_PANEL_W, vw - 16) : DEFAULT_PANEL_W;
+      const h = vw < 768 ? Math.min(vh * MOBILE_PANEL_H, vh - 24) : DEFAULT_PANEL_H;
       const off = prev.length * 24;
-      return [...prev, {
-        id: panelId,
-        context: {
-          discipline: discipline.title,
-          chapter:    activeChapter?.title ?? "",
-          topic:      topicTitle,
-          content,
+      return [
+        ...prev,
+        {
+          id: panelId,
+          context: {
+            discipline: discipline.title,
+            chapter: activeChapter?.title ?? "",
+            topic: topicTitle,
+            content,
+          },
+          position: {
+            x: clamp(16 + off, 8, Math.max(8, vw - w - 8)),
+            y: clamp(16 + off, 8, Math.max(8, vh - h - 8)),
+          },
+          size: { width: w, height: h },
+          isFullscreen: false,
+          rotation: 0,
         },
-        position: {
-          x: clamp(16 + off, 8, Math.max(8, vw - w - 8)),
-          y: clamp(16 + off, 8, Math.max(8, vh - h - 8)),
-        },
-        size:         { width: w, height: h },
-        isFullscreen: false,
-        rotation:     0,
-      }];
+      ];
     });
   };
 
   /* ── Abrir quiz ── */
   const openQuiz = (content: TopicContent) => {
     setActiveQuiz({
-      contentId:     content.id,
-      title:         content.title,
-      chapterTitle:  activeChapter?.title ?? "",
+      contentId: content.id,
+      title: content.title,
+      chapterTitle: activeChapter?.title ?? "",
       timeLimitSecs: (content as any).timeLimitSeconds ?? null,
     });
   };
 
   /* ================================================================
      SUB-RENDERS
-     ================================================================ */
+  ================================================================ */
+
+  const renderSaveBtn = (contentId: string) => {
+    const isSaved = savedContentIds.has(contentId);
+    const isSaving = savingContentId === contentId;
+
+    return (
+      <button
+        type="button"
+        onClick={() => void toggleSaved(contentId)}
+        disabled={isSaving}
+        title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+        className={`shrink-0 rounded-xl p-2.5 transition disabled:opacity-50 ${
+          isSaved
+            ? "border border-amber-500/30 bg-amber-500/15 text-amber-400"
+            : "border border-white/10 bg-white/5 text-slate-500 hover:border-amber-500/30 hover:text-amber-400"
+        }`}
+      >
+        {isSaving ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : (
+          <Bookmark size={14} fill={isSaved ? "currentColor" : "none"} />
+        )}
+      </button>
+    );
+  };
 
   const renderContentBtn = (content: TopicContent, topicTitle: string) => {
     const Icon = getContentIcon(content.type);
-    const cls  = getContentButtonClass(content.type);
+    const cls = getContentButtonClass(content.type);
 
     if (content.type === "quiz") {
       return (
-        <button
-          key={content.id}
-          type="button"
-          onClick={() => openQuiz(content)}
-          className={`${ACTION_BTN} ${cls}`}
-          title={content.title}
-        >
-          <Icon size={14} />
-          <span>Questionário</span>
-        </button>
+        <div key={content.id} className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => openQuiz(content)}
+            className={`${ACTION_BTN} ${cls}`}
+            title={content.title}
+          >
+            <Icon size={14} />
+            <span>Questionário</span>
+          </button>
+          {renderSaveBtn(content.id)}
+        </div>
       );
     }
 
     return (
-      <button
-        key={content.id}
-        type="button"
-        onClick={() => openContent(content, topicTitle)}
-        className={`${ACTION_BTN} ${cls}`}
-        title={content.title}
-      >
-        <Icon size={14} />
-        <span>{content.type === "audio" ? "Áudio" : "Slide"}</span>
-      </button>
+      <div key={content.id} className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => openContent(content, topicTitle)}
+          className={`${ACTION_BTN} ${cls}`}
+          title={content.title}
+        >
+          <Icon size={14} />
+          <span>{content.type === "audio" ? "Áudio" : "Slide"}</span>
+        </button>
+        {renderSaveBtn(content.id)}
+      </div>
     );
   };
 
@@ -766,9 +1006,15 @@ export default function DisciplineClient({ discipline }: Props) {
     const contents = topic.contents ?? [];
     return (
       <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-        {contents.filter((c) => c.type === "audio").map((c) => renderContentBtn(c, topic.title))}
-        {contents.filter((c) => c.type === "slide").map((c) => renderContentBtn(c, topic.title))}
-        {contents.filter((c) => c.type === "quiz" ).map((c) => renderContentBtn(c, topic.title))}
+        {contents
+          .filter((c) => c.type === "audio")
+          .map((c) => renderContentBtn(c, topic.title))}
+        {contents
+          .filter((c) => c.type === "slide")
+          .map((c) => renderContentBtn(c, topic.title))}
+        {contents
+          .filter((c) => c.type === "quiz")
+          .map((c) => renderContentBtn(c, topic.title))}
         <button
           type="button"
           onClick={() => openTutor(topic.title)}
@@ -781,7 +1027,6 @@ export default function DisciplineClient({ discipline }: Props) {
     );
   };
 
-  /* ── Quiz banner por capítulo ── */
   const renderChapterQuizBanner = (chapter: Chapter) => {
     const quizContent = (chapter.topics ?? [])
       .flatMap((t) => t.contents ?? [])
@@ -794,9 +1039,9 @@ export default function DisciplineClient({ discipline }: Props) {
         type="button"
         onClick={() =>
           setActiveQuiz({
-            contentId:     quizContent.id,
-            title:         quizContent.title,
-            chapterTitle:  chapter.title,
+            contentId: quizContent.id,
+            title: quizContent.title,
+            chapterTitle: chapter.title,
             timeLimitSecs: (quizContent as any).timeLimitSeconds ?? null,
           })
         }
@@ -807,7 +1052,7 @@ export default function DisciplineClient({ discipline }: Props) {
             <Trophy size={14} className="text-indigo-400" />
           </div>
           <div>
-            <p className="text-xs font-bold text-indigo-300 leading-snug line-clamp-1">
+            <p className="line-clamp-1 text-xs font-bold leading-snug text-indigo-300">
               {quizContent.title}
             </p>
             <p className="text-[11px] text-indigo-400/60">
@@ -825,11 +1070,14 @@ export default function DisciplineClient({ discipline }: Props) {
 
   const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
     const topicsCount = chapter.topics?.length ?? 0;
-    const progress    = chapter.status === "Concluído" ? 100 : 35;
+    const progress = chapter.status === "Concluído" ? 100 : 35;
     return (
       <div key={chapter.id} className="space-y-0">
         <button
-          onClick={() => { setActiveChapterId(chapter.id); setMobileView("topics"); }}
+          onClick={() => {
+            setActiveChapterId(chapter.id);
+            setMobileView("topics");
+          }}
           className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
             isActive
               ? "border-indigo-500/40 bg-indigo-950/40 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-900/20"
@@ -838,7 +1086,11 @@ export default function DisciplineClient({ discipline }: Props) {
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className={`text-sm font-semibold leading-snug ${isActive ? "text-white" : "text-slate-200"}`}>
+              <p
+                className={`text-sm font-semibold leading-snug ${
+                  isActive ? "text-white" : "text-slate-200"
+                }`}
+              >
                 {chapter.title}
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -847,7 +1099,9 @@ export default function DisciplineClient({ discipline }: Props) {
             </div>
             <ChevronRight
               size={16}
-              className={`mt-0.5 shrink-0 transition-transform ${isActive ? "rotate-90 text-indigo-400" : "text-slate-600"}`}
+              className={`mt-0.5 shrink-0 transition-transform ${
+                isActive ? "rotate-90 text-indigo-400" : "text-slate-600"
+              }`}
             />
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
@@ -858,18 +1112,19 @@ export default function DisciplineClient({ discipline }: Props) {
           </div>
         </button>
 
-        {/* Banner quiz do capítulo — visível apenas quando activo */}
         {isActive && renderChapterQuizBanner(chapter)}
       </div>
     );
   };
 
-  /* ── Tutor body ── */
   const renderTutorBody = () => (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={`flex-1 space-y-4 overflow-y-auto px-4 py-5 ${SCROLLBAR_CLASS}`}>
         {tutorMessages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div
+            key={idx}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                 msg.role === "user"
@@ -888,7 +1143,9 @@ export default function DisciplineClient({ discipline }: Props) {
           <input
             value={tutorInput}
             onChange={(e) => setTutorInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSendMessage();
+            }}
             placeholder="Escreve a tua pergunta…"
             className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
           />
@@ -904,7 +1161,6 @@ export default function DisciplineClient({ discipline }: Props) {
     </div>
   );
 
-  /* ── Tutor header ── */
   const renderTutorHeader = (draggable: boolean) => (
     <div className="shrink-0 flex items-start justify-between gap-3 border-b border-white/10 bg-black/20 px-4 py-4">
       <div
@@ -916,7 +1172,10 @@ export default function DisciplineClient({ discipline }: Props) {
             ? (e) => {
                 if (e.button !== 0 || !tutorPanelRef.current) return;
                 const rect = tutorPanelRef.current.getBoundingClientRect();
-                tutorDragRef.current = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+                tutorDragRef.current = {
+                  offsetX: e.clientX - rect.left,
+                  offsetY: e.clientY - rect.top,
+                };
                 setIsDraggingTutor(true);
               }
             : undefined
@@ -933,7 +1192,9 @@ export default function DisciplineClient({ discipline }: Props) {
             )}
           </div>
           {!isTutorMinimized && (
-            <p className="text-xs font-medium text-violet-400/70">Assistente da disciplina</p>
+            <p className="text-xs font-medium text-violet-400/70">
+              Assistente da disciplina
+            </p>
           )}
           {tutorContext && !isTutorFullscreen && !isTutorMinimized && (
             <div className="mt-3 space-y-1 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-[11px]">
@@ -999,12 +1260,16 @@ export default function DisciplineClient({ discipline }: Props) {
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
               {discipline.year} · {discipline.semester}
             </p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">{discipline.title}</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">
+              {discipline.title}
+            </h1>
           </div>
         </section>
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
           <Layers size={36} className="text-slate-600" />
-          <p className="text-sm font-semibold text-slate-300">Nenhum capítulo disponível</p>
+          <p className="text-sm font-semibold text-slate-300">
+            Nenhum capítulo disponível
+          </p>
           <p className="text-xs text-slate-500">
             Os planos de estudo serão carregados do Supabase em breve.
           </p>
@@ -1015,11 +1280,10 @@ export default function DisciplineClient({ discipline }: Props) {
 
   /* ================================================================
      RENDER PRINCIPAL
-     ================================================================ */
+  ================================================================ */
   return (
     <div className="space-y-6">
-
-      {/* ── Hero / Cabeçalho ── */}
+      {/* ── Hero ── */}
       <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-6 md:p-8">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
         {discipline.coverUrl && (
@@ -1100,7 +1364,9 @@ export default function DisciplineClient({ discipline }: Props) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
                   <div className="min-w-0">
-                    <h2 className="truncate text-base font-bold text-white">{activeChapter?.title}</h2>
+                    <h2 className="truncate text-base font-bold text-white">
+                      {activeChapter?.title}
+                    </h2>
                     <p className="mt-0.5 text-xs text-slate-500">
                       {activeChapter?.status} · {activeChapter?.topics?.length ?? 0} temas
                     </p>
@@ -1114,17 +1380,21 @@ export default function DisciplineClient({ discipline }: Props) {
                   </button>
                 </div>
 
-                {/* Banner quiz no topo da lista de temas (mobile) */}
                 {activeChapter && renderChapterQuizBanner(activeChapter)}
 
                 <div className="space-y-3">
                   {activeChapter?.topics?.map((topic, index) => (
-                    <article key={topic.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                    <article
+                      key={topic.id}
+                      className="rounded-2xl border border-white/5 bg-white/[0.02] p-4"
+                    >
                       <div className="mb-4 flex items-start gap-3">
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-[10px] font-bold text-indigo-400">
                           {index + 1}
                         </span>
-                        <h3 className="text-sm font-semibold leading-snug text-white">{topic.title}</h3>
+                        <h3 className="text-sm font-semibold leading-snug text-white">
+                          {topic.title}
+                        </h3>
                       </div>
                       {renderTopicActions(topic)}
                     </article>
@@ -1143,21 +1413,20 @@ export default function DisciplineClient({ discipline }: Props) {
 
       {/* ── Desktop ── */}
       <section className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40 lg:grid lg:h-[42rem] lg:grid-cols-[320px_1fr]">
-
-        {/* Sidebar — capítulos */}
         <aside
           ref={chaptersPanelRef}
           className={`h-full overflow-y-auto border-r border-white/10 bg-black/20 ${SCROLLBAR_CLASS}`}
         >
           <div className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/90 px-5 py-4 backdrop-blur-sm">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Índice</h2>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+              Índice
+            </h2>
           </div>
           <div className="space-y-2.5 p-4">
             {chapters.map((c) => renderChapterCard(c, c.id === activeChapter?.id))}
           </div>
         </aside>
 
-        {/* Main — temas */}
         <main
           ref={topicsPanelRef}
           className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}
@@ -1172,7 +1441,6 @@ export default function DisciplineClient({ discipline }: Props) {
           </div>
 
           <div className="space-y-3 p-6">
-            {/* Banner quiz do capítulo (desktop — no topo do main) */}
             {activeChapter && renderChapterQuizBanner(activeChapter)}
 
             {activeChapter?.topics?.map((topic, index) => (
@@ -1184,7 +1452,9 @@ export default function DisciplineClient({ discipline }: Props) {
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-[11px] font-bold text-indigo-400">
                     {index + 1}
                   </span>
-                  <h3 className="text-sm font-semibold leading-snug text-slate-200">{topic.title}</h3>
+                  <h3 className="text-sm font-semibold leading-snug text-slate-200">
+                    {topic.title}
+                  </h3>
                 </div>
                 {renderTopicActions(topic)}
               </article>
@@ -1195,24 +1465,31 @@ export default function DisciplineClient({ discipline }: Props) {
 
       {/* ── Painéis flutuantes (slides) ── */}
       {contentPanels.map((panel, index) => {
-        const theme       = getContentPanelTheme(panel.context.content.type);
+        const theme = getContentPanelTheme(panel.context.content.type);
         const isBrowserFs = browserFullscreenPanelId === panel.id;
-        const isAppFs     = !!panel.isFullscreen;
+        const isAppFs = !!panel.isFullscreen;
         const rotation: 0 | 90 = panel.rotation ?? 0;
-        const isMobileLs  = isMobile && rotation === 90;
-        const isAnyFs     = isBrowserFs || isAppFs || isMobileLs;
-        const pw          = panel.size?.width  ?? DEFAULT_PANEL_W;
-        const ph          = panel.size?.height ?? DEFAULT_PANEL_H;
+        const isMobileLs = isMobile && rotation === 90;
+        const isAnyFs = isBrowserFs || isAppFs || isMobileLs;
+        const pw = panel.size?.width ?? DEFAULT_PANEL_W;
+        const ph = panel.size?.height ?? DEFAULT_PANEL_H;
 
         return (
           <div
             key={panel.id}
             data-panel-id={panel.id}
-            ref={(el) => { contentPanelRefs.current[panel.id] = el; }}
+            ref={(el) => {
+              contentPanelRefs.current[panel.id] = el;
+            }}
             style={{
               ...(isAnyFs
                 ? { left: 0, top: 0, right: 0, bottom: 0 }
-                : { left: `${panel.position.x}px`, top: `${panel.position.y}px`, width: `${pw}px`, height: `${ph}px` }),
+                : {
+                    left: `${panel.position.x}px`,
+                    top: `${panel.position.y}px`,
+                    width: `${pw}px`,
+                    height: `${ph}px`,
+                  }),
               zIndex: 59 + index,
             }}
             className={`fixed flex flex-col overflow-hidden bg-slate-950/90 backdrop-blur-2xl ${
@@ -1221,10 +1498,13 @@ export default function DisciplineClient({ discipline }: Props) {
                 : "rounded-3xl border border-white/10 ring-1 ring-white/5 shadow-[0_30px_100px_rgba(0,0,0,0.65)] min-w-[20rem] min-h-[16rem] max-w-[96vw] max-h-[90dvh] resize"
             }`}
           >
-            {/* Header */}
-            <div className={`shrink-0 flex items-center justify-between gap-2 border-b bg-black/30 px-3 py-2.5 md:px-4 ${theme.borderClass}`}>
+            <div
+              className={`shrink-0 flex items-center justify-between gap-2 border-b bg-black/30 px-3 py-2.5 md:px-4 ${theme.borderClass}`}
+            >
               <div
-                className={`flex min-w-0 flex-1 select-none items-center gap-2.5 ${isAnyFs ? "cursor-default" : "cursor-move"}`}
+                className={`flex min-w-0 flex-1 select-none items-center gap-2.5 ${
+                  isAnyFs ? "cursor-default" : "cursor-move"
+                }`}
                 onPointerDown={(e) => {
                   if (isAnyFs || e.button !== 0) return;
                   const el = contentPanelRefs.current[panel.id];
@@ -1239,13 +1519,19 @@ export default function DisciplineClient({ discipline }: Props) {
                   setIsDraggingContent(true);
                 }}
               >
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 ${theme.iconClass}`}>
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 ${theme.iconClass}`}
+                >
                   <FileText size={14} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-xs font-bold text-white">{panel.context.content.title}</h3>
+                  <h3 className="truncate text-xs font-bold text-white">
+                    {panel.context.content.title}
+                  </h3>
                   {!isAnyFs && (
-                    <p className="truncate text-[10px] text-slate-500 mt-0.5">{panel.context.chapter}</p>
+                    <p className="truncate text-[10px] text-slate-500 mt-0.5">
+                      {panel.context.chapter}
+                    </p>
                   )}
                 </div>
                 {!isAnyFs && (
@@ -1280,7 +1566,9 @@ export default function DisciplineClient({ discipline }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setContentPanels((p) => p.filter((x) => x.id !== panel.id))}
+                  onClick={() =>
+                    setContentPanels((p) => p.filter((x) => x.id !== panel.id))
+                  }
                   className="rounded-xl p-2 text-slate-400 transition hover:bg-red-500/15 hover:text-red-400"
                   title="Fechar"
                 >
@@ -1289,7 +1577,6 @@ export default function DisciplineClient({ discipline }: Props) {
               </div>
             </div>
 
-            {/* Conteúdo */}
             <div className="relative min-h-0 flex-1 overflow-hidden bg-black/80">
               {panel.context.content.url ? (
                 <SlideViewer url={panel.context.content.url} rotation={rotation} />
@@ -1300,7 +1587,9 @@ export default function DisciplineClient({ discipline }: Props) {
                       <FileText size={24} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-200">Slide a carregar</p>
+                      <p className="text-sm font-semibold text-slate-200">
+                        Slide a carregar
+                      </p>
                       <p className="mt-1 text-xs text-slate-500">
                         O conteúdo será carregado do Supabase brevemente.
                       </p>
@@ -1330,7 +1619,10 @@ export default function DisciplineClient({ discipline }: Props) {
                 <div
                   className="flex touch-none cursor-ns-resize select-none justify-center py-3"
                   onPointerDown={(e) => {
-                    sheetDragRef.current = { startY: e.clientY, startHeight: tutorSheetHeight };
+                    sheetDragRef.current = {
+                      startY: e.clientY,
+                      startHeight: tutorSheetHeight,
+                    };
                     setIsDraggingSheet(true);
                   }}
                 >
@@ -1363,10 +1655,27 @@ export default function DisciplineClient({ discipline }: Props) {
               ref={tutorPanelRef}
               style={
                 isTutorFullscreen
-                  ? { left: 16, top: 16, right: 16, bottom: 16, width: "auto", height: "auto" }
+                  ? {
+                      left: 16,
+                      top: 16,
+                      right: 16,
+                      bottom: 16,
+                      width: "auto",
+                      height: "auto",
+                    }
                   : isTutorMinimized
-                  ? { left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px`, width: `${tutorSize.width}px`, height: "auto" }
-                  : { left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px`, width: `${tutorSize.width}px`, height: `${tutorSize.height}px` }
+                  ? {
+                      left: `${tutorPosition.x}px`,
+                      top: `${tutorPosition.y}px`,
+                      width: `${tutorSize.width}px`,
+                      height: "auto",
+                    }
+                  : {
+                      left: `${tutorPosition.x}px`,
+                      top: `${tutorPosition.y}px`,
+                      width: `${tutorSize.width}px`,
+                      height: `${tutorSize.height}px`,
+                    }
               }
               className={`fixed z-[60] flex flex-col overflow-hidden rounded-3xl border border-white/10 ring-1 ring-white/5 bg-slate-950/90 shadow-2xl shadow-black/60 backdrop-blur-2xl ${
                 isTutorFullscreen
@@ -1381,15 +1690,16 @@ export default function DisciplineClient({ discipline }: Props) {
                 <div className="shrink-0 flex justify-center gap-2 border-b border-white/10 px-4 py-2.5">
                   {[
                     { label: "Compacto", width: 380, height: 520 },
-                    { label: "Médio",    width: 420, height: 580 },
-                    { label: "Grande",   width: 520, height: 680 },
+                    { label: "Médio", width: 420, height: 580 },
+                    { label: "Grande", width: 520, height: 680 },
                   ].map((p) => (
                     <button
                       key={p.label}
                       type="button"
                       onClick={() => applyTutorPreset(p.width, p.height)}
                       className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${
-                        Math.abs(tutorSize.width - p.width) < 20 && Math.abs(tutorSize.height - p.height) < 20
+                        Math.abs(tutorSize.width - p.width) < 20 &&
+                        Math.abs(tutorSize.height - p.height) < 20
                           ? "bg-violet-600 text-white"
                           : "bg-white/5 text-slate-400 hover:bg-white/10"
                       }`}
@@ -1408,20 +1718,23 @@ export default function DisciplineClient({ discipline }: Props) {
       {/* ── Modal do vídeo ── */}
       {isVideoOpen && discipline.introVideoUrl && (
         <>
-          <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md" onClick={closeVideo} />
+          <div
+            className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md"
+            onClick={closeVideo}
+          />
           <div
             className="fixed z-[121]"
             style={
               shouldRotateVideo
                 ? {
-                    position:        "fixed",
-                    top:             "50%",
-                    left:            "50%",
-                    width:           "100dvh",
-                    height:          "100dvw",
-                    transform:       "translate(-50%, -50%) rotate(90deg)",
+                    position: "fixed",
+                    top: "50%",
+                    left: "50%",
+                    width: "100dvh",
+                    height: "100dvw",
+                    transform: "translate(-50%, -50%) rotate(90deg)",
                     transformOrigin: "center center",
-                    overflow:        "hidden",
+                    overflow: "hidden",
                   }
                 : { inset: 0 }
             }
@@ -1449,7 +1762,9 @@ export default function DisciplineClient({ discipline }: Props) {
                 )}
                 <video
                   ref={videoRef}
-                  className={`h-full w-full ${shouldRotateVideo ? "object-cover" : "object-contain"}`}
+                  className={`h-full w-full ${
+                    shouldRotateVideo ? "object-cover" : "object-contain"
+                  }`}
                   playsInline
                   preload="metadata"
                   src={discipline.introVideoUrl}
@@ -1459,7 +1774,10 @@ export default function DisciplineClient({ discipline }: Props) {
                   <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); void toggleVideoPlay(); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void toggleVideoPlay();
+                      }}
                       className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-2xl backdrop-blur-md transition hover:scale-110 hover:bg-indigo-600/80 active:scale-95"
                     >
                       <Play size={24} className="translate-x-0.5" />
@@ -1471,7 +1789,9 @@ export default function DisciplineClient({ discipline }: Props) {
               {/* Barra superior */}
               <div
                 className={`absolute left-0 right-0 top-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-4 py-4 md:px-6 md:py-5 transition-all duration-300 ease-out ${
-                  showControls ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
+                  showControls
+                    ? "translate-y-0 opacity-100"
+                    : "-translate-y-full opacity-0 pointer-events-none"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -1480,14 +1800,21 @@ export default function DisciplineClient({ discipline }: Props) {
                       <PlayCircle size={18} className="text-indigo-400" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-white">Vídeo Introdutório</p>
-                      <p className="truncate text-xs text-slate-400">{discipline.title}</p>
+                      <p className="truncate text-sm font-bold text-white">
+                        Vídeo Introdutório
+                      </p>
+                      <p className="truncate text-xs text-slate-400">
+                        {discipline.title}
+                      </p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => { setIsVideoLandscape((p) => !p); setShowSpeedMenu(false); }}
+                      onClick={() => {
+                        setIsVideoLandscape((p) => !p);
+                        setShowSpeedMenu(false);
+                      }}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-md transition hover:bg-white/10 md:hidden"
                     >
                       {isVideoLandscape ? <Smartphone size={13} /> : <Monitor size={13} />}
@@ -1507,12 +1834,13 @@ export default function DisciplineClient({ discipline }: Props) {
               {/* Controlos inferiores */}
               <div
                 className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${
-                  showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"
+                  showControls
+                    ? "translate-y-0 opacity-100"
+                    : "translate-y-full opacity-0 pointer-events-none"
                 }`}
                 style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}
               >
                 <div className="space-y-4">
-                  {/* Progress */}
                   <div
                     className="group relative h-2 cursor-pointer rounded-full bg-white/15"
                     onClick={handleProgressClick}
@@ -1523,11 +1851,23 @@ export default function DisciplineClient({ discipline }: Props) {
                     />
                     <div
                       className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all"
-                      style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }}
+                      style={{
+                        width: `${
+                          videoDuration > 0
+                            ? (videoCurrentTime / videoDuration) * 100
+                            : 0
+                        }%`,
+                      }}
                     />
                     <div
                       className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-indigo-500 bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }}
+                      style={{
+                        left: `calc(${
+                          videoDuration > 0
+                            ? (videoCurrentTime / videoDuration) * 100
+                            : 0
+                        }% - 8px)`,
+                      }}
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs tabular-nums text-slate-400">
@@ -1535,14 +1875,17 @@ export default function DisciplineClient({ discipline }: Props) {
                     <span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span>
                   </div>
 
-                  {/* Botões */}
                   <div className="flex items-center gap-2.5">
                     <button
                       type="button"
                       onClick={() => void toggleVideoPlay()}
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
                     >
-                      {videoPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-0.5" />}
+                      {videoPlaying ? (
+                        <Pause size={18} />
+                      ) : (
+                        <Play size={18} className="translate-x-0.5" />
+                      )}
                     </button>
                     <button
                       type="button"
@@ -1566,11 +1909,17 @@ export default function DisciplineClient({ discipline }: Props) {
                         onClick={toggleVideoMute}
                         className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
                       >
-                        {videoMuted || videoVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                        {videoMuted || videoVolume === 0 ? (
+                          <VolumeX size={16} />
+                        ) : (
+                          <Volume2 size={16} />
+                        )}
                       </button>
                       <input
                         type="range"
-                        min={0} max={1} step={0.05}
+                        min={0}
+                        max={1}
+                        step={0.05}
                         value={videoMuted ? 0 : videoVolume}
                         onChange={(e) => handleVolumeChange(Number(e.target.value))}
                         className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
@@ -1621,28 +1970,22 @@ export default function DisciplineClient({ discipline }: Props) {
         </>
       )}
 
-      {/* ================================================================
-          MODAL DO QUIZ
-          ================================================================ */}
+      {/* ── Modal do Quiz ── */}
       {activeQuiz && (
         <>
-          {/* Backdrop */}
           <div
             className="fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-md"
             onClick={() => setActiveQuiz(null)}
           />
-          {/* Sheet */}
           <div className="fixed inset-0 z-[81] flex items-end justify-center sm:items-center sm:p-4 pointer-events-none">
             <div
               className="pointer-events-auto relative flex w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-slate-950 shadow-2xl sm:rounded-3xl"
               style={{ maxHeight: "95dvh" }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Drag handle mobile */}
               <div className="flex justify-center pt-3 sm:hidden">
                 <div className="h-1.5 w-12 rounded-full bg-white/20" />
               </div>
-
               <QuizPlayer
                 contentId={activeQuiz.contentId}
                 title={activeQuiz.title}

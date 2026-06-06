@@ -7,6 +7,7 @@ type QuizCardProps = {
   id: string | number;
   disciplina: string;
   tituloQuiz: string;
+  pontuacao: number;
   acertos: number;
   totalPerguntas: number;
   dataConclusao?: string;

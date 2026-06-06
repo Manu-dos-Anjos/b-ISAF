@@ -6,6 +6,7 @@ type AudioCardProps = {
   tema: string;
   duracao: string;
   thumbnail?: string;
+  progress?: number;
 };
 
 export default function AudioCard({
