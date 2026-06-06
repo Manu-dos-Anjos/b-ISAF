@@ -1,71 +1,259 @@
 // app/(app)/disciplinas/page.tsx
 "use client";
 
-import { useState, useMemo } from "react";
 import {
-  Headphones, FileText, Trophy, Sparkles,
-  BookOpen, TrendingUp, X,
-  SlidersHorizontal, AlertCircle,
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  type ElementType,
+  type ReactNode,
+} from "react";
+import {
+  Headphones,
+  FileText,
+  Trophy,
+  Sparkles,
+  BookOpen,
+  TrendingUp,
+  X,
+  SlidersHorizontal,
+  AlertCircle,
+  Plus,
+  Trash2,
+  GraduationCap,
+  CheckCircle2,
+  Loader2,
+  Lock,
+  Info,
 } from "lucide-react";
-import { useUser }          from "@/app/lib/context/UserContext";
-import { useDisciplines }   from "@/app/lib/hooks/useDisciplines";
-import { useSchedule }      from "@/app/lib/hooks/useSchedule";
-import { useScheduleInfo }  from "@/app/lib/hooks/useScheduleInfo";
-import DisciplineCard       from "./DisciplineCard";
-import type { DisciplineCardData } from "./DisciplineCard";
+
+import { useUser } from "@/app/lib/context/UserContext";
+import { useSupabase } from "@/app/lib/context/SupabaseContext";
+import { useDisciplines, type DisciplineRow } from "@/app/lib/hooks/useDisciplines";
+import { useSchedule } from "@/app/lib/hooks/useSchedule";
+import { useScheduleInfo } from "@/app/lib/hooks/useScheduleInfo";
+import DisciplineCard, { type DisciplineCardData } from "./DisciplineCard";
+import { CURRICULUM, type CourseId } from "@/app/lib/curriculum";
+
+/* ================================================================
+   TIPOS AUXILIARES
+================================================================ */
+
+type CurriculumEntry = {
+  id: string;
+  name: string;
+  code: string;
+  year: number;
+  semester: number;
+  annual?: boolean;
+};
 
 /* ================================================================
    FILTROS
-   ================================================================ */
+================================================================ */
 
 const CONTENT_FILTERS = [
-  { id: "audio", label: "Áudios",        icon: Headphones },
-  { id: "slide", label: "Slides",        icon: FileText   },
-  { id: "quiz",  label: "Questionários", icon: Trophy     },
-  { id: "tutor", label: "Tutor IA",      icon: Sparkles   },
+  { id: "audio", label: "Áudios", icon: Headphones },
+  { id: "slide", label: "Slides", icon: FileText },
+  { id: "quiz", label: "Questionários", icon: Trophy },
+  { id: "tutor", label: "Tutor IA", icon: Sparkles },
 ] as const;
 
 type FilterId = typeof CONTENT_FILTERS[number]["id"];
 
 /* ================================================================
-   HELPERS
-   ================================================================ */
+   CONSTANTES
+================================================================ */
 
-function toDisciplineCardData(
-  discipline: ReturnType<typeof useDisciplines>["disciplines"][number],
-): DisciplineCardData {
+const EXTRA_DISC_LS_KEY = "b-isaf:extraDisciplines";
+const MAX_EXTRA_DISCIPLINES = 3;
+
+const COURSE_ID_MAP: Record<string, CourseId> = {
+  "Informática de Gestão Financeira": "informatica-gestao-financeira",
+  "Contabilidade e Finanças": "contabilidade-financas",
+  "Gestão Bancária & Seguros": "gestao-bancaria-seguros",
+  "Gestão Bancária e Seguros": "gestao-bancaria-seguros",
+  IGF: "informatica-gestao-financeira",
+  CF: "contabilidade-financas",
+  GBS: "gestao-bancaria-seguros",
+};
+
+const SCROLLBAR_CLASS = [
+  "scrollbar-thin",
+  "scrollbar-track-transparent",
+  "scrollbar-thumb-slate-700/40",
+  "hover:scrollbar-thumb-slate-600/60",
+  "[&::-webkit-scrollbar]:w-1.5",
+  "[&::-webkit-scrollbar-track]:bg-transparent",
+  "[&::-webkit-scrollbar-thumb]:rounded-full",
+  "[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
+  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
+].join(" ");
+
+/* ================================================================
+   HELPERS
+================================================================ */
+
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function resolveCourseId(courseName: string, courseCode: string): CourseId {
+  return (
+    COURSE_ID_MAP[courseName] ??
+    COURSE_ID_MAP[courseCode] ??
+    "informatica-gestao-financeira"
+  );
+}
+
+function getCurriculumEntries(courseId: CourseId): CurriculumEntry[] {
+  const curriculum = CURRICULUM[courseId];
+  const entries: CurriculumEntry[] = [];
+  const seen = new Set<string>();
+
+  for (const yearData of curriculum.years) {
+    for (const sem of yearData.semesters) {
+      for (const disc of sem.disciplines) {
+        if (seen.has(disc.id)) continue;
+        seen.add(disc.id);
+
+        // Usar o código directamente do ID sem transformações
+        const code = disc.id.split("-").pop()?.toUpperCase() ?? "";
+
+        entries.push({
+          id: disc.id,
+          // Usar SEMPRE o nome oficial do currículo
+          name: disc.name,
+          code,
+          year: yearData.year,
+          semester: sem.number,
+          annual: disc.annual,
+        });
+      }
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Verifica se um semestre já passou relativamente ao ano/semestre actual do aluno.
+ * Um semestre "passou" se o ano da disciplina < ano actual,
+ * ou se o ano é igual mas o semestre da disciplina < semestre actual.
+ * O semestre actual NÃO é elegível (já está no plano normal).
+ */
+function isSemesterAlreadyPassed(
+  discYear: number,
+  discSemester: number,
+  currentYear: number,
+  currentSemester: number
+): boolean {
+  if (discYear < currentYear) return true;
+  if (discYear === currentYear && discSemester < currentSemester) return true;
+  return false;
+}
+
+function resolveRealDisciplineId(
+  sourceId: string,
+  lookup: Record<string, string>,
+  entries: CurriculumEntry[]
+) {
+  if (lookup[sourceId]) return lookup[sourceId];
+
+  const code = sourceId.split("-").pop()?.toUpperCase() ?? sourceId.toUpperCase();
+  if (lookup[code]) return lookup[code];
+
+  const norm = normalizeText(sourceId);
+  if (lookup[norm]) return lookup[norm];
+
+  const entry = entries.find((e) => {
+    return (
+      e.id === sourceId ||
+      e.code.toUpperCase() === code ||
+      normalizeText(e.name) === norm
+    );
+  });
+
+  if (entry) {
+    return (
+      lookup[entry.id] ??
+      lookup[entry.code.toUpperCase()] ??
+      lookup[normalizeText(entry.name)] ??
+      sourceId
+    );
+  }
+
+  return sourceId;
+}
+
+function toDisciplineCardData(discipline: DisciplineRow): DisciplineCardData {
   const contentCounts = { audio: 0, slide: 0, quiz: 0 };
   let lessonCount = 0;
 
-  for (const ch of discipline.chapters) {
-    for (const t of ch.topics) {
-      lessonCount += t.contents.length;
-      for (const c of t.contents) {
-        if (c.type === "audio")      contentCounts.audio++;
+  for (const ch of discipline.chapters ?? []) {
+    for (const t of ch.topics ?? []) {
+      lessonCount += t.contents?.length ?? 0;
+      for (const c of t.contents ?? []) {
+        if (c.type === "audio") contentCounts.audio++;
         else if (c.type === "slide") contentCounts.slide++;
-        else if (c.type === "quiz")  contentCounts.quiz++;
+        else if (c.type === "quiz") contentCounts.quiz++;
       }
     }
   }
 
   return {
-    id:            discipline.id,
-    title:         discipline.name,
-    code:          discipline.code,
-    href:          `/disciplinas/${discipline.id}`,
-    coverUrl:      discipline.cover_image_url,
-    progress:      discipline.progress,
-    year:          `${discipline.year}º Ano`,
-    semester:      `${discipline.semester}º Semestre`,
+    id: discipline.id,
+    title: discipline.name,
+    code: discipline.code ?? "",
+    href: `/disciplinas/${discipline.id}`,
+    coverUrl: discipline.cover_image_url ?? null,
+    progress: discipline.progress ?? 0,
+    year: `${discipline.year}º Ano`,
+    semester: `${discipline.semester}º Semestre`,
     lessonCount,
-    chaptersCount: discipline.chapters.length,
+    chaptersCount: discipline.chapters?.length ?? 0,
     contentCounts,
   };
 }
 
+function toExtraCardData(entry: CurriculumEntry, realId: string): DisciplineCardData {
+  return {
+    id: realId,
+    // Nome oficial vindo directamente do currículo
+    title: entry.name,
+    code: entry.code,
+    href: `/disciplinas/${realId}`,
+    coverUrl: null,
+    progress: 0,
+    year: `${entry.year}º Ano`,
+    semester: `${entry.semester}º Semestre`,
+    lessonCount: 0,
+    chaptersCount: 0,
+    contentCounts: { audio: 0, slide: 0, quiz: 0 },
+  };
+}
+
+function disciplineHasContentType(d: DisciplineRow, type: FilterId): boolean {
+  if (type === "tutor") return true;
+
+  for (const ch of d.chapters ?? []) {
+    for (const t of ch.topics ?? []) {
+      if ((t.contents ?? []).some((c) => c.type === type)) return true;
+    }
+  }
+
+  return false;
+}
+
 /* ================================================================
-   SKELETONS
-   ================================================================ */
+   SKELETONS / EMPTY STATE
+================================================================ */
 
 function CardSkeleton() {
   return (
@@ -94,10 +282,10 @@ function EmptyState({
   description,
   action,
 }: {
-  icon: React.ElementType;
+  icon: ElementType;
   title: string;
   description: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-16 text-center dark:border-white/10">
@@ -114,50 +302,559 @@ function EmptyState({
 }
 
 /* ================================================================
+   BANNER DE LIMITE ATINGIDO
+================================================================ */
+
+function ExtraLimitBanner({ current, max }: { current: number; max: number }) {
+  const remaining = max - current;
+  const atLimit = remaining === 0;
+
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs ${
+        atLimit
+          ? "border-rose-500/20 bg-rose-500/5 text-rose-400"
+          : "border-amber-500/20 bg-amber-500/5 text-amber-400"
+      }`}
+    >
+      {atLimit ? (
+        <Lock size={14} className="mt-0.5 shrink-0" />
+      ) : (
+        <Info size={14} className="mt-0.5 shrink-0" />
+      )}
+      <p>
+        {atLimit ? (
+          <>
+            Limite de <strong>{max} cadeiras extras</strong> atingido. Remove
+            uma para poder adicionar outra.
+          </>
+        ) : (
+          <>
+            Podes adicionar ainda{" "}
+            <strong>
+              {remaining} cadeira{remaining !== 1 ? "s" : ""}
+            </strong>{" "}
+            extra{remaining !== 1 ? "s" : ""} ({current}/{max}).
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/* ================================================================
+   MODAL: ADICIONAR CADEIRA EXTRA
+================================================================ */
+
+function AddExtraDisciplineModal({
+  courseId,
+  currentDisciplineIds,
+  pageDisciplineIds,
+  extraDisciplineIds,
+  resolveRealId,
+  currentYear,
+  currentSemester,
+  onAdd,
+  onClose,
+}: {
+  courseId: CourseId;
+  currentDisciplineIds: Set<string>;
+  pageDisciplineIds: Set<string>;
+  extraDisciplineIds: Set<string>;
+  resolveRealId: (sourceId: string) => string;
+  currentYear: number;
+  currentSemester: number;
+  onAdd: (disciplineId: string) => void;
+  onClose: () => void;
+}) {
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const curriculum = CURRICULUM[courseId];
+  const entries = useMemo(() => getCurriculumEntries(courseId), [courseId]);
+
+  const atLimit = extraDisciplineIds.size >= MAX_EXTRA_DISCIPLINES;
+
+  // Apenas anos que têm pelo menos uma disciplina elegível
+  const eligibleYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const entry of entries) {
+      if (
+        isSemesterAlreadyPassed(
+          entry.year,
+          entry.semester,
+          currentYear,
+          currentSemester
+        )
+      ) {
+        years.add(entry.year);
+      }
+    }
+    return years;
+  }, [entries, currentYear, currentSemester]);
+
+  // Filtrar entradas exibidas: só semestres passados + ano seleccionado
+  const visibleEntries = useMemo(() => {
+    return entries.filter((e) => {
+      const passed = isSemesterAlreadyPassed(
+        e.year,
+        e.semester,
+        currentYear,
+        currentSemester
+      );
+      const matchesYear = !selectedYear || e.year === selectedYear;
+      return passed && matchesYear;
+    });
+  }, [entries, currentYear, currentSemester, selectedYear]);
+
+  // Agrupar por ano
+  const grouped = useMemo(() => {
+    const map = new Map<number, CurriculumEntry[]>();
+    for (const entry of visibleEntries) {
+      const arr = map.get(entry.year) ?? [];
+      arr.push(entry);
+      map.set(entry.year, arr);
+    }
+    return map;
+  }, [visibleEntries]);
+
+  const hasEligible = eligibleYears.size > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabeçalho */}
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div>
+            <h3 className="font-semibold text-white">Adicionar cadeira</h3>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Apenas cadeiras de semestres já concluídos
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Indicador de limite */}
+        <div className="border-b border-white/5 px-5 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1.5">
+              {Array.from({ length: MAX_EXTRA_DISCIPLINES }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 w-8 rounded-full transition-colors ${
+                    i < extraDisciplineIds.size
+                      ? "bg-indigo-500"
+                      : "bg-white/10"
+                  }`}
+                />
+              ))}
+            </div>
+            <span
+              className={`text-xs font-medium ${
+                atLimit ? "text-rose-400" : "text-slate-400"
+              }`}
+            >
+              {extraDisciplineIds.size}/{MAX_EXTRA_DISCIPLINES} cadeiras extras
+            </span>
+          </div>
+
+          {atLimit && (
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-400">
+              <Lock size={11} />
+              Limite atingido. Remove uma cadeira para adicionar outra.
+            </p>
+          )}
+        </div>
+
+        {/* Filtro por ano — só anos elegíveis */}
+        {hasEligible && (
+          <div className="flex gap-2 border-b border-white/10 px-5 py-3">
+            <button
+              type="button"
+              onClick={() => setSelectedYear(null)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                !selectedYear
+                  ? "bg-blue-600 text-white"
+                  : "bg-white/5 text-slate-400 hover:bg-white/10"
+              }`}
+            >
+              Todos
+            </button>
+
+            {curriculum.years
+              .filter((y) => eligibleYears.has(y.year))
+              .map((y) => (
+                <button
+                  key={y.year}
+                  type="button"
+                  onClick={() => setSelectedYear(y.year)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    selectedYear === y.year
+                      ? "bg-blue-600 text-white"
+                      : "bg-white/5 text-slate-400 hover:bg-white/10"
+                  }`}
+                >
+                  {y.year}º Ano
+                </button>
+              ))}
+          </div>
+        )}
+
+        {/* Lista */}
+        <div className={`max-h-80 overflow-y-auto p-3 ${SCROLLBAR_CLASS}`}>
+          {!hasEligible ? (
+            /* Nenhum semestre passado disponível */
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <Lock size={24} className="mb-3 text-slate-600" />
+              <p className="text-sm font-medium text-slate-400">
+                Sem cadeiras disponíveis
+              </p>
+              <p className="mt-1 max-w-xs text-xs text-slate-600">
+                Só podes adicionar cadeiras de semestres já concluídos. No{" "}
+                {currentYear}º ano, {currentSemester}º semestre ainda não há
+                semestres anteriores disponíveis.
+              </p>
+            </div>
+          ) : grouped.size === 0 ? (
+            <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+              Nenhuma cadeira disponível para este ano.
+            </div>
+          ) : (
+            Array.from(grouped.entries()).map(([year, yearEntries]) => (
+              <div key={year} className="mb-3">
+                <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                  {year}º Ano
+                </p>
+
+                <div className="space-y-1">
+                  {yearEntries.map((entry) => {
+                    const realId = resolveRealId(entry.id);
+                    const isOnPage = pageDisciplineIds.has(realId);
+                    const isAdded = extraDisciplineIds.has(realId);
+                    const isDisabled = isOnPage || isAdded || (atLimit && !isAdded);
+
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => {
+                          if (!isDisabled) {
+                            onAdd(realId);
+                            onClose();
+                          }
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                          isOnPage
+                            ? "border border-blue-500/30 bg-blue-500/10 text-blue-200 ring-1 ring-blue-500/20"
+                            : isAdded
+                            ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                            : atLimit
+                            ? "cursor-not-allowed opacity-40 text-slate-500"
+                            : "text-slate-300 hover:bg-white/5"
+                        }`}
+                      >
+                        {/* Ícone de estado */}
+                        <div
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                            isOnPage
+                              ? "border-blue-400/40 bg-blue-500/20"
+                              : isAdded
+                              ? "border-emerald-500/40 bg-emerald-500/20"
+                              : atLimit
+                              ? "border-white/5 bg-white/5"
+                              : "border-white/10 bg-white/5"
+                          }`}
+                        >
+                          {isOnPage ? (
+                            <CheckCircle2 size={12} className="text-blue-400" />
+                          ) : isAdded ? (
+                            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                          ) : atLimit ? (
+                            <Lock size={9} className="text-slate-600" />
+                          ) : (
+                            <Plus size={10} className="text-slate-500" />
+                          )}
+                        </div>
+
+                        {/* Nome oficial do currículo */}
+                        <span className="flex-1 leading-snug">{entry.name}</span>
+
+                        {/* Badge de estado */}
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                            isOnPage
+                              ? "bg-blue-500/15 text-blue-300"
+                              : isAdded
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-white/5 text-slate-600"
+                          }`}
+                        >
+                          {isOnPage
+                            ? "Na página"
+                            : isAdded
+                            ? "Adicionada"
+                            : `${entry.semester}º Sem`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Rodapé informativo */}
+        <div className="border-t border-white/5 px-5 py-3">
+          <p className="text-[11px] text-slate-600">
+            Só são listadas cadeiras de semestres anteriores ao actual ({currentYear}º ano,{" "}
+            {currentSemester}º semestre). Os nomes correspondem à grelha curricular oficial.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
    COMPONENTE PRINCIPAL
-   ================================================================ */
+================================================================ */
 
 export default function DisciplinasPage() {
   const { user, profile, course } = useUser();
+  const { supabase, user: authUser } = useSupabase();
 
   const [activeFilters, setActiveFilters] = useState<Set<FilterId>>(new Set());
+  const [extraIds, setExtraIds] = useState<string[]>([]);
+  const [showExtraModal, setShowExtraModal] = useState(false);
 
-  /* ── Dados ── */
-  const { disciplines, isLoading: discLoading, error, refetch } = useDisciplines();
-  const { schedule, isLoading: schedLoading }                   = useSchedule();
-  const scheduleInfoMap                                          = useScheduleInfo(disciplines, schedule);
+  const [disciplineLookup, setDisciplineLookup] = useState<Record<string, string>>({});
+  const [lookupReady, setLookupReady] = useState(false);
+
+  /* ── Dados ───────────────────────────────────────────── */
+  const {
+    disciplines,
+    isLoading: discLoading,
+    error,
+    refetch,
+  } = useDisciplines();
+
+  const { schedule, isLoading: schedLoading } = useSchedule();
+  const scheduleInfoMap = useScheduleInfo(disciplines, schedule);
 
   const isLoading = discLoading || schedLoading;
 
-  /* ── Stats ── */
+  /* ── Curso e ano/semestre actual ─────────────────────── */
+  const courseName = course?.name ?? user?.academic?.course ?? "";
+  const courseCode = course?.code ?? "";
+  const currentYear = profile?.current_year ?? 1;
+  const currentSemester = profile?.current_semester ?? 1;
+
+  const currentCourseId = useMemo(
+    () => resolveCourseId(courseName, courseCode),
+    [courseName, courseCode]
+  );
+
+  const currentCourseEntries = useMemo(
+    () => getCurriculumEntries(currentCourseId),
+    [currentCourseId]
+  );
+
+  const pageDisciplineIds = useMemo(
+    () => new Set(disciplines.map((d) => d.id)),
+    [disciplines]
+  );
+
+  const resolveLocalIdToRealId = useCallback(
+    (sourceId: string) =>
+      resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries),
+    [disciplineLookup, currentCourseEntries]
+  );
+
+  /* ── Carregar lookup real dos IDs ────────────────────── */
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      const courseUuid = profile?.course_id ?? undefined;
+
+      if (!courseUuid) {
+        if (active) setLookupReady(true);
+        return;
+      }
+
+      try {
+        const { data, error: supaErr } = await supabase
+          .from("discipline_courses")
+          .select("discipline_id, disciplines(id, name, code)")
+          .eq("course_id", courseUuid);
+
+        if (supaErr) throw supaErr;
+
+        const next: Record<string, string> = {};
+
+        for (const row of (data ?? []) as Array<{
+          discipline_id: string;
+          disciplines: { id: string; name: string; code: string | null } | null;
+        }>) {
+          const disc = row.disciplines;
+          if (!disc) continue;
+
+          const realId = row.discipline_id || disc.id;
+
+          if (disc.id) next[disc.id] = realId;
+          if (disc.code) next[String(disc.code).toUpperCase()] = realId;
+          if (disc.name) next[normalizeText(disc.name)] = realId;
+        }
+
+        if (active) setDisciplineLookup(next);
+      } catch (err) {
+        console.error("Erro ao carregar lookup de disciplinas:", err);
+      } finally {
+        if (active) setLookupReady(true);
+      }
+    };
+
+    void load();
+    return () => { active = false; };
+  }, [profile?.course_id, supabase]);
+
+  /* ── Carregar cadeiras extra ─────────────────────────── */
+  useEffect(() => {
+    const loadFromLocalStorage = () => {
+      try {
+        const raw = localStorage.getItem(EXTRA_DISC_LS_KEY);
+        if (raw) setExtraIds(JSON.parse(raw) as string[]);
+      } catch {
+        // ignore
+      }
+    };
+
+    if (!authUser) {
+      loadFromLocalStorage();
+      return;
+    }
+
+    const loadFromSupabase = async () => {
+      try {
+        const { data, error: supaError } = await supabase
+          .from("student_extra_disciplines")
+          .select("discipline_id")
+          .eq("student_id", authUser.id);
+
+        if (supaError) throw supaError;
+
+        setExtraIds((data ?? []).map((r) => r.discipline_id));
+      } catch {
+        loadFromLocalStorage();
+      }
+    };
+
+    void loadFromSupabase();
+  }, [authUser, supabase]);
+
+  /* ── Normalizar e limpar extras ──────────────────────── */
+  useEffect(() => {
+    if (!lookupReady) return;
+
+    setExtraIds((prev) => {
+      const normalized = [
+        ...new Set(
+          prev.map((id) =>
+            resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)
+          )
+        ),
+      ].filter((id) => {
+        // Remover itens já presentes na página
+        if (pageDisciplineIds.has(id)) return false;
+
+        // Verificar se é de um semestre já passado (manter consistência)
+        const entry = currentCourseEntries.find((e) => {
+          const resolved = resolveRealDisciplineId(
+            e.id,
+            disciplineLookup,
+            currentCourseEntries
+          );
+          return resolved === id;
+        });
+
+        if (!entry) return false;
+
+        return isSemesterAlreadyPassed(
+          entry.year,
+          entry.semester,
+          currentYear,
+          currentSemester
+        );
+      });
+
+      const changed =
+        normalized.length !== prev.length ||
+        normalized.some((id, i) => id !== prev[i]);
+
+      if (!changed) return prev;
+
+      try {
+        localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(normalized));
+      } catch {
+        // ignore
+      }
+
+      return normalized;
+    });
+  }, [
+    lookupReady,
+    disciplineLookup,
+    currentCourseEntries,
+    pageDisciplineIds,
+    currentYear,
+    currentSemester,
+  ]);
+
+  /* ── Stats ───────────────────────────────────────────── */
   const stats = useMemo(() => {
-    let audios = 0, slides = 0, quizzes = 0;
-    for (const d of disciplines)
-      for (const ch of d.chapters)
-        for (const t of ch.topics)
-          for (const c of t.contents) {
-            if (c.type === "audio")      audios++;
+    let audios = 0;
+    let slides = 0;
+    let quizzes = 0;
+
+    for (const d of disciplines) {
+      for (const ch of d.chapters ?? []) {
+        for (const t of ch.topics ?? []) {
+          for (const c of t.contents ?? []) {
+            if (c.type === "audio") audios++;
             else if (c.type === "slide") slides++;
-            else if (c.type === "quiz")  quizzes++;
+            else if (c.type === "quiz") quizzes++;
           }
+        }
+      }
+    }
+
     const avgProgress = disciplines.length
       ? Math.round(
-          disciplines.reduce((s, d) => s + d.progress, 0) / disciplines.length
+          disciplines.reduce((s, d) => s + (d.progress ?? 0), 0) /
+            disciplines.length
         )
       : 0;
+
     return { total: disciplines.length, audios, slides, quizzes, avgProgress };
   }, [disciplines]);
 
-  /* ── Filtro de conteúdo ── */
+  /* ── Filtro de conteúdo ──────────────────────────────── */
   const filtered = useMemo(() => {
     if (activeFilters.size === 0) return disciplines;
     return disciplines.filter((d) =>
-      [...activeFilters].every((f) => {
-        if (f === "tutor") return true;
-        return d.chapters.some((ch) =>
-          ch.topics.some((t) => t.contents.some((c) => c.type === f))
-        );
-      })
+      [...activeFilters].every((f) => disciplineHasContentType(d, f))
     );
   }, [disciplines, activeFilters]);
 
@@ -168,13 +865,162 @@ export default function DisciplinasPage() {
       return next;
     });
 
-  /* ── Dados académicos ── */
-  const yearLabel     = profile?.current_year     ? `${profile.current_year}º Ano`         : "";
-  const semesterLabel = profile?.current_semester ? `${profile.current_semester}º Semestre` : "";
-  const courseName    = course?.name ?? user?.academic?.course ?? "";
-  const courseCode    = course?.code ?? "";
+  /* ── Extras normalizados ─────────────────────────────── */
+  const normalizedExtraIds = useMemo(() => {
+    if (!lookupReady) return extraIds;
+    return [
+      ...new Set(
+        extraIds.map((id) =>
+          resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)
+        )
+      ),
+    ].filter((id) => !pageDisciplineIds.has(id));
+  }, [extraIds, lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds]);
 
-  /* ── Loading ── */
+  const extraDisciplineIdsSet = useMemo(
+    () => new Set(normalizedExtraIds),
+    [normalizedExtraIds]
+  );
+
+  const currentDisciplineIds = useMemo(
+    () => new Set([...disciplines.map((d) => d.id), ...normalizedExtraIds]),
+    [disciplines, normalizedExtraIds]
+  );
+
+  const extraDisciplineCards = useMemo(() => {
+    if (!lookupReady) return [];
+
+    return normalizedExtraIds
+      .map((realId) => {
+        const entry = currentCourseEntries.find((e) => {
+          const resolved = resolveRealDisciplineId(
+            e.id,
+            disciplineLookup,
+            currentCourseEntries
+          );
+          return resolved === realId;
+        });
+
+        if (!entry) return null;
+        return toExtraCardData(entry, realId);
+      })
+      .filter((d): d is DisciplineCardData => !!d);
+  }, [normalizedExtraIds, lookupReady, currentCourseEntries, disciplineLookup]);
+
+  const atExtraLimit = normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES;
+
+  /* ── Adicionar / remover extras ──────────────────────── */
+  const addExtra = useCallback(
+    async (sourceId: string) => {
+      // Bloquear se já no limite
+      if (normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES) return;
+
+      const realId = resolveRealDisciplineId(
+        sourceId,
+        disciplineLookup,
+        currentCourseEntries
+      );
+
+      // Verificar se é de semestre passado
+      const entry = currentCourseEntries.find((e) => {
+        const resolved = resolveRealDisciplineId(
+          e.id,
+          disciplineLookup,
+          currentCourseEntries
+        );
+        return resolved === realId;
+      });
+
+      if (
+        !entry ||
+        !isSemesterAlreadyPassed(
+          entry.year,
+          entry.semester,
+          currentYear,
+          currentSemester
+        )
+      ) {
+        console.warn("Cadeira não elegível:", realId);
+        return;
+      }
+
+      const newIds = [
+        ...new Set([...normalizedExtraIds, realId]),
+      ].filter((id) => !pageDisciplineIds.has(id));
+
+      setExtraIds(newIds);
+
+      if (authUser) {
+        try {
+          await supabase.from("student_extra_disciplines").upsert(
+            { student_id: authUser.id, discipline_id: realId },
+            { onConflict: "student_id,discipline_id" }
+          );
+        } catch {
+          try {
+            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+          } catch {
+            // ignore
+          }
+        }
+      } else {
+        try {
+          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [
+      authUser,
+      supabase,
+      disciplineLookup,
+      currentCourseEntries,
+      normalizedExtraIds,
+      pageDisciplineIds,
+      currentYear,
+      currentSemester,
+    ]
+  );
+
+  const removeExtra = useCallback(
+    async (disciplineId: string) => {
+      const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
+      setExtraIds(newIds);
+
+      if (authUser) {
+        try {
+          await supabase
+            .from("student_extra_disciplines")
+            .delete()
+            .eq("student_id", authUser.id)
+            .eq("discipline_id", disciplineId);
+        } catch {
+          try {
+            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+          } catch {
+            // ignore
+          }
+        }
+      } else {
+        try {
+          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [authUser, supabase, normalizedExtraIds]
+  );
+
+  /* ── Dados académicos ────────────────────────────────── */
+  const yearLabel = profile?.current_year ? `${profile.current_year}º Ano` : "";
+  const semesterLabel = profile?.current_semester
+    ? `${profile.current_semester}º Semestre`
+    : "";
+  const courseAbbr = course?.code ?? courseName;
+
+  /* ── Loading ─────────────────────────────────────────── */
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -188,7 +1034,7 @@ export default function DisciplinasPage() {
     );
   }
 
-  /* ── Erro ── */
+  /* ── Erro ────────────────────────────────────────────── */
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/5 py-16 text-center">
@@ -210,10 +1056,9 @@ export default function DisciplinasPage() {
 
   /* ================================================================
      RENDER
-     ================================================================ */
+  ================================================================ */
   return (
     <div className="space-y-6">
-
       {/* ── Cabeçalho ── */}
       <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">
@@ -223,9 +1068,7 @@ export default function DisciplinasPage() {
                 {courseName}
               </p>
               <h1 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {[courseCode, yearLabel, semesterLabel]
-                  .filter(Boolean)
-                  .join(" · ")}
+                {[courseAbbr, yearLabel, semesterLabel].filter(Boolean).join(" · ")}
               </h1>
             </div>
 
@@ -255,9 +1098,9 @@ export default function DisciplinasPage() {
         {/* Stats de conteúdo */}
         <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-white/5">
           {[
-            { icon: Headphones, label: "Áudios",  value: stats.audios,  color: "text-blue-500"   },
-            { icon: FileText,   label: "Slides",  value: stats.slides,  color: "text-indigo-500" },
-            { icon: Trophy,     label: "Quizzes", value: stats.quizzes, color: "text-amber-500"  },
+            { icon: Headphones, label: "Áudios", value: stats.audios, color: "text-blue-500" },
+            { icon: FileText, label: "Slides", value: stats.slides, color: "text-indigo-500" },
+            { icon: Trophy, label: "Quizzes", value: stats.quizzes, color: "text-amber-500" },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="flex items-center gap-2.5 px-4 py-3">
               <Icon size={15} className={`${color} opacity-80`} />
@@ -309,7 +1152,7 @@ export default function DisciplinasPage() {
         </div>
       </div>
 
-      {/* ── Grelha ── */}
+      {/* ── Grelha principal ── */}
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -352,6 +1195,128 @@ export default function DisciplinasPage() {
           />
         )}
       </section>
+
+      {/* ── Cadeiras adicionais ── */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <GraduationCap size={16} className="text-indigo-400" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Cadeiras adicionais
+            </h2>
+
+            {extraDisciplineCards.length > 0 && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  atExtraLimit
+                    ? "bg-rose-500/15 text-rose-400"
+                    : "bg-indigo-500/15 text-indigo-400"
+                }`}
+              >
+                {extraDisciplineCards.length}/{MAX_EXTRA_DISCIPLINES}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowExtraModal(true)}
+            disabled={!lookupReady || atExtraLimit}
+            title={
+              atExtraLimit
+                ? `Limite de ${MAX_EXTRA_DISCIPLINES} cadeiras extras atingido`
+                : "Adicionar cadeira extra"
+            }
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+              atExtraLimit
+                ? "cursor-not-allowed border-rose-500/20 bg-rose-500/5 text-rose-500/50"
+                : lookupReady
+                ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20"
+                : "cursor-not-allowed border-white/5 bg-white/5 text-slate-600 opacity-50"
+            }`}
+          >
+            {atExtraLimit ? (
+              <Lock size={13} />
+            ) : (
+              <Plus size={13} />
+            )}
+            {atExtraLimit ? "Limite atingido" : "Adicionar cadeira"}
+          </button>
+        </div>
+
+        {/* Banner de limite / info */}
+        {lookupReady && extraDisciplineCards.length > 0 && (
+          <ExtraLimitBanner
+            current={extraDisciplineCards.length}
+            max={MAX_EXTRA_DISCIPLINES}
+          />
+        )}
+
+        {/* Descrição */}
+        <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-xs text-slate-500">
+          Cadeiras de semestres anteriores que frequentes em regime de recurso ou melhoria.
+          Máximo de <strong className="text-slate-400">{MAX_EXTRA_DISCIPLINES}</strong> cadeiras.
+          Os nomes correspondem à grelha curricular oficial.
+        </div>
+
+        {!lookupReady ? (
+          <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-slate-950/40 py-10 text-sm text-slate-400">
+            <Loader2 size={16} className="mr-2 animate-spin" />
+            A carregar cadeiras adicionais…
+          </div>
+        ) : extraDisciplineCards.length > 0 ? (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {extraDisciplineCards.map((d) => (
+              <div key={d.id} className="relative">
+                <div className="absolute -top-2 left-3 z-10">
+                  <span className="rounded-full border border-indigo-500/30 bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
+                    Semestre anterior
+                  </span>
+                </div>
+
+                <DisciplineCard
+                  discipline={d}
+                  scheduleInfo={scheduleInfoMap.get(d.id)}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => void removeExtra(d.id)}
+                  className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-slate-400 backdrop-blur-sm transition hover:bg-rose-500/20 hover:text-rose-400"
+                  title="Remover cadeira"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-10 text-center">
+            <GraduationCap size={24} className="mb-2 text-slate-600" />
+            <p className="text-sm font-medium text-slate-500">
+              Nenhuma cadeira adicional
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              Frequentas cadeiras de semestres anteriores? Adiciona-as para aceder aos materiais.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ── Modal ── */}
+      {showExtraModal && !atExtraLimit && (
+        <AddExtraDisciplineModal
+          courseId={currentCourseId}
+          currentDisciplineIds={currentDisciplineIds}
+          pageDisciplineIds={pageDisciplineIds}
+          extraDisciplineIds={extraDisciplineIdsSet}
+          resolveRealId={resolveLocalIdToRealId}
+          currentYear={currentYear}
+          currentSemester={currentSemester}
+          onAdd={(id) => void addExtra(id)}
+          onClose={() => setShowExtraModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -44,8 +44,8 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "igf-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "igf-1-1-li1",  name: "Inglês I" },
-              { id: "igf-1-1-mi",   name: "Metodologias de Investigação Científica" },
+              { id: "igf-1-1-li1",  name: "Língua Inglesa I" },
+              { id: "igf-1-1-mi",   name: "Métodos de Investigação Científica" },
               { id: "igf-1-1-fsi",  name: "Fundamentos de Sistemas da Informação" },
               { id: "igf-1-1-mat1", name: "Matemática I" },
             ],
@@ -55,7 +55,7 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "igf-1-2-cg1",  name: "Contabilidade Geral I" },
-              { id: "igf-1-2-li2",  name: "Inglês II" },
+              { id: "igf-1-2-li2",  name: "Língua Inglesa II" },
               { id: "igf-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
               { id: "igf-1-2-arq",  name: "Arquitetura de Computadores" },
               { id: "igf-1-2-mat2", name: "Matemática II" },
@@ -159,8 +159,8 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "cf-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "cf-1-1-li1",  name: "Inglês I" },
-              { id: "cf-1-1-mi",   name: "Metodologias de Investigação Científica" },
+              { id: "cf-1-1-li1",  name: "Língua Inglesa I" },
+              { id: "cf-1-1-mi",   name: "Métodos de Investigação Científica" },
               { id: "cf-1-1-ii",   name: "Introdução à Informática" },
               { id: "cf-1-1-mat1", name: "Matemática I" },
             ],
@@ -170,7 +170,7 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "cf-1-2-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "cf-1-2-li2",  name: "Inglês II" },
+              { id: "cf-1-2-li2",  name: "Língua Inglesa II" },
               { id: "cf-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
               { id: "cf-1-2-cg1",  name: "Contabilidade Geral I" },
               { id: "cf-1-2-mat2", name: "Matemática II" },
@@ -186,7 +186,7 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "cf-2-1-cg2",  name: "Contabilidade Geral II" },
-              { id: "cf-2-1-li3",  name: "Inglês III" },
+              { id: "cf-2-1-li3",  name: "Língua Inglesa III" },
               { id: "cf-2-1-me1",  name: "Microeconomia I" },
               { id: "cf-2-1-cof",  name: "Cálculo e Operações Financeiras" },
               { id: "cf-2-1-est1", name: "Estatística I" },
@@ -197,7 +197,7 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "cf-2-2-ca",   name: "Contabilidade Analítica" },
-              { id: "cf-2-2-li4",  name: "Inglês IV" },
+              { id: "cf-2-2-li4",  name: "Língua Inglesa IV" },
               { id: "cf-2-2-me2",  name: "Microeconomia II" },
               { id: "cf-2-2-de",   name: "Direito das Empresas" },
               { id: "cf-2-2-est2", name: "Estatística II" },
@@ -274,8 +274,8 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "gbs-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "gbs-1-1-li1",  name: "Inglês I" },
-              { id: "gbs-1-1-mi",   name: "Metodologias de Investigação Científica" },
+              { id: "gbs-1-1-li1",  name: "Língua Inglesa I" },
+              { id: "gbs-1-1-mi",   name: "Métodos de Investigação Científica" },
               { id: "gbs-1-1-ii",   name: "Introdução à Informática" },
               { id: "gbs-1-1-mat1", name: "Matemática I" },
             ],
@@ -285,7 +285,7 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "gbs-1-2-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "gbs-1-2-li2",  name: "Inglês II" },
+              { id: "gbs-1-2-li2",  name: "Língua Inglesa II" },
               { id: "gbs-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
               { id: "gbs-1-2-cg1",  name: "Contabilidade Geral I" },
               { id: "gbs-1-2-mat2", name: "Matemática II" },
@@ -301,7 +301,7 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "gbs-2-1-cg2", name: "Contabilidade Geral II" },
-              { id: "gbs-2-1-li3", name: "Inglês III" },
+              { id: "gbs-2-1-li3", name: "Língua Inglesa III" },
               { id: "gbs-2-1-est", name: "Estatística" },
               { id: "gbs-2-1-cof", name: "Cálculo e Operações Financeiras" },
               { id: "gbs-2-1-tsi", name: "Tecnologias e Sistemas de Informação" },
@@ -312,7 +312,7 @@ export const CURRICULUM: Record<CourseId, CourseData> = {
             totalHours: 768,
             disciplines: [
               { id: "gbs-2-2-ca",  name: "Contabilidade Analítica" },
-              { id: "gbs-2-2-li4", name: "Inglês IV" },
+              { id: "gbs-2-2-li4", name: "Língua Inglesa IV" },
               { id: "gbs-2-2-co",  name: "Comportamento Organizacional" },
               { id: "gbs-2-2-mpf", name: "Mercados e Produtos Financeiros" },
               { id: "gbs-2-2-irs", name: "Introdução ao Risco e Seguro" },

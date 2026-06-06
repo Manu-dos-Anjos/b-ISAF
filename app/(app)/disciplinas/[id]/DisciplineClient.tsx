@@ -35,7 +35,8 @@ import {
   Layers,
 } from "lucide-react";
 
-import SlideViewer from "@/app/components/slides/SlideViewer";
+import SlideViewer  from "@/app/components/slides/SlideViewer";
+import QuizPlayer   from "@/app/components/quiz/QuizPlayer";
 import { useLocalStorageState } from "@/app/lib/hooks/useLocalStorageState";
 import type { Discipline, Chapter, Topic, TopicContent } from "@/app/lib/mockData";
 
@@ -52,24 +53,32 @@ type TutorDragState = { offsetX: number; offsetY: number };
 
 type ContentPanelContext = {
   discipline: string;
-  chapter: string;
-  topic: string;
-  content: TopicContent;
+  chapter:    string;
+  topic:      string;
+  content:    TopicContent;
 };
 
 type FloatingContentPanel = {
-  id: string;
-  context: ContentPanelContext;
-  position: { x: number; y: number };
-  size?: { width: number; height: number };
+  id:           string;
+  context:      ContentPanelContext;
+  position:     { x: number; y: number };
+  size?:        { width: number; height: number };
   isFullscreen?: boolean;
-  rotation?: 0 | 90;
+  rotation?:    0 | 90;
 };
 
 type FloatingContentDragState = {
   panelId: string;
   offsetX: number;
   offsetY: number;
+};
+
+/* ── Tipo para o quiz activo ── */
+type ActiveQuiz = {
+  contentId:     string;
+  title:         string;
+  chapterTitle:  string;
+  timeLimitSecs: number | null;
 };
 
 /* ================================================================
@@ -99,11 +108,11 @@ function getContentButtonClass(type: TopicContent["type"]) {
 function getContentPanelTheme(type: TopicContent["type"]) {
   switch (type) {
     case "audio":
-      return { borderClass: "border-blue-500/20",   iconClass: "bg-blue-500/10 text-blue-400" };
+      return { borderClass: "border-blue-500/20",   iconClass: "bg-blue-500/10 text-blue-400"     };
     case "slide":
       return { borderClass: "border-indigo-500/20", iconClass: "bg-indigo-500/10 text-indigo-400" };
     default:
-      return { borderClass: "border-white/10",      iconClass: "bg-white/5 text-slate-400" };
+      return { borderClass: "border-white/10",      iconClass: "bg-white/5 text-slate-400"        };
   }
 }
 
@@ -122,19 +131,16 @@ function formatTime(sec: number) {
    CONSTANTES
    ================================================================ */
 
-const VIDEO_SPEEDS         = [0.5, 0.75, 1, 1.25, 1.5, 2];
-const DEFAULT_PANEL_W      = 544;
-const DEFAULT_PANEL_H      = 420;
-const MOBILE_PANEL_W       = 0.94;
-const MOBILE_PANEL_H       = 0.82;
-const CONTROLS_HIDE_DELAY  = 3000;
+const VIDEO_SPEEDS        = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const DEFAULT_PANEL_W     = 544;
+const DEFAULT_PANEL_H     = 420;
+const MOBILE_PANEL_W      = 0.94;
+const MOBILE_PANEL_H      = 0.82;
+const CONTROLS_HIDE_DELAY = 3000;
 
 const ACTION_BTN =
   "inline-flex min-h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap transition-all duration-200 shadow-sm";
 
-/* ================================================================
-   SCROLLBAR CLASS — integrada na interface
-   ================================================================ */
 const SCROLLBAR_CLASS = [
   "scrollbar-thin",
   "scrollbar-track-transparent",
@@ -154,20 +160,20 @@ const SCROLLBAR_CLASS = [
 export default function DisciplineClient({ discipline }: Props) {
   const chapters = discipline.chapters ?? [];
 
-  /* ── Detecção mobile ─────────────────────────────────── */
+  /* ── Detecção mobile ── */
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
-    window.addEventListener("resize", check);
+    window.addEventListener("resize",            check);
     window.addEventListener("orientationchange", check);
     return () => {
-      window.removeEventListener("resize", check);
+      window.removeEventListener("resize",            check);
       window.removeEventListener("orientationchange", check);
     };
   }, []);
 
-  /* ── Navegação ───────────────────────────────────────── */
+  /* ── Navegação ── */
   const [activeChapterId, setActiveChapterId] = useLocalStorageState<string>(
     `dc-activeChapter-${discipline.id}`,
     chapters[0]?.id ?? ""
@@ -178,20 +184,21 @@ export default function DisciplineClient({ discipline }: Props) {
   );
   const [isVideoOpen, setIsVideoOpen] = useState(false);
 
-  /* ── Refs dos painéis internos ───────────────────────── */
+  /* ── Quiz activo ── */
+  const [activeQuiz, setActiveQuiz] = useState<ActiveQuiz | null>(null);
+
+  /* ── Refs dos painéis internos ── */
   const chaptersPanelRef = useRef<HTMLElement | null>(null);
   const topicsPanelRef   = useRef<HTMLElement | null>(null);
 
-  /* ── Scroll da página guardado ───────────────────────── */
+  /* ── Scroll da página guardado ── */
   const scrollKey = `dc-scrollY-${discipline.id}`;
 
-  // Restaurar ao montar
   useEffect(() => {
     const saved = sessionStorage.getItem(scrollKey);
     if (!saved) return;
     const y = parseInt(saved, 10);
     if (isNaN(y)) return;
-    // double rAF garante que o layout já está estável
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         window.scrollTo({ top: y, behavior: "instant" });
@@ -200,7 +207,6 @@ export default function DisciplineClient({ discipline }: Props) {
     return () => cancelAnimationFrame(id);
   }, [scrollKey]);
 
-  // Guardar continuamente (throttled via rAF) + ao sair
   useEffect(() => {
     let ticking = false;
     const save = () => {
@@ -219,11 +225,11 @@ export default function DisciplineClient({ discipline }: Props) {
     return () => {
       window.removeEventListener("scroll",       save);
       window.removeEventListener("beforeunload", saveOnUnload);
-      saveOnUnload(); // guardar também ao desmontar
+      saveOnUnload();
     };
   }, [scrollKey]);
 
-  /* ── Sync scroll: painel → página (ambos os sentidos) ── */
+  /* ── Sync scroll painel → página ── */
   useEffect(() => {
     const panels = [chaptersPanelRef.current, topicsPanelRef.current]
       .filter(Boolean) as HTMLElement[];
@@ -231,24 +237,21 @@ export default function DisciplineClient({ discipline }: Props) {
     const cleanups = panels.map((el) => {
       let lastScrollTop = el.scrollTop;
       const handler = () => {
-        const delta    = el.scrollTop - lastScrollTop;
-        lastScrollTop  = el.scrollTop;
+        const delta   = el.scrollTop - lastScrollTop;
+        lastScrollTop = el.scrollTop;
         const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
         const atTop    = el.scrollTop <= 0;
-        if (atBottom && delta > 0) {
-          window.scrollBy({ top: 120, behavior: "smooth" });
-        } else if (atTop && delta < 0) {
-          window.scrollBy({ top: -120, behavior: "smooth" });
-        }
+        if (atBottom && delta > 0) window.scrollBy({ top:  120, behavior: "smooth" });
+        if (atTop    && delta < 0) window.scrollBy({ top: -120, behavior: "smooth" });
       };
       el.addEventListener("scroll", handler, { passive: true });
       return () => el.removeEventListener("scroll", handler);
     });
 
     return () => cleanups.forEach((fn) => fn());
-  }, []); // refs são estáveis — corre uma vez
+  }, []);
 
-  /* ── Estado do vídeo ─────────────────────────────────── */
+  /* ── Estado do vídeo ── */
   const videoModalRef        = useRef<HTMLDivElement | null>(null);
   const videoRef             = useRef<HTMLVideoElement | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
@@ -266,22 +269,22 @@ export default function DisciplineClient({ discipline }: Props) {
   const [videoBuffered,     setVideoBuffered]     = useState(0);
   const [showControls,      setShowControls]      = useState(true);
 
-  /* ── Tutor IA ────────────────────────────────────────── */
-  const [isTutorOpen,      setIsTutorOpen]      = useLocalStorageState<boolean>(`dc-tutorOpen-${discipline.id}`, false);
-  const [isTutorMinimized, setIsTutorMinimized] = useLocalStorageState<boolean>(`dc-tutorMinimized-${discipline.id}`, false);
-  const [isTutorFullscreen,setIsTutorFullscreen]= useLocalStorageState<boolean>(`dc-tutorFullscreen-${discipline.id}`, false);
-  const [tutorInput,       setTutorInput]       = useState("");
-  const [tutorMessages,    setTutorMessages]    = useLocalStorageState<TutorMessage[]>(
+  /* ── Tutor IA ── */
+  const [isTutorOpen,       setIsTutorOpen]       = useLocalStorageState<boolean>(`dc-tutorOpen-${discipline.id}`,       false);
+  const [isTutorMinimized,  setIsTutorMinimized]  = useLocalStorageState<boolean>(`dc-tutorMinimized-${discipline.id}`,  false);
+  const [isTutorFullscreen, setIsTutorFullscreen] = useLocalStorageState<boolean>(`dc-tutorFullscreen-${discipline.id}`, false);
+  const [tutorInput,        setTutorInput]        = useState("");
+  const [tutorMessages,     setTutorMessages]     = useLocalStorageState<TutorMessage[]>(
     `dc-tutorMessages-${discipline.id}`,
     [{ role: "assistant", text: "Olá! Sou o Tutor IA. Pergunta-me sobre este tema e eu ajudo-te com base no conteúdo da disciplina." }]
   );
-  const [tutorContext,     setTutorContext]     = useLocalStorageState<TutorContext | null>(`dc-tutorContext-${discipline.id}`, null);
-  const [tutorPosition,    setTutorPosition]    = useLocalStorageState(`dc-tutorPosition-${discipline.id}`, { x: 0, y: 0 });
-  const [tutorSize,        setTutorSize]        = useLocalStorageState(`dc-tutorSize-${discipline.id}`, { width: 420, height: 580 });
-  const [hasTutorPosition, setHasTutorPosition] = useLocalStorageState<boolean>(`dc-hasTutorPos-${discipline.id}`, false);
+  const [tutorContext,     setTutorContext]     = useLocalStorageState<TutorContext | null>(`dc-tutorContext-${discipline.id}`,   null);
+  const [tutorPosition,    setTutorPosition]    = useLocalStorageState(`dc-tutorPosition-${discipline.id}`,                     { x: 0, y: 0 });
+  const [tutorSize,        setTutorSize]        = useLocalStorageState(`dc-tutorSize-${discipline.id}`,                         { width: 420, height: 580 });
+  const [hasTutorPosition, setHasTutorPosition] = useLocalStorageState<boolean>(`dc-hasTutorPos-${discipline.id}`,              false);
   const [isDraggingTutor,  setIsDraggingTutor]  = useState(false);
   const [isResizingTutor,  setIsResizingTutor]  = useState(false);
-  const [tutorSheetHeight, setTutorSheetHeight] = useLocalStorageState<number>(`dc-tutorSheetH-${discipline.id}`, 62);
+  const [tutorSheetHeight, setTutorSheetHeight] = useLocalStorageState<number>(`dc-tutorSheetH-${discipline.id}`,                62);
   const [isDraggingSheet,  setIsDraggingSheet]  = useState(false);
 
   const sheetDragRef   = useRef<{ startY: number; startHeight: number } | null>(null);
@@ -289,18 +292,18 @@ export default function DisciplineClient({ discipline }: Props) {
   const tutorDragRef   = useRef<TutorDragState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  /* ── Áudio global ────────────────────────────────────── */
+  /* ── Áudio global ── */
   const audioPlayer = useAudioPlayer();
 
-  /* ── Painéis flutuantes ──────────────────────────────── */
-  const [contentPanels,           setContentPanels]           = useLocalStorageState<FloatingContentPanel[]>(`dc-contentPanels-${discipline.id}`, []);
-  const [isDraggingContent,       setIsDraggingContent]       = useState(false);
-  const [browserFullscreenPanelId,setBrowserFullscreenPanelId]= useState<string | null>(null);
+  /* ── Painéis flutuantes ── */
+  const [contentPanels,            setContentPanels]            = useLocalStorageState<FloatingContentPanel[]>(`dc-contentPanels-${discipline.id}`, []);
+  const [isDraggingContent,        setIsDraggingContent]        = useState(false);
+  const [browserFullscreenPanelId, setBrowserFullscreenPanelId] = useState<string | null>(null);
 
-  const contentDragRef    = useRef<FloatingContentDragState | null>(null);
-  const contentPanelRefs  = useRef<Record<string, HTMLDivElement | null>>({});
+  const contentDragRef   = useRef<FloatingContentDragState | null>(null);
+  const contentPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  /* ── Fullscreen listener ─────────────────────────────── */
+  /* ── Fullscreen listener ── */
   useEffect(() => {
     const handler = () => {
       const el = document.fullscreenElement as HTMLElement | null;
@@ -325,7 +328,7 @@ export default function DisciplineClient({ discipline }: Props) {
     }
   };
 
-  /* ── Helpers do vídeo ────────────────────────────────── */
+  /* ── Helpers do vídeo ── */
   const closeVideo = () => {
     videoRef.current?.pause();
     setIsVideoLandscape(false);
@@ -394,7 +397,10 @@ export default function DisciplineClient({ discipline }: Props) {
     setShowControls(true);
     if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current);
     if (videoPlaying) {
-      controlsHideTimerRef.current = window.setTimeout(() => setShowControls(false), CONTROLS_HIDE_DELAY);
+      controlsHideTimerRef.current = window.setTimeout(
+        () => setShowControls(false),
+        CONTROLS_HIDE_DELAY
+      );
     }
   };
 
@@ -415,32 +421,33 @@ export default function DisciplineClient({ discipline }: Props) {
         controlsHideTimerRef.current = null;
       }
     }
-  }, [videoPlaying]);
+  }, [videoPlaying]); // eslint-disable-line
 
   useEffect(() => () => {
     if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current);
   }, []);
 
-  /* ── Eventos do vídeo ────────────────────────────────── */
+  /* ── Eventos do vídeo ── */
   useEffect(() => {
     if (!isVideoOpen) return;
     setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0);
-    setVideoDuration(0); setVideoMuted(false); setVideoVolume(1);
-    setVideoSpeed(1); setShowSpeedMenu(false); setShowControls(true);
+    setVideoDuration(0);  setVideoMuted(false);   setVideoVolume(1);
+    setVideoSpeed(1);     setShowSpeedMenu(false); setShowControls(true);
 
     const v = videoRef.current;
     if (!v) return;
 
-    const onMeta   = () => { setVideoDuration(Number.isFinite(v.duration) ? v.duration : 0); setVideoReady(true); v.playbackRate = 1; };
-    const onTime   = () => {
+    const onMeta  = () => { setVideoDuration(Number.isFinite(v.duration) ? v.duration : 0); setVideoReady(true); v.playbackRate = 1; };
+    const onTime  = () => {
       setVideoCurrentTime(v.currentTime || 0);
-      if (v.buffered.length > 0) setVideoBuffered((v.buffered.end(v.buffered.length - 1) / (v.duration || 1)) * 100);
+      if (v.buffered.length > 0)
+        setVideoBuffered((v.buffered.end(v.buffered.length - 1) / (v.duration || 1)) * 100);
     };
-    const onPlay   = () => setVideoPlaying(true);
-    const onPause  = () => setVideoPlaying(false);
-    const onVol    = () => { setVideoVolume(v.volume); setVideoMuted(v.muted || v.volume === 0); if (v.volume > 0) setLastVideoVolume(v.volume); };
-    const onEnded  = () => { setVideoPlaying(false); setVideoCurrentTime(v.duration || 0); };
-    const onReady  = () => setVideoReady(true);
+    const onPlay  = () => setVideoPlaying(true);
+    const onPause = () => setVideoPlaying(false);
+    const onVol   = () => { setVideoVolume(v.volume); setVideoMuted(v.muted || v.volume === 0); if (v.volume > 0) setLastVideoVolume(v.volume); };
+    const onEnded = () => { setVideoPlaying(false); setVideoCurrentTime(v.duration || 0); };
+    const onReady = () => setVideoReady(true);
 
     v.addEventListener("loadedmetadata", onMeta);
     v.addEventListener("timeupdate",     onTime);
@@ -463,13 +470,13 @@ export default function DisciplineClient({ discipline }: Props) {
     };
   }, [isVideoOpen]);
 
-  /* ── Tutor: auto-scroll ──────────────────────────────── */
+  /* ── Tutor: auto-scroll ── */
   useEffect(() => {
     if (isTutorOpen && !isTutorMinimized)
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [isTutorOpen, isTutorMinimized, tutorMessages]);
 
-  /* ── Tutor: posicionamento inicial ───────────────────── */
+  /* ── Tutor: posicionamento inicial ── */
   useEffect(() => {
     if (!isTutorOpen || hasTutorPosition || isMobile) return;
     const t = window.setTimeout(() => {
@@ -480,9 +487,9 @@ export default function DisciplineClient({ discipline }: Props) {
       setHasTutorPosition(true);
     }, 0);
     return () => window.clearTimeout(t);
-  }, [isTutorOpen, hasTutorPosition, isMobile, tutorSize, isTutorMinimized]);
+  }, [isTutorOpen, hasTutorPosition, isMobile, tutorSize, isTutorMinimized]); // eslint-disable-line
 
-  /* ── Tutor: resize observer ──────────────────────────── */
+  /* ── Tutor: resize observer ── */
   useEffect(() => {
     if (isMobile || !isTutorOpen || isTutorFullscreen || isTutorMinimized) return;
     const obs = new ResizeObserver((entries) => {
@@ -491,7 +498,7 @@ export default function DisciplineClient({ discipline }: Props) {
         const { width: w, height: h } = e.contentRect;
         if (
           w > 0 && h > 0 &&
-          (Math.abs(Math.round(w) - tutorSize.width) > 5 ||
+          (Math.abs(Math.round(w) - tutorSize.width)  > 5 ||
            Math.abs(Math.round(h) - tutorSize.height) > 5)
         ) {
           setTutorSize({ width: Math.round(w), height: Math.round(h) });
@@ -500,9 +507,9 @@ export default function DisciplineClient({ discipline }: Props) {
     });
     if (tutorPanelRef.current) obs.observe(tutorPanelRef.current);
     return () => obs.disconnect();
-  }, [isMobile, isTutorOpen, isTutorFullscreen, isTutorMinimized, isResizingTutor, tutorSize]);
+  }, [isMobile, isTutorOpen, isTutorFullscreen, isTutorMinimized, isResizingTutor, tutorSize]); // eslint-disable-line
 
-  /* ── Drag: tutor ─────────────────────────────────────── */
+  /* ── Drag: tutor ── */
   useEffect(() => {
     if (!isDraggingTutor) return;
     const onMove = (e: PointerEvent) => {
@@ -524,13 +531,15 @@ export default function DisciplineClient({ discipline }: Props) {
     };
   }, [isDraggingTutor]);
 
-  /* ── Drag: bottom sheet ──────────────────────────────── */
+  /* ── Drag: bottom sheet ── */
   useEffect(() => {
     if (!isDraggingSheet) return;
     const onMove = (e: PointerEvent) => {
       if (!sheetDragRef.current) return;
       const dy = sheetDragRef.current.startY - e.clientY;
-      setTutorSheetHeight(clamp(sheetDragRef.current.startHeight + dy / (window.innerHeight / 100), 28, 92));
+      setTutorSheetHeight(
+        clamp(sheetDragRef.current.startHeight + dy / (window.innerHeight / 100), 28, 92)
+      );
     };
     const onUp = () => { setIsDraggingSheet(false); sheetDragRef.current = null; };
     window.addEventListener("pointermove",   onMove);
@@ -543,7 +552,7 @@ export default function DisciplineClient({ discipline }: Props) {
     };
   }, [isDraggingSheet]);
 
-  /* ── Drag: painéis de conteúdo ───────────────────────── */
+  /* ── Drag: painéis de conteúdo ── */
   useEffect(() => {
     if (!isDraggingContent) return;
     const onMove = (e: PointerEvent) => {
@@ -577,21 +586,31 @@ export default function DisciplineClient({ discipline }: Props) {
     };
   }, [isDraggingContent]);
 
-  /* ── Computed ────────────────────────────────────────── */
+  /* ── Computed ── */
   const activeChapter = chapters.find((ch) => ch.id === activeChapterId) ?? chapters[0] ?? null;
 
   const stats = useMemo(() => ({
     totalChapters: chapters.length,
     totalTopics:   chapters.reduce((a, ch) => a + (ch.topics?.length ?? 0), 0),
-    totalContents: chapters.reduce((a, ch) => a + (ch.topics ?? []).reduce((b, t) => b + (t.contents?.length ?? 0), 0), 0),
+    totalContents: chapters.reduce(
+      (a, ch) => a + (ch.topics ?? []).reduce((b, t) => b + (t.contents?.length ?? 0), 0),
+      0
+    ),
   }), [chapters]);
 
   const shouldRotateVideo = isMobile && isVideoLandscape;
 
-  /* ── Tutor helpers ───────────────────────────────────── */
+  /* ── Tutor helpers ── */
   const openTutor = (topicTitle: string) => {
-    setTutorContext({ discipline: discipline.title, chapter: activeChapter?.title ?? "", topic: topicTitle });
-    setTutorMessages([{ role: "assistant", text: `Olá! Vamos falar sobre "${topicTitle}". Escreve a tua dúvida.` }]);
+    setTutorContext({
+      discipline: discipline.title,
+      chapter:    activeChapter?.title ?? "",
+      topic:      topicTitle,
+    });
+    setTutorMessages([{
+      role: "assistant",
+      text: `Olá! Vamos falar sobre "${topicTitle}". Escreve a tua dúvida.`,
+    }]);
     setTutorInput("");
     setIsTutorOpen(true);
     setIsTutorMinimized(false);
@@ -620,12 +639,16 @@ export default function DisciplineClient({ discipline }: Props) {
   };
 
   const togglePanelFullscreen = (id: string) =>
-    setContentPanels((prev) => prev.map((p) => p.id === id ? { ...p, isFullscreen: !p.isFullscreen } : p));
+    setContentPanels((prev) =>
+      prev.map((p) => p.id === id ? { ...p, isFullscreen: !p.isFullscreen } : p)
+    );
 
   const rotatePanelMobile = async (id: string) => {
     const current = contentPanels.find((p) => p.id === id);
     const next: 0 | 90 = (current?.rotation ?? 0) === 0 ? 90 : 0;
-    setContentPanels((prev) => prev.map((p) => p.id === id ? { ...p, rotation: next, isFullscreen: next === 90 } : p));
+    setContentPanels((prev) =>
+      prev.map((p) => p.id === id ? { ...p, rotation: next, isFullscreen: next === 90 } : p)
+    );
     if (!isMobile) {
       try {
         const el = contentPanelRefs.current[id];
@@ -649,14 +672,18 @@ export default function DisciplineClient({ discipline }: Props) {
     setTimeout(() => setIsResizingTutor(false), 100);
   };
 
-  /* ── Abrir conteúdo ──────────────────────────────────── */
+  /* ── Abrir conteúdo ── */
   const openContent = (content: TopicContent, topicTitle: string) => {
     if (content.type === "audio") {
       if (!content.url) { alert("Este áudio ainda não tem URL configurada."); return; }
       void audioPlayer.play({
-        id: content.id, title: content.title, url: content.url,
-        discipline: discipline.title, chapter: activeChapter?.title ?? "",
-        topic: topicTitle, coverUrl: discipline.coverUrl,
+        id:         content.id,
+        title:      content.title,
+        url:        content.url,
+        discipline: discipline.title,
+        chapter:    activeChapter?.title ?? "",
+        topic:      topicTitle,
+        coverUrl:   discipline.coverUrl,
       });
       return;
     }
@@ -671,11 +698,30 @@ export default function DisciplineClient({ discipline }: Props) {
       const off = prev.length * 24;
       return [...prev, {
         id: panelId,
-        context: { discipline: discipline.title, chapter: activeChapter?.title ?? "", topic: topicTitle, content },
-        position: { x: clamp(16 + off, 8, Math.max(8, vw - w - 8)), y: clamp(16 + off, 8, Math.max(8, vh - h - 8)) },
-        size: { width: w, height: h },
-        isFullscreen: false, rotation: 0,
+        context: {
+          discipline: discipline.title,
+          chapter:    activeChapter?.title ?? "",
+          topic:      topicTitle,
+          content,
+        },
+        position: {
+          x: clamp(16 + off, 8, Math.max(8, vw - w - 8)),
+          y: clamp(16 + off, 8, Math.max(8, vh - h - 8)),
+        },
+        size:         { width: w, height: h },
+        isFullscreen: false,
+        rotation:     0,
       }];
+    });
+  };
+
+  /* ── Abrir quiz ── */
+  const openQuiz = (content: TopicContent) => {
+    setActiveQuiz({
+      contentId:     content.id,
+      title:         content.title,
+      chapterTitle:  activeChapter?.title ?? "",
+      timeLimitSecs: (content as any).timeLimitSeconds ?? null,
     });
   };
 
@@ -689,15 +735,16 @@ export default function DisciplineClient({ discipline }: Props) {
 
     if (content.type === "quiz") {
       return (
-        <Link
+        <button
           key={content.id}
-          href="/avaliacoes"
+          type="button"
+          onClick={() => openQuiz(content)}
           className={`${ACTION_BTN} ${cls}`}
           title={content.title}
         >
           <Icon size={14} />
           <span>Questionário</span>
-        </Link>
+        </button>
       );
     }
 
@@ -721,7 +768,7 @@ export default function DisciplineClient({ discipline }: Props) {
       <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
         {contents.filter((c) => c.type === "audio").map((c) => renderContentBtn(c, topic.title))}
         {contents.filter((c) => c.type === "slide").map((c) => renderContentBtn(c, topic.title))}
-        {contents.filter((c) => c.type === "quiz").map((c)  => renderContentBtn(c, topic.title))}
+        {contents.filter((c) => c.type === "quiz" ).map((c) => renderContentBtn(c, topic.title))}
         <button
           type="button"
           onClick={() => openTutor(topic.title)}
@@ -734,44 +781,90 @@ export default function DisciplineClient({ discipline }: Props) {
     );
   };
 
-  const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
-    const topicsCount = chapter.topics?.length ?? 0;
-    const progress    = chapter.status === "Concluído" ? 100 : 35;
+  /* ── Quiz banner por capítulo ── */
+  const renderChapterQuizBanner = (chapter: Chapter) => {
+    const quizContent = (chapter.topics ?? [])
+      .flatMap((t) => t.contents ?? [])
+      .find((c) => c.type === "quiz");
+
+    if (!quizContent) return null;
+
     return (
       <button
-        key={chapter.id}
-        onClick={() => { setActiveChapterId(chapter.id); setMobileView("topics"); }}
-        className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
-          isActive
-            ? "border-indigo-500/40 bg-indigo-950/40 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-900/20"
-            : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20"
-        }`}
+        type="button"
+        onClick={() =>
+          setActiveQuiz({
+            contentId:     quizContent.id,
+            title:         quizContent.title,
+            chapterTitle:  chapter.title,
+            timeLimitSecs: (quizContent as any).timeLimitSeconds ?? null,
+          })
+        }
+        className="mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-500/20 bg-indigo-500/8 px-4 py-3 text-left transition hover:border-indigo-500/40 hover:bg-indigo-500/12 active:scale-[0.99]"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className={`text-sm font-semibold leading-snug ${isActive ? "text-white" : "text-slate-200"}`}>
-              {chapter.title}
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15">
+            <Trophy size={14} className="text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-indigo-300 leading-snug line-clamp-1">
+              {quizContent.title}
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              {chapter.status} · {topicsCount} temas
+            <p className="text-[11px] text-indigo-400/60">
+              {(quizContent as any).timeLimitSeconds
+                ? `⏱ ${Math.floor((quizContent as any).timeLimitSeconds / 60)} min · `
+                : ""}
+              Questionário do capítulo
             </p>
           </div>
-          <ChevronRight
-            size={16}
-            className={`mt-0.5 shrink-0 transition-transform ${isActive ? "rotate-90 text-indigo-400" : "text-slate-600"}`}
-          />
         </div>
-        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        <ChevronRight size={14} className="shrink-0 text-indigo-400/50" />
       </button>
     );
   };
 
-  /* ── Tutor body ──────────────────────────────────────── */
+  const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
+    const topicsCount = chapter.topics?.length ?? 0;
+    const progress    = chapter.status === "Concluído" ? 100 : 35;
+    return (
+      <div key={chapter.id} className="space-y-0">
+        <button
+          onClick={() => { setActiveChapterId(chapter.id); setMobileView("topics"); }}
+          className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
+            isActive
+              ? "border-indigo-500/40 bg-indigo-950/40 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-900/20"
+              : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className={`text-sm font-semibold leading-snug ${isActive ? "text-white" : "text-slate-200"}`}>
+                {chapter.title}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {chapter.status} · {topicsCount} temas
+              </p>
+            </div>
+            <ChevronRight
+              size={16}
+              className={`mt-0.5 shrink-0 transition-transform ${isActive ? "rotate-90 text-indigo-400" : "text-slate-600"}`}
+            />
+          </div>
+          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </button>
+
+        {/* Banner quiz do capítulo — visível apenas quando activo */}
+        {isActive && renderChapterQuizBanner(chapter)}
+      </div>
+    );
+  };
+
+  /* ── Tutor body ── */
   const renderTutorBody = () => (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={`flex-1 space-y-4 overflow-y-auto px-4 py-5 ${SCROLLBAR_CLASS}`}>
@@ -811,7 +904,7 @@ export default function DisciplineClient({ discipline }: Props) {
     </div>
   );
 
-  /* ── Tutor header ────────────────────────────────────── */
+  /* ── Tutor header ── */
   const renderTutorHeader = (draggable: boolean) => (
     <div className="shrink-0 flex items-start justify-between gap-3 border-b border-white/10 bg-black/20 px-4 py-4">
       <div
@@ -859,7 +952,10 @@ export default function DisciplineClient({ discipline }: Props) {
         {!isMobile && !isTutorMinimized && (
           <button
             type="button"
-            onClick={() => { setIsTutorFullscreen((p) => !p); if (isTutorMinimized) setIsTutorMinimized(false); }}
+            onClick={() => {
+              setIsTutorFullscreen((p) => !p);
+              if (isTutorMinimized) setIsTutorMinimized(false);
+            }}
             className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
           >
             {isTutorFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -868,7 +964,10 @@ export default function DisciplineClient({ discipline }: Props) {
         {!isMobile && (
           <button
             type="button"
-            onClick={() => { setIsTutorMinimized((p) => !p); if (isTutorFullscreen) setIsTutorFullscreen(false); }}
+            onClick={() => {
+              setIsTutorMinimized((p) => !p);
+              if (isTutorFullscreen) setIsTutorFullscreen(false);
+            }}
             className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
           >
             {isTutorMinimized ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -885,7 +984,7 @@ export default function DisciplineClient({ discipline }: Props) {
     </div>
   );
 
-  /* ── Empty state ─────────────────────────────────────── */
+  /* ── Empty state ── */
   if (chapters.length === 0) {
     return (
       <div className="space-y-6">
@@ -897,14 +996,18 @@ export default function DisciplineClient({ discipline }: Props) {
             </div>
           )}
           <div className="relative z-10">
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">{discipline.year} · {discipline.semester}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+              {discipline.year} · {discipline.semester}
+            </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">{discipline.title}</h1>
           </div>
         </section>
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
           <Layers size={36} className="text-slate-600" />
           <p className="text-sm font-semibold text-slate-300">Nenhum capítulo disponível</p>
-          <p className="text-xs text-slate-500">Os planos de estudo serão carregados do Supabase em breve.</p>
+          <p className="text-xs text-slate-500">
+            Os planos de estudo serão carregados do Supabase em breve.
+          </p>
         </div>
       </div>
     );
@@ -916,7 +1019,7 @@ export default function DisciplineClient({ discipline }: Props) {
   return (
     <div className="space-y-6">
 
-      {/* ── Hero / Cabeçalho ─────────────────────────────── */}
+      {/* ── Hero / Cabeçalho ── */}
       <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-6 md:p-8">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
         {discipline.coverUrl && (
@@ -932,14 +1035,19 @@ export default function DisciplineClient({ discipline }: Props) {
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
               {discipline.year} · {discipline.semester}
             </p>
-            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">{discipline.title}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              {discipline.title}
+            </h1>
             <div className="flex flex-wrap gap-2">
               {[
                 `${stats.totalChapters} capítulos`,
                 `${stats.totalTopics} temas`,
                 `${stats.totalContents} conteúdos`,
               ].map((label) => (
-                <span key={label} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur-sm">
+                <span
+                  key={label}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur-sm"
+                >
                   {label}
                 </span>
               ))}
@@ -961,7 +1069,7 @@ export default function DisciplineClient({ discipline }: Props) {
         </div>
       </section>
 
-      {/* ── Mobile ───────────────────────────────────────── */}
+      {/* ── Mobile ── */}
       <section className="lg:hidden">
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
           <div className="border-b border-white/10 p-3">
@@ -1005,6 +1113,10 @@ export default function DisciplineClient({ discipline }: Props) {
                     Capítulos
                   </button>
                 </div>
+
+                {/* Banner quiz no topo da lista de temas (mobile) */}
+                {activeChapter && renderChapterQuizBanner(activeChapter)}
+
                 <div className="space-y-3">
                   {activeChapter?.topics?.map((topic, index) => (
                     <article key={topic.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
@@ -1029,7 +1141,7 @@ export default function DisciplineClient({ discipline }: Props) {
         </div>
       </section>
 
-      {/* ── Desktop ───────────────────────────────────────── */}
+      {/* ── Desktop ── */}
       <section className="hidden overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40 lg:grid lg:h-[42rem] lg:grid-cols-[320px_1fr]">
 
         {/* Sidebar — capítulos */}
@@ -1058,7 +1170,11 @@ export default function DisciplineClient({ discipline }: Props) {
               </p>
             )}
           </div>
+
           <div className="space-y-3 p-6">
+            {/* Banner quiz do capítulo (desktop — no topo do main) */}
+            {activeChapter && renderChapterQuizBanner(activeChapter)}
+
             {activeChapter?.topics?.map((topic, index) => (
               <article
                 key={topic.id}
@@ -1077,7 +1193,7 @@ export default function DisciplineClient({ discipline }: Props) {
         </main>
       </section>
 
-      {/* ── Painéis flutuantes (slides) ───────────────────── */}
+      {/* ── Painéis flutuantes (slides) ── */}
       {contentPanels.map((panel, index) => {
         const theme       = getContentPanelTheme(panel.context.content.type);
         const isBrowserFs = browserFullscreenPanelId === panel.id;
@@ -1105,7 +1221,7 @@ export default function DisciplineClient({ discipline }: Props) {
                 : "rounded-3xl border border-white/10 ring-1 ring-white/5 shadow-[0_30px_100px_rgba(0,0,0,0.65)] min-w-[20rem] min-h-[16rem] max-w-[96vw] max-h-[90dvh] resize"
             }`}
           >
-            {/* Header do painel */}
+            {/* Header */}
             <div className={`shrink-0 flex items-center justify-between gap-2 border-b bg-black/30 px-3 py-2.5 md:px-4 ${theme.borderClass}`}>
               <div
                 className={`flex min-w-0 flex-1 select-none items-center gap-2.5 ${isAnyFs ? "cursor-default" : "cursor-move"}`}
@@ -1115,7 +1231,11 @@ export default function DisciplineClient({ discipline }: Props) {
                   if (!el) return;
                   focusContentPanel(panel.id);
                   const rect = el.getBoundingClientRect();
-                  contentDragRef.current = { panelId: panel.id, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+                  contentDragRef.current = {
+                    panelId: panel.id,
+                    offsetX: e.clientX - rect.left,
+                    offsetY: e.clientY - rect.top,
+                  };
                   setIsDraggingContent(true);
                 }}
               >
@@ -1124,9 +1244,13 @@ export default function DisciplineClient({ discipline }: Props) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-xs font-bold text-white">{panel.context.content.title}</h3>
-                  {!isAnyFs && <p className="truncate text-[10px] text-slate-500 mt-0.5">{panel.context.chapter}</p>}
+                  {!isAnyFs && (
+                    <p className="truncate text-[10px] text-slate-500 mt-0.5">{panel.context.chapter}</p>
+                  )}
                 </div>
-                {!isAnyFs && <GripVertical size={13} className="hidden shrink-0 text-slate-600 sm:block" />}
+                {!isAnyFs && (
+                  <GripVertical size={13} className="hidden shrink-0 text-slate-600 sm:block" />
+                )}
               </div>
 
               <div className="flex shrink-0 items-center gap-0.5">
@@ -1189,7 +1313,7 @@ export default function DisciplineClient({ discipline }: Props) {
         );
       })}
 
-      {/* ── Tutor IA ──────────────────────────────────────── */}
+      {/* ── Tutor IA ── */}
       {isTutorOpen && (
         <>
           {isMobile && (
@@ -1281,7 +1405,7 @@ export default function DisciplineClient({ discipline }: Props) {
         </>
       )}
 
-      {/* ── Modal do vídeo ────────────────────────────────── */}
+      {/* ── Modal do vídeo ── */}
       {isVideoOpen && discipline.introVideoUrl && (
         <>
           <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md" onClick={closeVideo} />
@@ -1290,12 +1414,14 @@ export default function DisciplineClient({ discipline }: Props) {
             style={
               shouldRotateVideo
                 ? {
-                    position: "fixed",
-                    top: "50%", left: "50%",
-                    width: "100dvh", height: "100dvw",
-                    transform: "translate(-50%, -50%) rotate(90deg)",
+                    position:        "fixed",
+                    top:             "50%",
+                    left:            "50%",
+                    width:           "100dvh",
+                    height:          "100dvw",
+                    transform:       "translate(-50%, -50%) rotate(90deg)",
                     transformOrigin: "center center",
-                    overflow: "hidden",
+                    overflow:        "hidden",
                   }
                 : { inset: 0 }
             }
@@ -1316,7 +1442,9 @@ export default function DisciplineClient({ discipline }: Props) {
                 {!videoReady && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-                    <p className="text-xs font-medium tracking-widest text-slate-500 uppercase">A carregar…</p>
+                    <p className="text-xs font-medium tracking-widest text-slate-500 uppercase">
+                      A carregar…
+                    </p>
                   </div>
                 )}
                 <video
@@ -1340,7 +1468,7 @@ export default function DisciplineClient({ discipline }: Props) {
                 )}
               </div>
 
-              {/* Barra superior do vídeo */}
+              {/* Barra superior */}
               <div
                 className={`absolute left-0 right-0 top-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-4 py-4 md:px-6 md:py-5 transition-all duration-300 ease-out ${
                   showControls ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
@@ -1376,7 +1504,7 @@ export default function DisciplineClient({ discipline }: Props) {
                 </div>
               </div>
 
-              {/* Controlos inferiores do vídeo */}
+              {/* Controlos inferiores */}
               <div
                 className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${
                   showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"
@@ -1384,10 +1512,19 @@ export default function DisciplineClient({ discipline }: Props) {
                 style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}
               >
                 <div className="space-y-4">
-                  {/* Progress bar */}
-                  <div className="group relative h-2 cursor-pointer rounded-full bg-white/15" onClick={handleProgressClick}>
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-all" style={{ width: `${videoBuffered}%` }} />
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all" style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }} />
+                  {/* Progress */}
+                  <div
+                    className="group relative h-2 cursor-pointer rounded-full bg-white/15"
+                    onClick={handleProgressClick}
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-all"
+                      style={{ width: `${videoBuffered}%` }}
+                    />
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all"
+                      style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }}
+                    />
                     <div
                       className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-indigo-500 bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
                       style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }}
@@ -1397,6 +1534,7 @@ export default function DisciplineClient({ discipline }: Props) {
                     <span>{formatTime(videoCurrentTime)}</span>
                     <span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span>
                   </div>
+
                   {/* Botões */}
                   <div className="flex items-center gap-2.5">
                     <button
@@ -1431,7 +1569,8 @@ export default function DisciplineClient({ discipline }: Props) {
                         {videoMuted || videoVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                       </button>
                       <input
-                        type="range" min={0} max={1} step={0.05}
+                        type="range"
+                        min={0} max={1} step={0.05}
                         value={videoMuted ? 0 : videoVolume}
                         onChange={(e) => handleVolumeChange(Number(e.target.value))}
                         className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
@@ -1448,7 +1587,9 @@ export default function DisciplineClient({ discipline }: Props) {
                       {showSpeedMenu && (
                         <div className="absolute bottom-[calc(100%+8px)] right-0 z-[130] min-w-[120px] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
                           <div className="border-b border-white/10 px-3 py-2.5">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Velocidade</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                              Velocidade
+                            </p>
                           </div>
                           <div className="p-1">
                             {VIDEO_SPEEDS.map((speed) => (
@@ -1457,11 +1598,15 @@ export default function DisciplineClient({ discipline }: Props) {
                                 type="button"
                                 onClick={() => setVideoSpeedFn(speed)}
                                 className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition hover:bg-white/10 ${
-                                  videoSpeed === speed ? "text-indigo-400 bg-indigo-500/10" : "text-slate-300"
+                                  videoSpeed === speed
+                                    ? "text-indigo-400 bg-indigo-500/10"
+                                    : "text-slate-300"
                                 }`}
                               >
                                 <span>{speed}×</span>
-                                {videoSpeed === speed && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+                                {videoSpeed === speed && (
+                                  <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                                )}
                               </button>
                             ))}
                           </div>
@@ -1471,6 +1616,41 @@ export default function DisciplineClient({ discipline }: Props) {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ================================================================
+          MODAL DO QUIZ
+          ================================================================ */}
+      {activeQuiz && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-md"
+            onClick={() => setActiveQuiz(null)}
+          />
+          {/* Sheet */}
+          <div className="fixed inset-0 z-[81] flex items-end justify-center sm:items-center sm:p-4 pointer-events-none">
+            <div
+              className="pointer-events-auto relative flex w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-slate-950 shadow-2xl sm:rounded-3xl"
+              style={{ maxHeight: "95dvh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drag handle mobile */}
+              <div className="flex justify-center pt-3 sm:hidden">
+                <div className="h-1.5 w-12 rounded-full bg-white/20" />
+              </div>
+
+              <QuizPlayer
+                contentId={activeQuiz.contentId}
+                title={activeQuiz.title}
+                disciplineName={discipline.title}
+                chapterTitle={activeQuiz.chapterTitle}
+                timeLimitSeconds={activeQuiz.timeLimitSecs}
+                onClose={() => setActiveQuiz(null)}
+              />
             </div>
           </div>
         </>

@@ -811,7 +811,7 @@ export default function Header({
               <Menu size={22} className="text-slate-700 dark:text-slate-200" />
             </button>
             <span className="hidden text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 md:block">
-              Biblioteca Virtual
+              Biblioteca Virtual - ISAF
             </span>
           </div>
 
@@ -930,86 +930,3 @@ export default function Header({
     </>
   );
 }
-
-/* ================================================================
-   EXEMPLO DE USO COM SUPABASE
-   ================================================================
-
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import Header, { UserProfile, ProfileUpdatePayload } from "@/components/Header";
-
-export function AppShell({ children }) {
-  const supabase = createClient();
-  const [user, setUser]               = useState<UserProfile | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      const authUser = data.session?.user;
-      if (!authUser) { setUser(null); setUserLoading(false); return; }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", authUser.id)
-        .single();
-
-      setUser({
-        id:            authUser.id,
-        email:         authUser.email ?? "",
-        fullName:      profile?.full_name ?? "Sem nome",
-        avatarUrl:     profile?.avatar_url ?? null,
-        role:          profile?.role ?? "student",
-        course:        profile?.course ?? "—",
-        academicYear:  profile?.academic_year ?? 1,
-        semester:      profile?.semester ?? 1,
-        studentNumber: profile?.student_number ?? null,
-        bio:           profile?.bio ?? null,
-      });
-      setUserLoading(false);
-    });
-  }, []);
-
-  const onProfileSave = async (payload: ProfileUpdatePayload) => {
-    await supabase.from("profiles").update({
-      full_name: payload.fullName,
-      bio:       payload.bio ?? null,
-    }).eq("id", user!.id);
-  };
-
-  const onAvatarUpload = async (file: File): Promise<string> => {
-    const ext  = file.name.split(".").pop();
-    const path = `avatars/${user!.id}.${ext}`;
-    const { error } = await supabase.storage.from("user-assets").upload(path, file, { upsert: true });
-    if (error) throw error;
-
-    const { data } = supabase.storage.from("user-assets").getPublicUrl(path);
-    const publicUrl = data.publicUrl;
-
-    await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user!.id);
-    return publicUrl;
-  };
-
-  const onLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-  };
-
-  return (
-    <>
-      <Header
-        expanded={false}
-        user={user}
-        userLoading={userLoading}
-        searchQuery=""
-        onSearchChange={() => {}}
-        onProfileSave={onProfileSave}
-        onAvatarUpload={onAvatarUpload}
-        onLogout={onLogout}
-      />
-      <main>{children}</main>
-    </>
-  );
-}
-================================================================ */
