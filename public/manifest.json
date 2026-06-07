@@ -1,28 +1,25 @@
 {
-  "name": "b-ISAF — Plataforma de E-Learning",
+  "name": "b-ISAF - Plataforma de E-Learning",
   "short_name": "b-ISAF",
   "description": "Instituto Superior de Administração e Finanças — Angola",
   "start_url": "/",
-  "display": "standalone",
+  "scope": "/",
+  "display": "fullscreen",
   "background_color": "#050816",
-  "theme_color": "#4338ca",
+  "theme_color": "#000000",
   "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }

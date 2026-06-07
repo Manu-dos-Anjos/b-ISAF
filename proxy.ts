@@ -1,4 +1,3 @@
-// middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -6,15 +5,18 @@ const PUBLIC_ROUTES = [
   "/login",
   "/register",
   "/favicon.ico",
+  "/manifest.json",
+  "/sw.js",
 ];
 
 const PUBLIC_PREFIXES = [
   "/_next",
   "/images",
   "/logo",
+  "/icons",
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -24,15 +26,27 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   /* =========================================================
-     Ignorar assets estáticos rapidamente
+     Ignorar recursos públicos
   ========================================================= */
+
   const isPublic =
     PUBLIC_ROUTES.includes(pathname) ||
-    PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+    PUBLIC_PREFIXES.some((prefix) =>
+      pathname.startsWith(prefix)
+    );
 
   /* =========================================================
-     Supabase SSR client
+     Se for recurso público não verificar auth
   ========================================================= */
+
+  if (isPublic) {
+    return response;
+  }
+
+  /* =========================================================
+     Supabase SSR Client
+  ========================================================= */
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -53,8 +67,13 @@ export async function middleware(request: NextRequest) {
             },
           });
 
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+          cookiesToSet.forEach(
+            ({ name, value, options }) =>
+              response.cookies.set(
+                name,
+                value,
+                options
+              )
           );
         },
       },
@@ -62,19 +81,23 @@ export async function middleware(request: NextRequest) {
   );
 
   /* =========================================================
-     Verificar utilizador autenticado
+     Verificar utilizador
   ========================================================= */
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   /* =========================================================
-     Sem sessão → redirect login
+     Não autenticado
   ========================================================= */
-  if (!user && !isPublic) {
-    const loginUrl = new URL("/login", request.url);
 
-    // Guardar rota original
+  if (!user) {
+    const loginUrl = new URL(
+      "/login",
+      request.url
+    );
+
     loginUrl.searchParams.set(
       "next",
       pathname + request.nextUrl.search
@@ -86,12 +109,14 @@ export async function middleware(request: NextRequest) {
   /* =========================================================
      Já autenticado → impedir login/register
   ========================================================= */
+
   if (
-    user &&
-    (pathname.startsWith("/login") ||
-      pathname.startsWith("/register"))
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register")
   ) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(
+      new URL("/", request.url)
+    );
   }
 
   return response;
@@ -103,13 +128,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Ignora:
-     * - _next/static
-     * - _next/image
-     * - favicon.ico
-     * - ficheiros públicos
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

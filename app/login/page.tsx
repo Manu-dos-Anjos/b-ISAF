@@ -170,6 +170,7 @@ function LeftPanel() {
       <Image
         src="/images/login-bg.jpg"
         alt="ISAF campus"
+        sizes="(max-width: 1024px) 100vw, 50vw"
         fill
         priority
         className="object-cover"

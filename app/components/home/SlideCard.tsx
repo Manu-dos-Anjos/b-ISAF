@@ -37,6 +37,7 @@ export default function SlideCard({
           src={thumbnail}
           alt={tituloSlide}
           fill
+          sizes="(max-width: 640px) 100vw, 280px"
           className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent" />

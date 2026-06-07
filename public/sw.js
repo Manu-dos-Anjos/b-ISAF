@@ -4,7 +4,7 @@ const CACHE_NAME = 'b-isaf-v1';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
-  '/logo.svg',
+  '/logo_dark.svg',
 ];
 
 // Instalar o Service Worker
