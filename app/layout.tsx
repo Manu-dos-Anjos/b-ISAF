@@ -13,43 +13,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt" className="dark scroll-smooth">
       <head>
-        <meta name="theme-color" content="#000000" />
-
+        <meta name="theme-color" content="#13152A" />
         <link rel="manifest" href="/manifest.json" />
-
-        <meta
-          name="apple-mobile-web-app-capable"
-          content="yes"
-        />
-
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
-
-        <meta
-          name="apple-mobile-web-app-title"
-          content="b-ISAF"
-        />
-
-        <link
-          rel="apple-touch-icon"
-          href="/icons/icon-192x192.png"
-        />
+        <meta name="apple-mobile-web-app-capable"            content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style"   content="black-translucent" />
+        <meta name="apple-mobile-web-app-title"              content="b-ISAF" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
 
-      <body className="overflow-x-hidden">
-        <Providers>
-          {children}
-        </Providers>
+      <body className="overflow-x-hidden bg-[#050816]">
+        <Providers>{children}</Providers>
 
         <script
           dangerouslySetInnerHTML={{
@@ -58,12 +35,8 @@ export default function RootLayout({
                 window.addEventListener('load', () => {
                   navigator.serviceWorker
                     .register('/sw.js')
-                    .then((registration) => {
-                      console.log('SW registado:', registration.scope);
-                    })
-                    .catch((error) => {
-                      console.error('SW erro:', error);
-                    });
+                    .then(r  => console.log('SW registado:', r.scope))
+                    .catch(e => console.error('SW erro:', e));
                 });
               }
             `,
