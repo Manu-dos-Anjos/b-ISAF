@@ -17,17 +17,17 @@ import {
 ================================================================ */
 
 export type DisciplineCardData = {
-  id:              string;
-  title:           string;
-  code:            string | null;
-  href:            string;
-  coverUrl:        string | null;
-  progress:        number;
-  year:            string;   // "1º Ano"
-  semester:        string;   // "1º Semestre"
-  lessonCount:     number;
-  chaptersCount:   number;
-  contentCounts:   { audio: number; slide: number; quiz: number };
+  id:            string;
+  title:         string;
+  code:          string | null;
+  href:          string;
+  coverUrl:      string | null;
+  progress:      number;
+  year:          string;
+  semester:      string;
+  lessonCount:   number;
+  chaptersCount: number;
+  contentCounts: { audio: number; slide: number; quiz: number };
 };
 
 export type DisciplineScheduleInfo = {
@@ -42,7 +42,7 @@ export type DisciplineScheduleInfo = {
 };
 
 type Props = {
-  discipline:   DisciplineCardData;
+  discipline:    DisciplineCardData;
   scheduleInfo?: DisciplineScheduleInfo | null;
 };
 
@@ -62,26 +62,23 @@ const TYPE_BADGE: Record<string, string> = {
   "Teórico-Prática": "bg-violet-500/10 text-violet-400 ring-violet-500/20",
 };
 
-const DAYS_ORDER = [
-  "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado",
-] as const;
-
 /* ================================================================
    COMPONENTE PRINCIPAL
 ================================================================ */
 
 export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
   const { contentCounts: counts } = discipline;
-  const next    = scheduleInfo?.nextClass;
-  const hasContent =
-    counts.audio > 0 || counts.slide > 0 || counts.quiz > 0;
+  const next       = scheduleInfo?.nextClass;
+  const hasContent = counts.audio > 0 || counts.slide > 0 || counts.quiz > 0;
 
   return (
     <Link
       href={discipline.href}
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:hover:shadow-none dark:hover:border-white/20"
     >
-      {/* ── Capa ── */}
+      {/* ══════════════════════════════════════════
+          CAPA
+      ══════════════════════════════════════════ */}
       <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5">
         {discipline.coverUrl ? (
           <Image
@@ -97,36 +94,33 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
           </div>
         )}
 
-        {/* Véu */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
+        {/* Véu geral — mais suave no topo, mais denso no fundo */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/20 to-slate-950/30" />
 
-        {/* Badge ano · semestre */}
-        <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-900 shadow-sm backdrop-blur-sm dark:bg-slate-950/70 dark:text-white">
+        {/* ── Badge ano · semestre (topo esquerdo) ── */}
+        <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white/90 shadow-sm backdrop-blur-sm ring-1 ring-white/10">
           <BookOpen size={11} className="opacity-70" />
           <span>
             {discipline.year} · {discipline.semester}
           </span>
         </div>
 
-        {/* Progresso circular */}
+        {/* ── Progresso circular (topo direito) ── */}
         <div className="absolute right-3 top-3">
           <CircularProgress value={discipline.progress} />
         </div>
 
-        {/* Título */}
-        <div className="absolute bottom-3 left-3 right-3">
-          <h3 className="line-clamp-2 text-sm font-bold leading-snug text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+        {/* ── Título + código — fundo escuro unificado ── */}
+        <div className="absolute bottom-3 left-3 right-16">
+          <span className="inline-block max-w-full truncate rounded-xl bg-black/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md">
             {discipline.title}
-          </h3>
-          {discipline.code && (
-            <p className="mt-0.5 text-[10px] font-medium text-white/50">
-              {discipline.code}
-            </p>
-          )}
+          </span>
         </div>
       </div>
 
-      {/* ── Corpo ── */}
+      {/* ══════════════════════════════════════════
+          CORPO
+      ══════════════════════════════════════════ */}
       <div className="flex flex-1 flex-col gap-3 p-4">
 
         {/* Professor */}
@@ -152,12 +146,8 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
 
         {/* Próxima aula */}
         {next ? (
-          <div
-            className={`flex items-start gap-2 rounded-xl px-3 py-2 ring-1 ${TYPE_BADGE[next.type]}`}
-          >
-            <span
-              className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_DOT[next.type]}`}
-            />
+          <div className={`flex items-start gap-2 rounded-xl px-3 py-2 ring-1 ${TYPE_BADGE[next.type]}`}>
+            <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_DOT[next.type]}`} />
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
                 Próxima aula · {next.type}

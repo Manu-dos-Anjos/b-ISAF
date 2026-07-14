@@ -56,7 +56,7 @@ export default function Page({ params }: PageProps) {
       0
     ),
     icon: "book" as const,
-    coverUrl: discipline.cover_image_url ?? "",
+    coverUrl: discipline.cover_image_url ?? undefined,
     href: `/disciplinas/${discipline.id}`,
     introVideoUrl: discipline.intro_video_url ?? undefined,
     year: `${discipline.year}º Ano`,

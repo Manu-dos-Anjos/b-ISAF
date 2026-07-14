@@ -31,7 +31,11 @@ import {
   ChevronRight,
   Clock,
   User,
+  MapPin,
+  ArrowRight,
 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 import { useUser } from "@/app/lib/context/UserContext";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
@@ -40,7 +44,6 @@ import { useSchedule } from "@/app/lib/hooks/useSchedule";
 import { useScheduleInfo } from "@/app/lib/hooks/useScheduleInfo";
 import DisciplineCard, { type DisciplineCardData } from "./DisciplineCard";
 import { CURRICULUM, type CourseId } from "@/app/lib/curriculum";
-import Link from "next/link";
 
 /* ================================================================
    TIPOS AUXILIARES
@@ -71,9 +74,9 @@ type FilterId = typeof CONTENT_FILTERS[number]["id"];
 /* ================================================================
    CONSTANTES
 ================================================================ */
-const EXTRA_DISC_LS_KEY     = "b-isaf:extraDisciplines";
-const VIEW_MODE_LS_KEY      = "b-isaf:disciplinas:viewMode";
-const MAX_EXTRA_DISCIPLINES = 3;
+const EXTRA_DISC_LS_KEY      = "b-isaf:extraDisciplines";
+const VIEW_MODE_LS_KEY       = "b-isaf:disciplinas:viewMode";
+const MAX_EXTRA_DISCIPLINES  = 3;
 
 const COURSE_ID_MAP: Record<string, CourseId> = {
   "Informática de Gestão Financeira": "informatica-gestao-financeira",
@@ -92,6 +95,18 @@ const SCROLLBAR_CLASS = [
   "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700/40",
   "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
 ].join(" ");
+
+const TYPE_DOT: Record<string, string> = {
+  "Teórica":         "bg-blue-500",
+  "Prática":         "bg-emerald-500",
+  "Teórico-Prática": "bg-violet-500",
+};
+
+const TYPE_BADGE_LIST: Record<string, string> = {
+  "Teórica":         "text-blue-400",
+  "Prática":         "text-emerald-400",
+  "Teórico-Prática": "text-violet-400",
+};
 
 /* ================================================================
    HELPERS
@@ -221,7 +236,7 @@ function disciplineHasContentType(d: DisciplineRow, type: FilterId): boolean {
 }
 
 /* ================================================================
-   VISTA EM LISTA — item individual
+   VISTA EM LISTA — item individual (com imagem)
 ================================================================ */
 function DisciplineListItem({
   discipline,
@@ -232,7 +247,13 @@ function DisciplineListItem({
   discipline: DisciplineCardData;
   scheduleInfo?: {
     professor?: string | null;
-    nextClass?: { day: string; startTime: string; endTime: string } | null;
+    nextClass?: {
+      day: string;
+      startTime: string;
+      endTime: string;
+      room?: string;
+      type: "Teórica" | "Prática" | "Teórico-Prática";
+    } | null;
   } | null;
   badge?: string;
   onRemove?: () => void;
@@ -240,18 +261,21 @@ function DisciplineListItem({
   const { contentCounts, progress } = discipline;
   const hasContent =
     contentCounts.audio > 0 || contentCounts.slide > 0 || contentCounts.quiz > 0;
+  const next = scheduleInfo?.nextClass;
 
   return (
     <Link
       href={discipline.href}
-      className="group relative flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 transition-all hover:-translate-y-px hover:border-blue-200 hover:shadow-md dark:border-white/10 dark:bg-slate-900 dark:hover:border-white/20"
+      className="group relative flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:border-white/10 dark:bg-slate-900 dark:hover:border-white/20 dark:hover:shadow-none"
     >
+      {/* Badge (ex: "Semestre anterior") */}
       {badge && (
-        <span className="absolute -top-2 left-3 rounded-full border border-indigo-500/30 bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
+        <span className="absolute -top-px left-14 z-10 rounded-b-lg border border-t-0 border-indigo-500/30 bg-slate-900 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
           {badge}
         </span>
       )}
 
+      {/* Botão remover */}
       {onRemove && (
         <button
           type="button"
@@ -263,84 +287,142 @@ function DisciplineListItem({
         </button>
       )}
 
-      {/* Barra de progresso vertical */}
-      <div className="flex h-12 w-1 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
-        <div
-          className="mt-auto w-full rounded-full bg-gradient-to-t from-blue-500 to-indigo-500 transition-all"
-          style={{ height: `${progress}%` }}
-        />
-      </div>
-
-      {/* Info principal */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <h3 className="flex-1 truncate text-sm font-semibold text-slate-900 dark:text-white">
-            {discipline.title}
-          </h3>
-          {discipline.code && (
-            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400">
-              {discipline.code}
-            </span>
-          )}
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-          <span className="text-[11px] text-slate-400">
-            {discipline.year} · {discipline.semester}
-          </span>
-          {scheduleInfo?.professor && (
-            <span className="flex items-center gap-1 text-[11px] text-slate-400">
-              <User size={10} />
-              {scheduleInfo.professor}
-            </span>
-          )}
-          {scheduleInfo?.nextClass && (
-            <span className="flex items-center gap-1 text-[11px] text-blue-400">
-              <Clock size={10} />
-              {scheduleInfo.nextClass.day} {scheduleInfo.nextClass.startTime}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Conteúdos */}
-      <div className="hidden shrink-0 items-center gap-2 sm:flex">
-        {hasContent ? (
+      {/* ── Coluna esquerda: imagem ── */}
+      <div className="relative w-28 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5 sm:w-36">
+        {discipline.coverUrl ? (
           <>
-            {contentCounts.audio > 0 && (
-              <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500 dark:bg-blue-500/10 dark:text-blue-400">
-                <Headphones size={10} /> {contentCounts.audio}
-              </span>
-            )}
-            {contentCounts.slide > 0 && (
-              <span className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-400">
-                <FileText size={10} /> {contentCounts.slide}
-              </span>
-            )}
-            {contentCounts.quiz > 0 && (
-              <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-500 dark:bg-amber-500/10 dark:text-amber-400">
-                <Trophy size={10} /> {contentCounts.quiz}
-              </span>
-            )}
+            <Image
+              src={discipline.coverUrl}
+              alt={`Capa de ${discipline.title}`}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              sizes="144px"
+            />
+            {/* Véu */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-slate-950/60" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />
           </>
         ) : (
-          <span className="text-[11px] text-slate-400 dark:text-slate-600">Sem conteúdos</span>
+          /* Placeholder */
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <BookOpen size={24} className="text-slate-600" />
+            </div>
+          </div>
         )}
+
+        {/* Badge de progresso sobre a imagem */}
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+          <div className="flex items-center gap-1 rounded-lg bg-black/50 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
+            <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="text-[9px] font-bold tabular-nums text-white/80">
+              {progress}%
+            </span>
+          </div>
+        </div>
+
+        {/* Badge ano · semestre */}
+        <div className="absolute left-0 right-0 top-2 flex justify-center">
+          <span className="rounded-md bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/70 backdrop-blur-sm ring-1 ring-white/10">
+            {discipline.year}
+          </span>
+        </div>
       </div>
 
-      {/* Progresso % */}
-      <div className="hidden shrink-0 flex-col items-end sm:flex">
-        <span className={`text-sm font-bold tabular-nums ${
-          progress >= 70 ? "text-emerald-500" : progress >= 30 ? "text-blue-500" : "text-slate-400"
-        }`}>
-          {progress}%
-        </span>
-        <span className="text-[10px] text-slate-400 dark:text-slate-600">progresso</span>
-      </div>
+      {/* ── Coluna direita: conteúdo ── */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5 px-4 py-3.5">
 
-      <ChevronRight
-        size={16}
-        className="shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
-      />
+        {/* Título + código */}
+        <div className="flex items-start justify-between gap-2 pr-6">
+          <div className="min-w-0">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 dark:text-white">
+              {discipline.title}
+            </h3>
+            <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+              {discipline.semester}
+              {discipline.code && (
+                <span className="ml-2 rounded bg-slate-100 px-1.5 py-px font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400">
+                  {discipline.code}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* Professor */}
+        {scheduleInfo?.professor && (
+          <div className="flex items-center gap-1.5">
+            <User size={10} className="shrink-0 text-slate-400" />
+            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+              {scheduleInfo.professor}
+            </p>
+          </div>
+        )}
+
+        {/* Próxima aula */}
+        {next ? (
+          <div className="flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_DOT[next.type]}`} />
+            <p className={`text-[11px] font-medium ${TYPE_BADGE_LIST[next.type]}`}>
+              {next.day}, {next.startTime}
+              {next.endTime !== next.startTime && (
+                <span className="opacity-70"> – {next.endTime}</span>
+              )}
+              {next.room && (
+                <span className="ml-1 inline-flex items-center gap-0.5 opacity-60 text-slate-400">
+                  <MapPin size={9} />
+                  {next.room}
+                </span>
+              )}
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-600">
+            <Clock size={10} className="shrink-0" />
+            Sem aulas agendadas
+          </div>
+        )}
+
+        {/* Separador */}
+        <div className="h-px bg-slate-100 dark:bg-white/5" />
+
+        {/* Conteúdos + seta */}
+        <div className="flex items-center gap-2">
+          {hasContent ? (
+            <>
+              {contentCounts.audio > 0 && (
+                <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500 dark:bg-blue-500/10 dark:text-blue-400">
+                  <Headphones size={10} /> {contentCounts.audio}
+                </span>
+              )}
+              {contentCounts.slide > 0 && (
+                <span className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-400">
+                  <FileText size={10} /> {contentCounts.slide}
+                </span>
+              )}
+              {contentCounts.quiz > 0 && (
+                <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-500 dark:bg-amber-500/10 dark:text-amber-400">
+                  <Trophy size={10} /> {contentCounts.quiz}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-[11px] text-slate-400 dark:text-slate-600">
+              {discipline.chaptersCount} {discipline.chaptersCount === 1 ? "capítulo" : "capítulos"} · sem conteúdos
+            </span>
+          )}
+          <ArrowRight
+            size={13}
+            className="ml-auto shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
+          />
+        </div>
+      </div>
     </Link>
   );
 }
@@ -380,12 +462,12 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
 }
 
 /* ================================================================
-   SKELETONS / EMPTY STATE
+   SKELETONS
 ================================================================ */
 function CardSkeleton() {
   return (
     <div className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <div className="aspect-video w-full bg-slate-100 dark:bg-white/5" />
+      <div className="h-36 w-full bg-slate-100 dark:bg-white/5" />
       <div className="space-y-3 p-4">
         <div className="h-3 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
         <div className="h-10 w-full rounded-xl bg-slate-100 dark:bg-white/5" />
@@ -402,20 +484,25 @@ function CardSkeleton() {
 
 function ListSkeleton() {
   return (
-    <div className="animate-pulse flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 dark:border-white/10 dark:bg-slate-900">
-      <div className="h-12 w-1 rounded-full bg-slate-100 dark:bg-white/5" />
-      <div className="flex-1 space-y-2">
+    <div className="animate-pulse flex overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <div className="w-28 shrink-0 bg-slate-100 dark:bg-white/5 sm:w-36" style={{ minHeight: 110 }} />
+      <div className="flex-1 space-y-3 p-4">
         <div className="h-3.5 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
         <div className="h-2.5 w-1/3 rounded bg-slate-100 dark:bg-white/5" />
-      </div>
-      <div className="hidden gap-2 sm:flex">
-        <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
-        <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
+        <div className="h-2.5 w-1/2 rounded bg-slate-100 dark:bg-white/5" />
+        <div className="h-px bg-slate-100 dark:bg-white/5" />
+        <div className="flex gap-2">
+          <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
+          <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
+        </div>
       </div>
     </div>
   );
 }
 
+/* ================================================================
+   EMPTY STATE / BANNERS
+================================================================ */
 function EmptyState({
   icon: Icon, title, description, action,
 }: {
@@ -563,9 +650,7 @@ function AddExtraDisciplineModal({
               type="button"
               onClick={() => setSelectedYear(null)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                !selectedYear
-                  ? "bg-blue-600 text-white"
-                  : "bg-white/5 text-slate-400 hover:bg-white/10"
+                !selectedYear ? "bg-blue-600 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"
               }`}
             >
               Todos
@@ -578,9 +663,7 @@ function AddExtraDisciplineModal({
                   type="button"
                   onClick={() => setSelectedYear(y.year)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                    selectedYear === y.year
-                      ? "bg-blue-600 text-white"
-                      : "bg-white/5 text-slate-400 hover:bg-white/10"
+                    selectedYear === y.year ? "bg-blue-600 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"
                   }`}
                 >
                   {y.year}º Ano
@@ -615,7 +698,6 @@ function AddExtraDisciplineModal({
                     const isOnPage   = pageDisciplineIds.has(realId);
                     const isAdded    = extraDisciplineIds.has(realId);
                     const isDisabled = isOnPage || isAdded || (atLimit && !isAdded);
-
                     return (
                       <button
                         key={entry.id}
@@ -915,7 +997,7 @@ export default function DisciplinasPage() {
             {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => <ListSkeleton key={i} />)}
           </div>
         )}
@@ -963,26 +1045,18 @@ export default function DisciplinasPage() {
               <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
                 <TrendingUp size={16} className="shrink-0 text-blue-500" />
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                    Progresso médio
-                  </p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-white">
-                    {stats.avgProgress}%
-                  </p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Progresso médio</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">{stats.avgProgress}%</p>
                 </div>
                 <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                    Disciplinas
-                  </p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Disciplinas</p>
                   <p className="text-sm font-bold text-slate-800 dark:text-white">{stats.total}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Stats de conteúdo */}
         <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-white/5">
           {[
             { icon: Headphones, label: "Áudios",  value: stats.audios,  color: "text-blue-500"   },
@@ -1000,21 +1074,11 @@ export default function DisciplinasPage() {
         </div>
       </header>
 
-      {/* ════════════════════════════════════════
-          FILTROS — scroll horizontal no mobile
-          ════════════════════════════════════════ */}
+      {/* ── Filtros ── */}
       <div className="flex min-w-0 items-center gap-2">
         <SlidersHorizontal size={13} className="shrink-0 text-slate-400" />
         <span className="hidden shrink-0 text-xs text-slate-400 sm:block">Filtrar por:</span>
-
-        <div
-          className="
-            flex flex-1 items-center gap-1.5
-            overflow-x-auto pb-0.5
-            sm:flex-wrap sm:overflow-visible sm:pb-0
-            [&::-webkit-scrollbar]:hidden
-          "
-        >
+        <div className="flex flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
           {CONTENT_FILTERS.map(({ id, label, icon: Icon }) => {
             const active = activeFilters.has(id);
             return (
@@ -1022,21 +1086,17 @@ export default function DisciplinasPage() {
                 key={id}
                 type="button"
                 onClick={() => toggleFilter(id)}
-                className={`
-                  flex shrink-0 items-center gap-1.5
-                  rounded-full border px-3 py-1.5
-                  text-xs font-medium transition-all
-                  ${active
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                  active
                     ? "border-blue-500 bg-blue-500 text-white shadow-sm shadow-blue-500/30"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"}
-                `}
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
+                }`}
               >
                 <Icon size={12} />
                 {label}
               </button>
             );
           })}
-
           {activeFilters.size > 0 && (
             <button
               type="button"
@@ -1048,8 +1108,6 @@ export default function DisciplinasPage() {
             </button>
           )}
         </div>
-
-        {/* Badge de filtros ativos — só mobile */}
         {activeFilters.size > 0 && (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-semibold text-blue-400 sm:hidden">
             <SlidersHorizontal size={9} />
@@ -1058,9 +1116,7 @@ export default function DisciplinasPage() {
         )}
       </div>
 
-      {/* ════════════════════════════════════════
-          CONTAGEM + TOGGLE DE VISTA (mesma linha)
-          ════════════════════════════════════════ */}
+      {/* ── Disciplinas ── */}
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -1068,12 +1124,9 @@ export default function DisciplinasPage() {
               ? `${filtered.length} resultado${filtered.length !== 1 ? "s" : ""}`
               : `${stats.total} disciplina${stats.total !== 1 ? "s" : ""}`}
           </h2>
-
-          {/* Toggle de vista — mesma linha que a contagem */}
           <ViewToggle mode={viewMode} onChange={handleViewChange} />
         </div>
 
-        {/* Conteúdo */}
         {filtered.length > 0 ? (
           viewMode === "grid" ? (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -1086,7 +1139,7 @@ export default function DisciplinasPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((discipline) => (
                 <DisciplineListItem
                   key={discipline.id}
@@ -1193,7 +1246,7 @@ export default function DisciplinasPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {extraDisciplineCards.map((d) => (
                 <DisciplineListItem
                   key={d.id}
