@@ -26,6 +26,11 @@ import {
   Loader2,
   Lock,
   Info,
+  LayoutGrid,
+  List,
+  ChevronRight,
+  Clock,
+  User,
 } from "lucide-react";
 
 import { useUser } from "@/app/lib/context/UserContext";
@@ -35,11 +40,11 @@ import { useSchedule } from "@/app/lib/hooks/useSchedule";
 import { useScheduleInfo } from "@/app/lib/hooks/useScheduleInfo";
 import DisciplineCard, { type DisciplineCardData } from "./DisciplineCard";
 import { CURRICULUM, type CourseId } from "@/app/lib/curriculum";
+import Link from "next/link";
 
 /* ================================================================
    TIPOS AUXILIARES
 ================================================================ */
-
 type CurriculumEntry = {
   id: string;
   name: string;
@@ -49,15 +54,16 @@ type CurriculumEntry = {
   annual?: boolean;
 };
 
+type ViewMode = "grid" | "list";
+
 /* ================================================================
    FILTROS
 ================================================================ */
-
 const CONTENT_FILTERS = [
-  { id: "audio", label: "Áudios", icon: Headphones },
-  { id: "slide", label: "Slides", icon: FileText },
-  { id: "quiz", label: "Questionários", icon: Trophy },
-  { id: "tutor", label: "Tutor IA", icon: Sparkles },
+  { id: "audio", label: "Áudios",        icon: Headphones },
+  { id: "slide", label: "Slides",        icon: FileText   },
+  { id: "quiz",  label: "Questionários", icon: Trophy     },
+  { id: "tutor", label: "Tutor IA",      icon: Sparkles   },
 ] as const;
 
 type FilterId = typeof CONTENT_FILTERS[number]["id"];
@@ -65,36 +71,31 @@ type FilterId = typeof CONTENT_FILTERS[number]["id"];
 /* ================================================================
    CONSTANTES
 ================================================================ */
-
-const EXTRA_DISC_LS_KEY = "b-isaf:extraDisciplines";
+const EXTRA_DISC_LS_KEY     = "b-isaf:extraDisciplines";
+const VIEW_MODE_LS_KEY      = "b-isaf:disciplinas:viewMode";
 const MAX_EXTRA_DISCIPLINES = 3;
 
 const COURSE_ID_MAP: Record<string, CourseId> = {
   "Informática de Gestão Financeira": "informatica-gestao-financeira",
-  "Contabilidade e Finanças": "contabilidade-financas",
-  "Gestão Bancária & Seguros": "gestao-bancaria-seguros",
-  "Gestão Bancária e Seguros": "gestao-bancaria-seguros",
+  "Contabilidade e Finanças":         "contabilidade-financas",
+  "Gestão Bancária & Seguros":        "gestao-bancaria-seguros",
+  "Gestão Bancária e Seguros":        "gestao-bancaria-seguros",
   IGF: "informatica-gestao-financeira",
-  CF: "contabilidade-financas",
+  CF:  "contabilidade-financas",
   GBS: "gestao-bancaria-seguros",
 };
 
 const SCROLLBAR_CLASS = [
-  "scrollbar-thin",
-  "scrollbar-track-transparent",
-  "scrollbar-thumb-slate-700/40",
-  "hover:scrollbar-thumb-slate-600/60",
-  "[&::-webkit-scrollbar]:w-1.5",
+  "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700/40",
+  "hover:scrollbar-thumb-slate-600/60 [&::-webkit-scrollbar]:w-1.5",
   "[&::-webkit-scrollbar-track]:bg-transparent",
-  "[&::-webkit-scrollbar-thumb]:rounded-full",
-  "[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
+  "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700/40",
   "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
 ].join(" ");
 
 /* ================================================================
    HELPERS
 ================================================================ */
-
 function normalizeText(value: string) {
   return value
     .normalize("NFD")
@@ -116,43 +117,25 @@ function getCurriculumEntries(courseId: CourseId): CurriculumEntry[] {
   const curriculum = CURRICULUM[courseId];
   const entries: CurriculumEntry[] = [];
   const seen = new Set<string>();
-
   for (const yearData of curriculum.years) {
     for (const sem of yearData.semesters) {
       for (const disc of sem.disciplines) {
         if (seen.has(disc.id)) continue;
         seen.add(disc.id);
-
-        // Usar o código directamente do ID sem transformações
         const code = disc.id.split("-").pop()?.toUpperCase() ?? "";
-
         entries.push({
-          id: disc.id,
-          // Usar SEMPRE o nome oficial do currículo
-          name: disc.name,
-          code,
-          year: yearData.year,
-          semester: sem.number,
-          annual: disc.annual,
+          id: disc.id, name: disc.name, code,
+          year: yearData.year, semester: sem.number, annual: disc.annual,
         });
       }
     }
   }
-
   return entries;
 }
 
-/**
- * Verifica se um semestre já passou relativamente ao ano/semestre actual do aluno.
- * Um semestre "passou" se o ano da disciplina < ano actual,
- * ou se o ano é igual mas o semestre da disciplina < semestre actual.
- * O semestre actual NÃO é elegível (já está no plano normal).
- */
 function isSemesterAlreadyPassed(
-  discYear: number,
-  discSemester: number,
-  currentYear: number,
-  currentSemester: number
+  discYear: number, discSemester: number,
+  currentYear: number, currentSemester: number,
 ): boolean {
   if (discYear < currentYear) return true;
   if (discYear === currentYear && discSemester < currentSemester) return true;
@@ -162,24 +145,18 @@ function isSemesterAlreadyPassed(
 function resolveRealDisciplineId(
   sourceId: string,
   lookup: Record<string, string>,
-  entries: CurriculumEntry[]
+  entries: CurriculumEntry[],
 ) {
   if (lookup[sourceId]) return lookup[sourceId];
-
   const code = sourceId.split("-").pop()?.toUpperCase() ?? sourceId.toUpperCase();
   if (lookup[code]) return lookup[code];
-
   const norm = normalizeText(sourceId);
   if (lookup[norm]) return lookup[norm];
-
-  const entry = entries.find((e) => {
-    return (
-      e.id === sourceId ||
-      e.code.toUpperCase() === code ||
-      normalizeText(e.name) === norm
-    );
-  });
-
+  const entry = entries.find((e) =>
+    e.id === sourceId ||
+    e.code.toUpperCase() === code ||
+    normalizeText(e.name) === norm,
+  );
   if (entry) {
     return (
       lookup[entry.id] ??
@@ -188,14 +165,12 @@ function resolveRealDisciplineId(
       sourceId
     );
   }
-
   return sourceId;
 }
 
 function toDisciplineCardData(discipline: DisciplineRow): DisciplineCardData {
   const contentCounts = { audio: 0, slide: 0, quiz: 0 };
   let lessonCount = 0;
-
   for (const ch of discipline.chapters ?? []) {
     for (const t of ch.topics ?? []) {
       lessonCount += t.contents?.length ?? 0;
@@ -206,7 +181,6 @@ function toDisciplineCardData(discipline: DisciplineRow): DisciplineCardData {
       }
     }
   }
-
   return {
     id: discipline.id,
     title: discipline.name,
@@ -225,7 +199,6 @@ function toDisciplineCardData(discipline: DisciplineRow): DisciplineCardData {
 function toExtraCardData(entry: CurriculumEntry, realId: string): DisciplineCardData {
   return {
     id: realId,
-    // Nome oficial vindo directamente do currículo
     title: entry.name,
     code: entry.code,
     href: `/disciplinas/${realId}`,
@@ -241,29 +214,180 @@ function toExtraCardData(entry: CurriculumEntry, realId: string): DisciplineCard
 
 function disciplineHasContentType(d: DisciplineRow, type: FilterId): boolean {
   if (type === "tutor") return true;
-
-  for (const ch of d.chapters ?? []) {
-    for (const t of ch.topics ?? []) {
+  for (const ch of d.chapters ?? [])
+    for (const t of ch.topics ?? [])
       if ((t.contents ?? []).some((c) => c.type === type)) return true;
-    }
-  }
-
   return false;
+}
+
+/* ================================================================
+   VISTA EM LISTA — item individual
+================================================================ */
+function DisciplineListItem({
+  discipline,
+  scheduleInfo,
+  badge,
+  onRemove,
+}: {
+  discipline: DisciplineCardData;
+  scheduleInfo?: {
+    professor?: string | null;
+    nextClass?: { day: string; startTime: string; endTime: string } | null;
+  } | null;
+  badge?: string;
+  onRemove?: () => void;
+}) {
+  const { contentCounts, progress } = discipline;
+  const hasContent =
+    contentCounts.audio > 0 || contentCounts.slide > 0 || contentCounts.quiz > 0;
+
+  return (
+    <Link
+      href={discipline.href}
+      className="group relative flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 transition-all hover:-translate-y-px hover:border-blue-200 hover:shadow-md dark:border-white/10 dark:bg-slate-900 dark:hover:border-white/20"
+    >
+      {badge && (
+        <span className="absolute -top-2 left-3 rounded-full border border-indigo-500/30 bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
+          {badge}
+        </span>
+      )}
+
+      {onRemove && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); onRemove(); }}
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-slate-400 backdrop-blur-sm transition hover:bg-rose-500/20 hover:text-rose-400"
+          title="Remover cadeira"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+
+      {/* Barra de progresso vertical */}
+      <div className="flex h-12 w-1 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+        <div
+          className="mt-auto w-full rounded-full bg-gradient-to-t from-blue-500 to-indigo-500 transition-all"
+          style={{ height: `${progress}%` }}
+        />
+      </div>
+
+      {/* Info principal */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <h3 className="flex-1 truncate text-sm font-semibold text-slate-900 dark:text-white">
+            {discipline.title}
+          </h3>
+          {discipline.code && (
+            <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400">
+              {discipline.code}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          <span className="text-[11px] text-slate-400">
+            {discipline.year} · {discipline.semester}
+          </span>
+          {scheduleInfo?.professor && (
+            <span className="flex items-center gap-1 text-[11px] text-slate-400">
+              <User size={10} />
+              {scheduleInfo.professor}
+            </span>
+          )}
+          {scheduleInfo?.nextClass && (
+            <span className="flex items-center gap-1 text-[11px] text-blue-400">
+              <Clock size={10} />
+              {scheduleInfo.nextClass.day} {scheduleInfo.nextClass.startTime}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Conteúdos */}
+      <div className="hidden shrink-0 items-center gap-2 sm:flex">
+        {hasContent ? (
+          <>
+            {contentCounts.audio > 0 && (
+              <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500 dark:bg-blue-500/10 dark:text-blue-400">
+                <Headphones size={10} /> {contentCounts.audio}
+              </span>
+            )}
+            {contentCounts.slide > 0 && (
+              <span className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-400">
+                <FileText size={10} /> {contentCounts.slide}
+              </span>
+            )}
+            {contentCounts.quiz > 0 && (
+              <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-500 dark:bg-amber-500/10 dark:text-amber-400">
+                <Trophy size={10} /> {contentCounts.quiz}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-[11px] text-slate-400 dark:text-slate-600">Sem conteúdos</span>
+        )}
+      </div>
+
+      {/* Progresso % */}
+      <div className="hidden shrink-0 flex-col items-end sm:flex">
+        <span className={`text-sm font-bold tabular-nums ${
+          progress >= 70 ? "text-emerald-500" : progress >= 30 ? "text-blue-500" : "text-slate-400"
+        }`}>
+          {progress}%
+        </span>
+        <span className="text-[10px] text-slate-400 dark:text-slate-600">progresso</span>
+      </div>
+
+      <ChevronRight
+        size={16}
+        className="shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
+      />
+    </Link>
+  );
+}
+
+/* ================================================================
+   BOTÃO DE ALTERNÂNCIA DE VISTA
+================================================================ */
+function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  return (
+    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-slate-900">
+      <button
+        type="button"
+        onClick={() => onChange("grid")}
+        title="Vista em grelha"
+        className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+          mode === "grid"
+            ? "bg-blue-600 text-white shadow-sm"
+            : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+        }`}
+      >
+        <LayoutGrid size={14} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("list")}
+        title="Vista em lista"
+        className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+          mode === "list"
+            ? "bg-blue-600 text-white shadow-sm"
+            : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+        }`}
+      >
+        <List size={14} />
+      </button>
+    </div>
+  );
 }
 
 /* ================================================================
    SKELETONS / EMPTY STATE
 ================================================================ */
-
 function CardSkeleton() {
   return (
     <div className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
       <div className="aspect-video w-full bg-slate-100 dark:bg-white/5" />
       <div className="space-y-3 p-4">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-white/5" />
-          <div className="h-3 w-32 rounded bg-slate-100 dark:bg-white/5" />
-        </div>
+        <div className="h-3 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
         <div className="h-10 w-full rounded-xl bg-slate-100 dark:bg-white/5" />
         <div className="h-px bg-slate-100 dark:bg-white/5" />
         <div className="flex gap-2">
@@ -276,67 +400,55 @@ function CardSkeleton() {
   );
 }
 
+function ListSkeleton() {
+  return (
+    <div className="animate-pulse flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 dark:border-white/10 dark:bg-slate-900">
+      <div className="h-12 w-1 rounded-full bg-slate-100 dark:bg-white/5" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3.5 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
+        <div className="h-2.5 w-1/3 rounded bg-slate-100 dark:bg-white/5" />
+      </div>
+      <div className="hidden gap-2 sm:flex">
+        <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
+        <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({
-  icon: Icon,
-  title,
-  description,
-  action,
+  icon: Icon, title, description, action,
 }: {
-  icon: ElementType;
-  title: string;
-  description: string;
-  action?: ReactNode;
+  icon: ElementType; title: string; description: string; action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-16 text-center dark:border-white/10">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
         <Icon size={24} className="text-slate-400 dark:text-slate-600" />
       </div>
-      <h3 className="mt-4 font-semibold text-slate-700 dark:text-slate-300">
-        {title}
-      </h3>
+      <h3 className="mt-4 font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
       <p className="mt-1.5 max-w-xs text-sm text-slate-500">{description}</p>
       {action}
     </div>
   );
 }
 
-/* ================================================================
-   BANNER DE LIMITE ATINGIDO
-================================================================ */
-
 function ExtraLimitBanner({ current, max }: { current: number; max: number }) {
   const remaining = max - current;
-  const atLimit = remaining === 0;
-
+  const atLimit   = remaining === 0;
   return (
-    <div
-      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs ${
-        atLimit
-          ? "border-rose-500/20 bg-rose-500/5 text-rose-400"
-          : "border-amber-500/20 bg-amber-500/5 text-amber-400"
-      }`}
-    >
-      {atLimit ? (
-        <Lock size={14} className="mt-0.5 shrink-0" />
-      ) : (
-        <Info size={14} className="mt-0.5 shrink-0" />
-      )}
+    <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs ${
+      atLimit
+        ? "border-rose-500/20 bg-rose-500/5 text-rose-400"
+        : "border-amber-500/20 bg-amber-500/5 text-amber-400"
+    }`}>
+      {atLimit
+        ? <Lock size={14} className="mt-0.5 shrink-0" />
+        : <Info size={14} className="mt-0.5 shrink-0" />}
       <p>
-        {atLimit ? (
-          <>
-            Limite de <strong>{max} cadeiras extras</strong> atingido. Remove
-            uma para poder adicionar outra.
-          </>
-        ) : (
-          <>
-            Podes adicionar ainda{" "}
-            <strong>
-              {remaining} cadeira{remaining !== 1 ? "s" : ""}
-            </strong>{" "}
-            extra{remaining !== 1 ? "s" : ""} ({current}/{max}).
-          </>
-        )}
+        {atLimit
+          ? <><strong>{max} cadeiras extras</strong>: limite atingido. Remove uma para adicionar outra.</>
+          : <>Podes adicionar <strong>{remaining} cadeira{remaining !== 1 ? "s" : ""}</strong> extra{remaining !== 1 ? "s" : ""} ({current}/{max}).</>}
       </p>
     </div>
   );
@@ -345,17 +457,9 @@ function ExtraLimitBanner({ current, max }: { current: number; max: number }) {
 /* ================================================================
    MODAL: ADICIONAR CADEIRA EXTRA
 ================================================================ */
-
 function AddExtraDisciplineModal({
-  courseId,
-  currentDisciplineIds,
-  pageDisciplineIds,
-  extraDisciplineIds,
-  resolveRealId,
-  currentYear,
-  currentSemester,
-  onAdd,
-  onClose,
+  courseId, currentDisciplineIds, pageDisciplineIds, extraDisciplineIds,
+  resolveRealId, currentYear, currentSemester, onAdd, onClose,
 }: {
   courseId: CourseId;
   currentDisciplineIds: Set<string>;
@@ -369,43 +473,27 @@ function AddExtraDisciplineModal({
 }) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const curriculum = CURRICULUM[courseId];
-  const entries = useMemo(() => getCurriculumEntries(courseId), [courseId]);
+  const entries    = useMemo(() => getCurriculumEntries(courseId), [courseId]);
+  const atLimit    = extraDisciplineIds.size >= MAX_EXTRA_DISCIPLINES;
 
-  const atLimit = extraDisciplineIds.size >= MAX_EXTRA_DISCIPLINES;
-
-  // Apenas anos que têm pelo menos uma disciplina elegível
   const eligibleYears = useMemo(() => {
     const years = new Set<number>();
     for (const entry of entries) {
-      if (
-        isSemesterAlreadyPassed(
-          entry.year,
-          entry.semester,
-          currentYear,
-          currentSemester
-        )
-      ) {
+      if (isSemesterAlreadyPassed(entry.year, entry.semester, currentYear, currentSemester))
         years.add(entry.year);
-      }
     }
     return years;
   }, [entries, currentYear, currentSemester]);
 
-  // Filtrar entradas exibidas: só semestres passados + ano seleccionado
-  const visibleEntries = useMemo(() => {
-    return entries.filter((e) => {
-      const passed = isSemesterAlreadyPassed(
-        e.year,
-        e.semester,
-        currentYear,
-        currentSemester
-      );
+  const visibleEntries = useMemo(() =>
+    entries.filter((e) => {
+      const passed      = isSemesterAlreadyPassed(e.year, e.semester, currentYear, currentSemester);
       const matchesYear = !selectedYear || e.year === selectedYear;
       return passed && matchesYear;
-    });
-  }, [entries, currentYear, currentSemester, selectedYear]);
+    }),
+    [entries, currentYear, currentSemester, selectedYear],
+  );
 
-  // Agrupar por ano
   const grouped = useMemo(() => {
     const map = new Map<number, CurriculumEntry[]>();
     for (const entry of visibleEntries) {
@@ -427,7 +515,7 @@ function AddExtraDisciplineModal({
         className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabeçalho */}
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
             <h3 className="font-semibold text-white">Adicionar cadeira</h3>
@@ -452,31 +540,23 @@ function AddExtraDisciplineModal({
                 <div
                   key={i}
                   className={`h-1.5 w-8 rounded-full transition-colors ${
-                    i < extraDisciplineIds.size
-                      ? "bg-indigo-500"
-                      : "bg-white/10"
+                    i < extraDisciplineIds.size ? "bg-indigo-500" : "bg-white/10"
                   }`}
                 />
               ))}
             </div>
-            <span
-              className={`text-xs font-medium ${
-                atLimit ? "text-rose-400" : "text-slate-400"
-              }`}
-            >
+            <span className={`text-xs font-medium ${atLimit ? "text-rose-400" : "text-slate-400"}`}>
               {extraDisciplineIds.size}/{MAX_EXTRA_DISCIPLINES} cadeiras extras
             </span>
           </div>
-
           {atLimit && (
             <p className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-400">
-              <Lock size={11} />
-              Limite atingido. Remove uma cadeira para adicionar outra.
+              <Lock size={11} /> Limite atingido. Remove uma cadeira para adicionar outra.
             </p>
           )}
         </div>
 
-        {/* Filtro por ano — só anos elegíveis */}
+        {/* Filtro por ano */}
         {hasEligible && (
           <div className="flex gap-2 border-b border-white/10 px-5 py-3">
             <button
@@ -490,7 +570,6 @@ function AddExtraDisciplineModal({
             >
               Todos
             </button>
-
             {curriculum.years
               .filter((y) => eligibleYears.has(y.year))
               .map((y) => (
@@ -513,16 +592,11 @@ function AddExtraDisciplineModal({
         {/* Lista */}
         <div className={`max-h-80 overflow-y-auto p-3 ${SCROLLBAR_CLASS}`}>
           {!hasEligible ? (
-            /* Nenhum semestre passado disponível */
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <Lock size={24} className="mb-3 text-slate-600" />
-              <p className="text-sm font-medium text-slate-400">
-                Sem cadeiras disponíveis
-              </p>
+              <p className="text-sm font-medium text-slate-400">Sem cadeiras disponíveis</p>
               <p className="mt-1 max-w-xs text-xs text-slate-600">
-                Só podes adicionar cadeiras de semestres já concluídos. No{" "}
-                {currentYear}º ano, {currentSemester}º semestre ainda não há
-                semestres anteriores disponíveis.
+                Só podes adicionar cadeiras de semestres já concluídos.
               </p>
             </div>
           ) : grouped.size === 0 ? (
@@ -535,12 +609,11 @@ function AddExtraDisciplineModal({
                 <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                   {year}º Ano
                 </p>
-
                 <div className="space-y-1">
                   {yearEntries.map((entry) => {
-                    const realId = resolveRealId(entry.id);
-                    const isOnPage = pageDisciplineIds.has(realId);
-                    const isAdded = extraDisciplineIds.has(realId);
+                    const realId     = resolveRealId(entry.id);
+                    const isOnPage   = pageDisciplineIds.has(realId);
+                    const isAdded    = extraDisciplineIds.has(realId);
                     const isDisabled = isOnPage || isAdded || (atLimit && !isAdded);
 
                     return (
@@ -548,63 +621,32 @@ function AddExtraDisciplineModal({
                         key={entry.id}
                         type="button"
                         disabled={isDisabled}
-                        onClick={() => {
-                          if (!isDisabled) {
-                            onAdd(realId);
-                            onClose();
-                          }
-                        }}
+                        onClick={() => { if (!isDisabled) { onAdd(realId); onClose(); } }}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                          isOnPage
-                            ? "border border-blue-500/30 bg-blue-500/10 text-blue-200 ring-1 ring-blue-500/20"
-                            : isAdded
-                            ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                            : atLimit
-                            ? "cursor-not-allowed opacity-40 text-slate-500"
-                            : "text-slate-300 hover:bg-white/5"
+                          isOnPage  ? "border border-blue-500/30 bg-blue-500/10 text-blue-200 ring-1 ring-blue-500/20"
+                          : isAdded ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                          : atLimit ? "cursor-not-allowed opacity-40 text-slate-500"
+                          : "text-slate-300 hover:bg-white/5"
                         }`}
                       >
-                        {/* Ícone de estado */}
-                        <div
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                            isOnPage
-                              ? "border-blue-400/40 bg-blue-500/20"
-                              : isAdded
-                              ? "border-emerald-500/40 bg-emerald-500/20"
-                              : atLimit
-                              ? "border-white/5 bg-white/5"
-                              : "border-white/10 bg-white/5"
-                          }`}
-                        >
-                          {isOnPage ? (
-                            <CheckCircle2 size={12} className="text-blue-400" />
-                          ) : isAdded ? (
-                            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                          ) : atLimit ? (
-                            <Lock size={9} className="text-slate-600" />
-                          ) : (
-                            <Plus size={10} className="text-slate-500" />
-                          )}
+                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                          isOnPage  ? "border-blue-400/40 bg-blue-500/20"
+                          : isAdded ? "border-emerald-500/40 bg-emerald-500/20"
+                          : atLimit ? "border-white/5 bg-white/5"
+                          : "border-white/10 bg-white/5"
+                        }`}>
+                          {isOnPage  ? <CheckCircle2 size={12} className="text-blue-400" />
+                          : isAdded  ? <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                          : atLimit  ? <Lock size={9} className="text-slate-600" />
+                          : <Plus size={10} className="text-slate-500" />}
                         </div>
-
-                        {/* Nome oficial do currículo */}
                         <span className="flex-1 leading-snug">{entry.name}</span>
-
-                        {/* Badge de estado */}
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-                            isOnPage
-                              ? "bg-blue-500/15 text-blue-300"
-                              : isAdded
-                              ? "bg-emerald-500/15 text-emerald-300"
-                              : "bg-white/5 text-slate-600"
-                          }`}
-                        >
-                          {isOnPage
-                            ? "Na página"
-                            : isAdded
-                            ? "Adicionada"
-                            : `${entry.semester}º Sem`}
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                          isOnPage  ? "bg-blue-500/15 text-blue-300"
+                          : isAdded ? "bg-emerald-500/15 text-emerald-300"
+                          : "bg-white/5 text-slate-600"
+                        }`}>
+                          {isOnPage ? "Na página" : isAdded ? "Adicionada" : `${entry.semester}º Sem`}
                         </span>
                       </button>
                     );
@@ -615,11 +657,10 @@ function AddExtraDisciplineModal({
           )}
         </div>
 
-        {/* Rodapé informativo */}
         <div className="border-t border-white/5 px-5 py-3">
           <p className="text-[11px] text-slate-600">
             Só são listadas cadeiras de semestres anteriores ao actual ({currentYear}º ano,{" "}
-            {currentSemester}º semestre). Os nomes correspondem à grelha curricular oficial.
+            {currentSemester}º semestre).
           </p>
         </div>
       </div>
@@ -630,231 +671,151 @@ function AddExtraDisciplineModal({
 /* ================================================================
    COMPONENTE PRINCIPAL
 ================================================================ */
-
 export default function DisciplinasPage() {
   const { user, profile, course } = useUser();
   const { supabase, user: authUser } = useSupabase();
 
-  const [activeFilters, setActiveFilters] = useState<Set<FilterId>>(new Set());
-  const [extraIds, setExtraIds] = useState<string[]>([]);
+  const [activeFilters,  setActiveFilters]  = useState<Set<FilterId>>(new Set());
+  const [extraIds,       setExtraIds]       = useState<string[]>([]);
   const [showExtraModal, setShowExtraModal] = useState(false);
+  const [viewMode,       setViewMode]       = useState<ViewMode>("grid");
 
   const [disciplineLookup, setDisciplineLookup] = useState<Record<string, string>>({});
-  const [lookupReady, setLookupReady] = useState(false);
+  const [lookupReady,      setLookupReady]      = useState(false);
 
-  /* ── Dados ───────────────────────────────────────────── */
-  const {
-    disciplines,
-    isLoading: discLoading,
-    error,
-    refetch,
-  } = useDisciplines();
+  /* ── Restaurar preferência de vista ── */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(VIEW_MODE_LS_KEY) as ViewMode | null;
+      if (saved === "grid" || saved === "list") setViewMode(saved);
+    } catch { /* ignore */ }
+  }, []);
 
+  const handleViewChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    try { localStorage.setItem(VIEW_MODE_LS_KEY, mode); } catch { /* ignore */ }
+  };
+
+  /* ── Dados ── */
+  const { disciplines, isLoading: discLoading, error, refetch } = useDisciplines();
   const { schedule, isLoading: schedLoading } = useSchedule();
   const scheduleInfoMap = useScheduleInfo(disciplines, schedule);
-
   const isLoading = discLoading || schedLoading;
 
-  /* ── Curso e ano/semestre actual ─────────────────────── */
-  const courseName = course?.name ?? user?.academic?.course ?? "";
-  const courseCode = course?.code ?? "";
-  const currentYear = profile?.current_year ?? 1;
+  /* ── Curso e ano/semestre ── */
+  const courseName      = course?.name ?? user?.academic?.course ?? "";
+  const courseCode      = course?.code ?? "";
+  const currentYear     = profile?.current_year     ?? 1;
   const currentSemester = profile?.current_semester ?? 1;
 
-  const currentCourseId = useMemo(
-    () => resolveCourseId(courseName, courseCode),
-    [courseName, courseCode]
-  );
-
-  const currentCourseEntries = useMemo(
-    () => getCurriculumEntries(currentCourseId),
-    [currentCourseId]
-  );
-
-  const pageDisciplineIds = useMemo(
-    () => new Set(disciplines.map((d) => d.id)),
-    [disciplines]
-  );
+  const currentCourseId      = useMemo(() => resolveCourseId(courseName, courseCode), [courseName, courseCode]);
+  const currentCourseEntries = useMemo(() => getCurriculumEntries(currentCourseId), [currentCourseId]);
+  const pageDisciplineIds    = useMemo(() => new Set(disciplines.map((d) => d.id)), [disciplines]);
 
   const resolveLocalIdToRealId = useCallback(
-    (sourceId: string) =>
-      resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries),
-    [disciplineLookup, currentCourseEntries]
+    (sourceId: string) => resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries),
+    [disciplineLookup, currentCourseEntries],
   );
 
-  /* ── Carregar lookup real dos IDs ────────────────────── */
+  /* ── Lookup ── */
   useEffect(() => {
     let active = true;
-
     const load = async () => {
       const courseUuid = profile?.course_id ?? undefined;
-
-      if (!courseUuid) {
-        if (active) setLookupReady(true);
-        return;
-      }
-
+      if (!courseUuid) { if (active) setLookupReady(true); return; }
       try {
         const { data, error: supaErr } = await supabase
           .from("discipline_courses")
           .select("discipline_id, disciplines(id, name, code)")
           .eq("course_id", courseUuid);
-
         if (supaErr) throw supaErr;
-
         const next: Record<string, string> = {};
-
-        for (const row of (data ?? []) as Array<{
-          discipline_id: string;
-          disciplines: { id: string; name: string; code: string | null } | null;
-        }>) {
+        for (const row of (data ?? []) as any[]) {
           const disc = row.disciplines;
           if (!disc) continue;
-
           const realId = row.discipline_id || disc.id;
-
-          if (disc.id) next[disc.id] = realId;
+          if (disc.id)   next[disc.id] = realId;
           if (disc.code) next[String(disc.code).toUpperCase()] = realId;
           if (disc.name) next[normalizeText(disc.name)] = realId;
         }
-
         if (active) setDisciplineLookup(next);
       } catch (err) {
-        console.error("Erro ao carregar lookup de disciplinas:", err);
+        console.error("Erro ao carregar lookup:", err);
       } finally {
         if (active) setLookupReady(true);
       }
     };
-
     void load();
     return () => { active = false; };
   }, [profile?.course_id, supabase]);
 
-  /* ── Carregar cadeiras extra ─────────────────────────── */
+  /* ── Carregar cadeiras extra ── */
   useEffect(() => {
-    const loadFromLocalStorage = () => {
+    const fromLS = () => {
       try {
         const raw = localStorage.getItem(EXTRA_DISC_LS_KEY);
         if (raw) setExtraIds(JSON.parse(raw) as string[]);
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     };
-
-    if (!authUser) {
-      loadFromLocalStorage();
-      return;
-    }
-
-    const loadFromSupabase = async () => {
+    if (!authUser) { fromLS(); return; }
+    const fromSupa = async () => {
       try {
-        const { data, error: supaError } = await supabase
+        const { data, error: e } = await supabase
           .from("student_extra_disciplines")
           .select("discipline_id")
           .eq("student_id", authUser.id);
-
-        if (supaError) throw supaError;
-
-        setExtraIds((data ?? []).map((r) => r.discipline_id));
-      } catch {
-        loadFromLocalStorage();
-      }
+        if (e) throw e;
+        setExtraIds((data ?? []).map((r: any) => r.discipline_id));
+      } catch { fromLS(); }
     };
-
-    void loadFromSupabase();
+    void fromSupa();
   }, [authUser, supabase]);
 
-  /* ── Normalizar e limpar extras ──────────────────────── */
+  /* ── Normalizar extras ── */
   useEffect(() => {
     if (!lookupReady) return;
-
     setExtraIds((prev) => {
-      const normalized = [
-        ...new Set(
-          prev.map((id) =>
-            resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)
-          )
-        ),
-      ].filter((id) => {
-        // Remover itens já presentes na página
+      const normalized = [...new Set(
+        prev.map((id) => resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)),
+      )].filter((id) => {
         if (pageDisciplineIds.has(id)) return false;
-
-        // Verificar se é de um semestre já passado (manter consistência)
         const entry = currentCourseEntries.find((e) => {
-          const resolved = resolveRealDisciplineId(
-            e.id,
-            disciplineLookup,
-            currentCourseEntries
-          );
+          const resolved = resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries);
           return resolved === id;
         });
-
         if (!entry) return false;
-
-        return isSemesterAlreadyPassed(
-          entry.year,
-          entry.semester,
-          currentYear,
-          currentSemester
-        );
+        return isSemesterAlreadyPassed(entry.year, entry.semester, currentYear, currentSemester);
       });
-
       const changed =
-        normalized.length !== prev.length ||
-        normalized.some((id, i) => id !== prev[i]);
-
+        normalized.length !== prev.length || normalized.some((id, i) => id !== prev[i]);
       if (!changed) return prev;
-
-      try {
-        localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(normalized));
-      } catch {
-        // ignore
-      }
-
+      try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(normalized)); } catch { /* ignore */ }
       return normalized;
     });
-  }, [
-    lookupReady,
-    disciplineLookup,
-    currentCourseEntries,
-    pageDisciplineIds,
-    currentYear,
-    currentSemester,
-  ]);
+  }, [lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds, currentYear, currentSemester]);
 
-  /* ── Stats ───────────────────────────────────────────── */
+  /* ── Stats ── */
   const stats = useMemo(() => {
-    let audios = 0;
-    let slides = 0;
-    let quizzes = 0;
-
-    for (const d of disciplines) {
-      for (const ch of d.chapters ?? []) {
-        for (const t of ch.topics ?? []) {
+    let audios = 0, slides = 0, quizzes = 0;
+    for (const d of disciplines)
+      for (const ch of d.chapters ?? [])
+        for (const t of ch.topics ?? [])
           for (const c of t.contents ?? []) {
             if (c.type === "audio") audios++;
             else if (c.type === "slide") slides++;
             else if (c.type === "quiz") quizzes++;
           }
-        }
-      }
-    }
-
     const avgProgress = disciplines.length
-      ? Math.round(
-          disciplines.reduce((s, d) => s + (d.progress ?? 0), 0) /
-            disciplines.length
-        )
+      ? Math.round(disciplines.reduce((s, d) => s + (d.progress ?? 0), 0) / disciplines.length)
       : 0;
-
     return { total: disciplines.length, audios, slides, quizzes, avgProgress };
   }, [disciplines]);
 
-  /* ── Filtro de conteúdo ──────────────────────────────── */
+  /* ── Filtro ── */
   const filtered = useMemo(() => {
     if (activeFilters.size === 0) return disciplines;
     return disciplines.filter((d) =>
-      [...activeFilters].every((f) => disciplineHasContentType(d, f))
+      [...activeFilters].every((f) => disciplineHasContentType(d, f)),
     );
   }, [disciplines, activeFilters]);
 
@@ -865,42 +826,29 @@ export default function DisciplinasPage() {
       return next;
     });
 
-  /* ── Extras normalizados ─────────────────────────────── */
+  /* ── Extras ── */
   const normalizedExtraIds = useMemo(() => {
     if (!lookupReady) return extraIds;
-    return [
-      ...new Set(
-        extraIds.map((id) =>
-          resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)
-        )
-      ),
-    ].filter((id) => !pageDisciplineIds.has(id));
+    return [...new Set(
+      extraIds.map((id) => resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)),
+    )].filter((id) => !pageDisciplineIds.has(id));
   }, [extraIds, lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds]);
 
-  const extraDisciplineIdsSet = useMemo(
-    () => new Set(normalizedExtraIds),
-    [normalizedExtraIds]
-  );
+  const extraDisciplineIdsSet = useMemo(() => new Set(normalizedExtraIds), [normalizedExtraIds]);
 
   const currentDisciplineIds = useMemo(
     () => new Set([...disciplines.map((d) => d.id), ...normalizedExtraIds]),
-    [disciplines, normalizedExtraIds]
+    [disciplines, normalizedExtraIds],
   );
 
   const extraDisciplineCards = useMemo(() => {
     if (!lookupReady) return [];
-
     return normalizedExtraIds
       .map((realId) => {
         const entry = currentCourseEntries.find((e) => {
-          const resolved = resolveRealDisciplineId(
-            e.id,
-            disciplineLookup,
-            currentCourseEntries
-          );
+          const resolved = resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries);
           return resolved === realId;
         });
-
         if (!entry) return null;
         return toExtraCardData(entry, realId);
       })
@@ -909,139 +857,78 @@ export default function DisciplinasPage() {
 
   const atExtraLimit = normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES;
 
-  /* ── Adicionar / remover extras ──────────────────────── */
-  const addExtra = useCallback(
-    async (sourceId: string) => {
-      // Bloquear se já no limite
-      if (normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES) return;
-
-      const realId = resolveRealDisciplineId(
-        sourceId,
-        disciplineLookup,
-        currentCourseEntries
-      );
-
-      // Verificar se é de semestre passado
-      const entry = currentCourseEntries.find((e) => {
-        const resolved = resolveRealDisciplineId(
-          e.id,
-          disciplineLookup,
-          currentCourseEntries
-        );
-        return resolved === realId;
-      });
-
-      if (
-        !entry ||
-        !isSemesterAlreadyPassed(
-          entry.year,
-          entry.semester,
-          currentYear,
-          currentSemester
-        )
-      ) {
-        console.warn("Cadeira não elegível:", realId);
-        return;
-      }
-
-      const newIds = [
-        ...new Set([...normalizedExtraIds, realId]),
-      ].filter((id) => !pageDisciplineIds.has(id));
-
-      setExtraIds(newIds);
-
-      if (authUser) {
-        try {
-          await supabase.from("student_extra_disciplines").upsert(
+  /* ── Adicionar / remover extras ── */
+  const addExtra = useCallback(async (sourceId: string) => {
+    if (normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES) return;
+    const realId = resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries);
+    const entry  = currentCourseEntries.find((e) =>
+      resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries) === realId,
+    );
+    if (!entry || !isSemesterAlreadyPassed(entry.year, entry.semester, currentYear, currentSemester)) return;
+    const newIds = [...new Set([...normalizedExtraIds, realId])].filter((id) => !pageDisciplineIds.has(id));
+    setExtraIds(newIds);
+    if (authUser) {
+      try {
+        await supabase
+          .from("student_extra_disciplines")
+          .upsert(
             { student_id: authUser.id, discipline_id: realId },
-            { onConflict: "student_id,discipline_id" }
+            { onConflict: "student_id,discipline_id" },
           );
-        } catch {
-          try {
-            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-          } catch {
-            // ignore
-          }
-        }
-      } else {
-        try {
-          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-        } catch {
-          // ignore
-        }
+      } catch {
+        try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
       }
-    },
-    [
-      authUser,
-      supabase,
-      disciplineLookup,
-      currentCourseEntries,
-      normalizedExtraIds,
-      pageDisciplineIds,
-      currentYear,
-      currentSemester,
-    ]
-  );
+    } else {
+      try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
+    }
+  }, [authUser, supabase, disciplineLookup, currentCourseEntries, normalizedExtraIds, pageDisciplineIds, currentYear, currentSemester]);
 
-  const removeExtra = useCallback(
-    async (disciplineId: string) => {
-      const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
-      setExtraIds(newIds);
-
-      if (authUser) {
-        try {
-          await supabase
-            .from("student_extra_disciplines")
-            .delete()
-            .eq("student_id", authUser.id)
-            .eq("discipline_id", disciplineId);
-        } catch {
-          try {
-            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-          } catch {
-            // ignore
-          }
-        }
-      } else {
-        try {
-          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-        } catch {
-          // ignore
-        }
+  const removeExtra = useCallback(async (disciplineId: string) => {
+    const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
+    setExtraIds(newIds);
+    if (authUser) {
+      try {
+        await supabase
+          .from("student_extra_disciplines")
+          .delete()
+          .eq("student_id", authUser.id)
+          .eq("discipline_id", disciplineId);
+      } catch {
+        try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
       }
-    },
-    [authUser, supabase, normalizedExtraIds]
-  );
+    } else {
+      try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
+    }
+  }, [authUser, supabase, normalizedExtraIds]);
 
-  /* ── Dados académicos ────────────────────────────────── */
-  const yearLabel = profile?.current_year ? `${profile.current_year}º Ano` : "";
-  const semesterLabel = profile?.current_semester
-    ? `${profile.current_semester}º Semestre`
-    : "";
-  const courseAbbr = course?.code ?? courseName;
+  const yearLabel     = profile?.current_year     ? `${profile.current_year}º Ano`         : "";
+  const semesterLabel = profile?.current_semester ? `${profile.current_semester}º Semestre` : "";
+  const courseAbbr    = course?.code ?? courseName;
 
-  /* ── Loading ─────────────────────────────────────────── */
+  /* ── Loading ── */
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <CardSkeleton key={i} />
-          ))}
-        </div>
+        {viewMode === "grid" ? (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => <ListSkeleton key={i} />)}
+          </div>
+        )}
       </div>
     );
   }
 
-  /* ── Erro ────────────────────────────────────────────── */
+  /* ── Erro ── */
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/5 py-16 text-center">
         <AlertCircle size={28} className="text-rose-400" />
-        <p className="mt-3 font-semibold text-slate-200">
-          Erro ao carregar disciplinas
-        </p>
+        <p className="mt-3 font-semibold text-slate-200">Erro ao carregar disciplinas</p>
         <p className="mt-1 text-sm text-slate-500">{error}</p>
         <button
           type="button"
@@ -1059,6 +946,7 @@ export default function DisciplinasPage() {
   ================================================================ */
   return (
     <div className="space-y-6">
+
       {/* ── Cabeçalho ── */}
       <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">
@@ -1071,25 +959,24 @@ export default function DisciplinasPage() {
                 {[courseAbbr, yearLabel, semesterLabel].filter(Boolean).join(" · ")}
               </h1>
             </div>
-
-            <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
-              <TrendingUp size={16} className="shrink-0 text-blue-500" />
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                  Progresso médio
-                </p>
-                <p className="text-sm font-bold text-slate-800 dark:text-white">
-                  {stats.avgProgress}%
-                </p>
-              </div>
-              <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                  Disciplinas
-                </p>
-                <p className="text-sm font-bold text-slate-800 dark:text-white">
-                  {stats.total}
-                </p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
+                <TrendingUp size={16} className="shrink-0 text-blue-500" />
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Progresso médio
+                  </p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">
+                    {stats.avgProgress}%
+                  </p>
+                </div>
+                <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Disciplinas
+                  </p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">{stats.total}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1098,16 +985,14 @@ export default function DisciplinasPage() {
         {/* Stats de conteúdo */}
         <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-white/5">
           {[
-            { icon: Headphones, label: "Áudios", value: stats.audios, color: "text-blue-500" },
-            { icon: FileText, label: "Slides", value: stats.slides, color: "text-indigo-500" },
-            { icon: Trophy, label: "Quizzes", value: stats.quizzes, color: "text-amber-500" },
+            { icon: Headphones, label: "Áudios",  value: stats.audios,  color: "text-blue-500"   },
+            { icon: FileText,   label: "Slides",  value: stats.slides,  color: "text-indigo-500" },
+            { icon: Trophy,     label: "Quizzes", value: stats.quizzes, color: "text-amber-500"  },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="flex items-center gap-2.5 px-4 py-3">
               <Icon size={15} className={`${color} opacity-80`} />
               <div>
-                <p className="text-base font-bold leading-none text-slate-800 dark:text-white">
-                  {value}
-                </p>
+                <p className="text-base font-bold leading-none text-slate-800 dark:text-white">{value}</p>
                 <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
               </div>
             </div>
@@ -1115,11 +1000,21 @@ export default function DisciplinasPage() {
         </div>
       </header>
 
-      {/* ── Filtros ── */}
-      <div className="flex items-center gap-2">
+      {/* ════════════════════════════════════════
+          FILTROS — scroll horizontal no mobile
+          ════════════════════════════════════════ */}
+      <div className="flex min-w-0 items-center gap-2">
         <SlidersHorizontal size={13} className="shrink-0 text-slate-400" />
-        <span className="text-xs text-slate-400">Filtrar por:</span>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <span className="hidden shrink-0 text-xs text-slate-400 sm:block">Filtrar por:</span>
+
+        <div
+          className="
+            flex flex-1 items-center gap-1.5
+            overflow-x-auto pb-0.5
+            sm:flex-wrap sm:overflow-visible sm:pb-0
+            [&::-webkit-scrollbar]:hidden
+          "
+        >
           {CONTENT_FILTERS.map(({ id, label, icon: Icon }) => {
             const active = activeFilters.has(id);
             return (
@@ -1127,11 +1022,14 @@ export default function DisciplinasPage() {
                 key={id}
                 type="button"
                 onClick={() => toggleFilter(id)}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                  active
+                className={`
+                  flex shrink-0 items-center gap-1.5
+                  rounded-full border px-3 py-1.5
+                  text-xs font-medium transition-all
+                  ${active
                     ? "border-blue-500 bg-blue-500 text-white shadow-sm shadow-blue-500/30"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
-                }`}
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"}
+                `}
               >
                 <Icon size={12} />
                 {label}
@@ -1143,16 +1041,26 @@ export default function DisciplinasPage() {
             <button
               type="button"
               onClick={() => setActiveFilters(new Set())}
-              className="flex items-center gap-1 rounded-full px-2 py-1.5 text-xs text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
+              className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
             >
               <X size={11} />
-              Limpar
+              <span className="hidden sm:inline">Limpar</span>
             </button>
           )}
         </div>
+
+        {/* Badge de filtros ativos — só mobile */}
+        {activeFilters.size > 0 && (
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-semibold text-blue-400 sm:hidden">
+            <SlidersHorizontal size={9} />
+            {activeFilters.size}
+          </span>
+        )}
       </div>
 
-      {/* ── Grelha principal ── */}
+      {/* ════════════════════════════════════════
+          CONTAGEM + TOGGLE DE VISTA (mesma linha)
+          ════════════════════════════════════════ */}
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -1160,18 +1068,34 @@ export default function DisciplinasPage() {
               ? `${filtered.length} resultado${filtered.length !== 1 ? "s" : ""}`
               : `${stats.total} disciplina${stats.total !== 1 ? "s" : ""}`}
           </h2>
+
+          {/* Toggle de vista — mesma linha que a contagem */}
+          <ViewToggle mode={viewMode} onChange={handleViewChange} />
         </div>
 
+        {/* Conteúdo */}
         {filtered.length > 0 ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((discipline) => (
-              <DisciplineCard
-                key={discipline.id}
-                discipline={toDisciplineCardData(discipline)}
-                scheduleInfo={scheduleInfoMap.get(discipline.id)}
-              />
-            ))}
-          </div>
+          viewMode === "grid" ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((discipline) => (
+                <DisciplineCard
+                  key={discipline.id}
+                  discipline={toDisciplineCardData(discipline)}
+                  scheduleInfo={scheduleInfoMap.get(discipline.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((discipline) => (
+                <DisciplineListItem
+                  key={discipline.id}
+                  discipline={toDisciplineCardData(discipline)}
+                  scheduleInfo={scheduleInfoMap.get(discipline.id)}
+                />
+              ))}
+            </div>
+          )
         ) : disciplines.length === 0 ? (
           <EmptyState
             icon={BookOpen}
@@ -1204,29 +1128,18 @@ export default function DisciplinasPage() {
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Cadeiras adicionais
             </h2>
-
             {extraDisciplineCards.length > 0 && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  atExtraLimit
-                    ? "bg-rose-500/15 text-rose-400"
-                    : "bg-indigo-500/15 text-indigo-400"
-                }`}
-              >
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                atExtraLimit ? "bg-rose-500/15 text-rose-400" : "bg-indigo-500/15 text-indigo-400"
+              }`}>
                 {extraDisciplineCards.length}/{MAX_EXTRA_DISCIPLINES}
               </span>
             )}
           </div>
-
           <button
             type="button"
             onClick={() => setShowExtraModal(true)}
             disabled={!lookupReady || atExtraLimit}
-            title={
-              atExtraLimit
-                ? `Limite de ${MAX_EXTRA_DISCIPLINES} cadeiras extras atingido`
-                : "Adicionar cadeira extra"
-            }
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
               atExtraLimit
                 ? "cursor-not-allowed border-rose-500/20 bg-rose-500/5 text-rose-500/50"
@@ -1235,28 +1148,18 @@ export default function DisciplinasPage() {
                 : "cursor-not-allowed border-white/5 bg-white/5 text-slate-600 opacity-50"
             }`}
           >
-            {atExtraLimit ? (
-              <Lock size={13} />
-            ) : (
-              <Plus size={13} />
-            )}
+            {atExtraLimit ? <Lock size={13} /> : <Plus size={13} />}
             {atExtraLimit ? "Limite atingido" : "Adicionar cadeira"}
           </button>
         </div>
 
-        {/* Banner de limite / info */}
         {lookupReady && extraDisciplineCards.length > 0 && (
-          <ExtraLimitBanner
-            current={extraDisciplineCards.length}
-            max={MAX_EXTRA_DISCIPLINES}
-          />
+          <ExtraLimitBanner current={extraDisciplineCards.length} max={MAX_EXTRA_DISCIPLINES} />
         )}
 
-        {/* Descrição */}
         <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-xs text-slate-500">
-          Cadeiras de semestres anteriores que frequentes em regime de recurso ou melhoria.
+          Cadeiras de semestres anteriores em regime de recurso ou melhoria.
           Máximo de <strong className="text-slate-400">{MAX_EXTRA_DISCIPLINES}</strong> cadeiras.
-          Os nomes correspondem à grelha curricular oficial.
         </div>
 
         {!lookupReady ? (
@@ -1265,37 +1168,47 @@ export default function DisciplinasPage() {
             A carregar cadeiras adicionais…
           </div>
         ) : extraDisciplineCards.length > 0 ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {extraDisciplineCards.map((d) => (
-              <div key={d.id} className="relative">
-                <div className="absolute -top-2 left-3 z-10">
-                  <span className="rounded-full border border-indigo-500/30 bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
-                    Semestre anterior
-                  </span>
+          viewMode === "grid" ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {extraDisciplineCards.map((d) => (
+                <div key={d.id} className="relative">
+                  <div className="absolute -top-2 left-3 z-10">
+                    <span className="rounded-full border border-indigo-500/30 bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
+                      Semestre anterior
+                    </span>
+                  </div>
+                  <DisciplineCard
+                    discipline={d}
+                    scheduleInfo={scheduleInfoMap.get(d.id)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void removeExtra(d.id)}
+                    className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-slate-400 backdrop-blur-sm transition hover:bg-rose-500/20 hover:text-rose-400"
+                    title="Remover cadeira"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
-
-                <DisciplineCard
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {extraDisciplineCards.map((d) => (
+                <DisciplineListItem
+                  key={d.id}
                   discipline={d}
                   scheduleInfo={scheduleInfoMap.get(d.id)}
+                  badge="Semestre anterior"
+                  onRemove={() => void removeExtra(d.id)}
                 />
-
-                <button
-                  type="button"
-                  onClick={() => void removeExtra(d.id)}
-                  className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-slate-400 backdrop-blur-sm transition hover:bg-rose-500/20 hover:text-rose-400"
-                  title="Remover cadeira"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         ) : (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-10 text-center">
             <GraduationCap size={24} className="mb-2 text-slate-600" />
-            <p className="text-sm font-medium text-slate-500">
-              Nenhuma cadeira adicional
-            </p>
+            <p className="text-sm font-medium text-slate-500">Nenhuma cadeira adicional</p>
             <p className="mt-1 text-xs text-slate-600">
               Frequentas cadeiras de semestres anteriores? Adiciona-as para aceder aos materiais.
             </p>

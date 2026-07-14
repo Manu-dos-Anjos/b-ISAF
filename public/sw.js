@@ -11,7 +11,12 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      // Promise.allSettled para não quebrar se um ficheiro falhar
+      return Promise.allSettled(
+        STATIC_ASSETS.map((url) =>
+          cache.add(url).catch((err) => console.warn('Cache miss:', url, err))
+        )
+      );
     })
   );
   self.skipWaiting();
@@ -36,6 +41,11 @@ self.addEventListener('fetch', (event) => {
   // Ignorar requisições para o Supabase (API)
   if (url.hostname.includes('supabase.co')) {
     return; // deixa o navegador fazer a requisição normalmente
+  }
+
+  // ⚠️ NOVO: Ignorar pedidos de navegação (Next.js trata dos redirecionamentos)
+  if (event.request.mode === 'navigate') {
+    return;
   }
 
   // Cache First para recursos estáticos

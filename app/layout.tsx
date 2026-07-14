@@ -3,7 +3,7 @@ import Providers from "./providers";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "b-ISAF - Plataforma de E-Learning",
+  title: "b-ISAF",
   description: "Instituto Superior de Administração e Finanças — Angola",
   manifest: "/manifest.json",
   appleWebApp: {
