@@ -298,45 +298,48 @@ function DisciplineListItem({
         </button>
       )}
 
-            <div className="relative w-28 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5 sm:w-36">
-        {discipline.coverUrl ? (
-          <Image
-            src={discipline.coverUrl}
-            alt={`Capa de ${discipline.title}`}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-            sizes="144px"
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <BookOpen size={24} className="text-slate-600" />
-            </div>
-          </div>
-        )}
-
-        {/* Badges sobrepostos (mantêm-se) */}
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center">
-          <div className="flex items-center gap-1 rounded-lg bg-black/50 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
-            <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span className="text-[9px] font-bold tabular-nums text-white/80">
-              {progress}%
-            </span>
-          </div>
-        </div>
-
-        <div className="absolute left-0 right-0 top-2 flex justify-center">
-          <span className="rounded-md bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/70 backdrop-blur-sm ring-1 ring-white/10">
-            {discipline.year}
-          </span>
-        </div>
+        <div className="relative w-28 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5 sm:w-36">
+  {discipline.coverUrl ? (
+    <Image
+      src={discipline.coverUrl}
+      alt={`Capa de ${discipline.title}`}
+      fill
+      quality={100}
+      unoptimized
+      sizes="(max-width: 640px) 112px, 144px"
+      className="object-cover object-center"
+    />
+  ) : (
+    <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
+      <div className="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <BookOpen size={24} className="text-slate-500/80" />
       </div>
+    </div>
+  )}
+
+  {/* Ano */}
+  <div className="absolute left-0 right-0 top-2 flex justify-center">
+    <span className="rounded-md bg-black/35 px-2 py-0.5 text-[9px] font-semibold text-white/80 backdrop-blur-sm ring-1 ring-white/10">
+      {discipline.year}
+    </span>
+  </div>
+
+  {/* Progresso */}
+  <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+    <div className="flex items-center gap-1 rounded-lg bg-black/35 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
+      <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <span className="text-[9px] font-bold tabular-nums text-white/80">
+        {progress}%
+      </span>
+    </div>
+  </div>
+</div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2.5 px-4 py-3.5">
         <div className="flex items-start justify-between gap-2 pr-6">
