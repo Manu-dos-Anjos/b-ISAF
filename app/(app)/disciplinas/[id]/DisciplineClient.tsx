@@ -35,7 +35,7 @@ import {
   Bookmark,
 } from "lucide-react";
 
-import SlideViewer from "@/app/components/slides/SlideViewer";
+import RevealViewer from "@/app/components/slides/RevealViewer";
 import QuizPlayer from "@/app/components/quiz/QuizPlayer";
 import { useLocalStorageState } from "@/app/lib/hooks/useLocalStorageState";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
@@ -1577,9 +1577,9 @@ export default function DisciplineClient({ discipline }: Props) {
               </div>
             </div>
 
-            <div className="relative min-h-0 flex-1 overflow-hidden bg-black/80">
+                        <div className="relative min-h-0 flex-1 overflow-hidden bg-black/80">
               {panel.context.content.url ? (
-                <SlideViewer url={panel.context.content.url} rotation={rotation} />
+                <RevealViewer url={panel.context.content.url} />
               ) : (
                 <div className="flex h-full items-center justify-center p-6">
                   <div className="max-w-sm space-y-4 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
