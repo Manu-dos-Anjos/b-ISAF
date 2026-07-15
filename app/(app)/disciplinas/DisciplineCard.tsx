@@ -81,7 +81,7 @@ export default function DisciplineCard({ discipline, scheduleInfo, badge, onRemo
       href={discipline.href}
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:hover:shadow-none dark:hover:border-white/20"
     >
-      {/* ══════════════════════════════════════════
+    {/* ══════════════════════════════════════════
     CAPA
 ══════════════════════════════════════════ */}
 <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5">
@@ -141,10 +141,10 @@ export default function DisciplineCard({ discipline, scheduleInfo, badge, onRemo
 
   {/* ── Título ── */}
   <div className="absolute bottom-3 left-3 right-16">
-    <span className="inline-block max-w-full truncate rounded-xl bg-slate-950/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow-lg ring-1 ring-white/10 backdrop-blur-sm">
-      {discipline.title}
-    </span>
-  </div>
+  <span className="inline-block max-w-full truncate rounded-xl bg-black/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md">
+    {discipline.title}
+  </span>
+</div>
 </div>
 
       {/* ══════════════════════════════════════════
