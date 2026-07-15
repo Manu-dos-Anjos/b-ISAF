@@ -87,7 +87,7 @@ export function useDisciplineStudyPlan({
         if (dcError) throw dcError;
 
         /* ── encontrar a disciplina pelo code ── */
-        const match = (dcRows ?? []).find((row) => {
+        const match = (dcRows ?? []).find((row: any) => {
           const disc = row.disciplines as {
             id: string;
             code: string;
@@ -122,7 +122,7 @@ export function useDisciplineStudyPlan({
         if (cancelled) return;
         if (chaptersError) throw chaptersError;
 
-        const chapterIds = (chaptersData ?? []).map((ch) => ch.id);
+        const chapterIds = (chaptersData ?? []).map((ch: any) => ch.id);
 
         /* ── 3. buscar tópicos ── */
         let topicsData: {
@@ -161,7 +161,7 @@ export function useDisciplineStudyPlan({
         }
 
         /* ── 5. estrutura final ── */
-        const chapters: StudyPlanChapter[] = (chaptersData ?? []).map((ch) => ({
+        const chapters: StudyPlanChapter[] = (chaptersData ?? []).map((ch: any) => ({
           id:          ch.id,
           title:       ch.title,
           order_index: ch.order_index,

@@ -2,7 +2,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
-import type { Database, Profile } from "@/src/types/database";
+import type { Profile } from "@/src/types/database";
 import GuardadosClient from "./GuardadosClient";
 import { getSavedItems } from "@/app/actions/saved";
 
@@ -12,7 +12,7 @@ export const metadata = { title: "Guardados | B-ISAF" };
 export default async function GuardadosPage() {
   const cookieStore = await cookies();
 
-  const supabase = createServerClient<Database>(
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -26,13 +26,14 @@ export default async function GuardadosPage() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", session.user.id)
     .maybeSingle();
 
-  if (!profile) redirect("/login");
+  const profile = profileData as (Profile & { id?: string }) | null;
+  if (!profile?.id) redirect("/login");
 
   const savedItems = await getSavedItems(profile.id);
 

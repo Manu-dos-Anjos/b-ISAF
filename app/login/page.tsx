@@ -2,6 +2,7 @@
 "use client";
 
 import {
+  Suspense,
   useCallback,
   useMemo,
   useState,
@@ -383,7 +384,7 @@ function PasswordChecklist({ password }: { password: string }) {
    COMPONENTE PRINCIPAL
 ================================================================ */
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { supabase } = useSupabase();
@@ -1126,5 +1127,13 @@ export default function LoginPage() {
         {mode === "register" ? renderRegister() : renderLoginReset()}
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">A carregar…</div>}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

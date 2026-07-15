@@ -8,16 +8,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { SupabaseClient, User, Session } from "@supabase/supabase-js";
+import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/app/lib/supabase/client";
-import type { Database } from "@/src/types/database";
 
 /* ================================================================
    TIPOS
    ================================================================ */
 
 type SupabaseContextValue = {
-  supabase:  SupabaseClient<Database>;
+  supabase:  any;
   user:      User    | null;
   session:   Session | null;
   isLoading: boolean;
@@ -43,7 +42,8 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Carregar sessão actual ao montar
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      const { session } = data;
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
@@ -51,7 +51,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
 
     // Listener para mudanças de auth (login, logout, refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (_event: string, session: Session | null) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);

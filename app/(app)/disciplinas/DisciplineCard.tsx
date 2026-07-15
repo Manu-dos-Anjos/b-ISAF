@@ -82,70 +82,70 @@ export default function DisciplineCard({ discipline, scheduleInfo, badge, onRemo
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:hover:shadow-none dark:hover:border-white/20"
     >
       {/* ══════════════════════════════════════════
-          CAPA
-      ══════════════════════════════════════════ */}
-      <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5">
-        {discipline.coverUrl ? (
-          <Image
-            src={discipline.coverUrl}
-            alt={`Capa de ${discipline.title}`}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
-            <div className="absolute inset-0 opacity-30 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
-          </div>
-        )}
+    CAPA
+══════════════════════════════════════════ */}
+<div className="relative aspect-video w-full shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5">
+  {discipline.coverUrl ? (
+    <Image
+      src={discipline.coverUrl}
+      alt={`Capa de ${discipline.title}`}
+      fill
+      className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      unoptimized
+    />
+  ) : (
+    <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(59,130,246,0.35),_transparent_55%)]" />
+    </div>
+  )}
 
-        {/* Véu geral — mais suave no topo, mais denso no fundo */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/20 to-slate-950/30" />
+  {/* Véu suave para dar legibilidade sem escurecer demasiado */}
+  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/35 via-slate-950/8 to-transparent" />
 
-        {/* ── Badge ano · semestre (topo esquerdo) ── */}
-        <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
-          <div className="flex items-center gap-1.5 rounded-full bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white/90 shadow-sm backdrop-blur-sm ring-1 ring-white/10">
-            <BookOpen size={11} className="opacity-70" />
-            <span>
-              {discipline.year} · {discipline.semester}
-            </span>
-          </div>
+  {/* ── Badge ano · semestre (topo esquerdo) ── */}
+  <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
+    <div className="flex items-center gap-1.5 rounded-full bg-slate-950/55 px-2.5 py-1 text-[11px] font-semibold text-white/90 shadow-sm backdrop-blur-sm ring-1 ring-white/10">
+      <BookOpen size={11} className="opacity-70" />
+      <span>
+        {discipline.year} · {discipline.semester}
+      </span>
+    </div>
 
-          {/* Selo opcional (ex: "Semestre anterior") */}
-          {badge && (
-            <span className="rounded-full border border-indigo-500/30 bg-slate-950/80 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300 backdrop-blur-sm">
-              {badge}
-            </span>
-          )}
-        </div>
+    {badge && (
+      <span className="rounded-full border border-indigo-500/30 bg-slate-950/55 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300 backdrop-blur-sm">
+        {badge}
+      </span>
+    )}
+  </div>
 
-        {/* ── Progresso circular + remover (topo direito) ── */}
-        <div className="absolute right-3 top-3 flex items-center gap-1.5">
-          <CircularProgress value={discipline.progress} />
+  {/* ── Progresso circular + remover (topo direito) ── */}
+  <div className="absolute right-3 top-3 flex items-center gap-1.5">
+    <CircularProgress value={discipline.progress} />
 
-          {onRemove && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onRemove();
-              }}
-              title="Remover cadeira"
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/70 text-slate-300 shadow-sm backdrop-blur-sm ring-1 ring-white/10 transition hover:bg-rose-500/30 hover:text-rose-300"
-            >
-              <Trash2 size={12} />
-            </button>
-          )}
-        </div>
+    {onRemove && (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onRemove();
+        }}
+        title="Remover cadeira"
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/55 text-slate-300 shadow-sm backdrop-blur-sm ring-1 ring-white/10 transition hover:bg-rose-500/30 hover:text-rose-300"
+      >
+        <Trash2 size={12} />
+      </button>
+    )}
+  </div>
 
-        {/* ── Título + código — fundo escuro unificado ── */}
-        <div className="absolute bottom-3 left-3 right-16">
-          <span className="inline-block max-w-full truncate rounded-xl bg-black/40 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md">
-            {discipline.title}
-          </span>
-        </div>
-      </div>
+  {/* ── Título ── */}
+  <div className="absolute bottom-3 left-3 right-16">
+    <span className="inline-block max-w-full truncate rounded-xl bg-slate-950/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white shadow-lg ring-1 ring-white/10 backdrop-blur-sm">
+      {discipline.title}
+    </span>
+  </div>
+</div>
 
       {/* ══════════════════════════════════════════
           CORPO

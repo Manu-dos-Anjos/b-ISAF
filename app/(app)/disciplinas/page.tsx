@@ -211,7 +211,9 @@ function toDisciplineCardData(discipline: DisciplineRow): DisciplineCardData {
     href: `/disciplinas/${discipline.id}`,
     coverUrl: discipline.cover_image_url ?? null,
     progress: discipline.progress ?? 0,
-    year: `${discipline.year}º Ano`,
+    year: discipline.annual
+    ? `${discipline.year}º Ano (Anual)`
+    : `${discipline.year}º Ano`,
     semester: `${discipline.semester}º Semestre`,
     lessonCount,
     chaptersCount: discipline.chapters?.length ?? 0,
@@ -296,19 +298,15 @@ function DisciplineListItem({
         </button>
       )}
 
-      <div className="relative w-28 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5 sm:w-36">
+            <div className="relative w-28 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5 sm:w-36">
         {discipline.coverUrl ? (
-          <>
-            <Image
-              src={discipline.coverUrl}
-              alt={`Capa de ${discipline.title}`}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-              sizes="144px"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent to-slate-950/60" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />
-          </>
+          <Image
+            src={discipline.coverUrl}
+            alt={`Capa de ${discipline.title}`}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            sizes="144px"
+          />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
             <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
@@ -318,6 +316,7 @@ function DisciplineListItem({
           </div>
         )}
 
+        {/* Badges sobrepostos (mantêm-se) */}
         <div className="absolute bottom-2 left-0 right-0 flex justify-center">
           <div className="flex items-center gap-1 rounded-lg bg-black/50 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
             <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">

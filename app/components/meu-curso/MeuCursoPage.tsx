@@ -910,7 +910,7 @@ export default function MeuCursoPage({
             .eq("student_id", authUser.id);
 
           if (!error && data && active) {
-            setExtraIds(new Set(data.map((r) => r.discipline_id)));
+            setExtraIds(new Set((data as Array<{ discipline_id: string }>).map((r) => r.discipline_id)));
             setExtrasLoading(false);
             return;
           }

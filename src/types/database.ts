@@ -45,6 +45,14 @@ export interface Database {
           schedule_reset_at?: string | null
         }
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "profiles_course_id_fkey"
+            columns: ["course_id"]
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       courses: {
@@ -89,6 +97,20 @@ export interface Database {
           created_at?:     string
         }
         Update: Partial<Database["public"]["Tables"]["discipline_courses"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "discipline_courses_course_id_fkey"
+            columns: ["course_id"]
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discipline_courses_discipline_id_fkey"
+            columns: ["discipline_id"]
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       disciplines: {
@@ -119,6 +141,14 @@ export interface Database {
           created_at?:      string
         }
         Update: Partial<Database["public"]["Tables"]["disciplines"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "disciplines_course_id_fkey"
+            columns: ["course_id"]
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       chapters: {
@@ -161,6 +191,14 @@ export interface Database {
           created_at?:  string
         }
         Update: Partial<Database["public"]["Tables"]["topics"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "topics_chapter_id_fkey"
+            columns: ["chapter_id"]
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       contents: {
@@ -191,6 +229,20 @@ export interface Database {
           created_at?:         string
         }
         Update: Partial<Database["public"]["Tables"]["contents"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "contents_topic_id_fkey"
+            columns: ["topic_id"]
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contents_chapter_id_fkey"
+            columns: ["chapter_id"]
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       student_progress: {
@@ -217,6 +269,20 @@ export interface Database {
           updated_at?:            string
         }
         Update: Partial<Database["public"]["Tables"]["student_progress"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "student_progress_student_id_fkey"
+            columns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_content_id_fkey"
+            columns: ["content_id"]
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       student_extra_disciplines: {
@@ -233,6 +299,20 @@ export interface Database {
           added_at?:     string
         }
         Update: Partial<Database["public"]["Tables"]["student_extra_disciplines"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "student_extra_disciplines_student_id_fkey"
+            columns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_extra_disciplines_discipline_id_fkey"
+            columns: ["discipline_id"]
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       schedule_slots: {
@@ -271,6 +351,20 @@ export interface Database {
           updated_at?:      string
         }
         Update: Partial<Database["public"]["Tables"]["schedule_slots"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "schedule_slots_student_id_fkey"
+            columns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_slots_course_id_fkey"
+            columns: ["course_id"]
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── QUIZ QUESTIONS ─────────────────────────────────────────
@@ -357,6 +451,39 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["quiz_results_details"]["Insert"]>
       }
 
+      // ── SAVED ITEMS ───────────────────────────────────────────
+      saved_items: {
+        Row: {
+          id:          string
+          student_id:  string
+          content_id:  string
+          saved_at:    string
+          created_at:  string
+        }
+        Insert: {
+          id?:         string
+          student_id:  string
+          content_id:  string
+          saved_at?:   string
+          created_at?: string
+        }
+        Update: Partial<Database["public"]["Tables"]["saved_items"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "saved_items_student_id_fkey"
+            columns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_items_content_id_fkey"
+            columns: ["content_id"]
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
       // ── QUIZ SESSIONS ──────────────────────────────────────────
       quiz_sessions: {
         Row: {
@@ -380,6 +507,20 @@ export interface Database {
           updated_at?:             string
         }
         Update: Partial<Database["public"]["Tables"]["quiz_sessions"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "quiz_sessions_student_id_fkey"
+            columns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_sessions_content_id_fkey"
+            columns: ["content_id"]
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
 

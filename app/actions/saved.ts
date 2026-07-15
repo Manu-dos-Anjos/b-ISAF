@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import type { Database } from "@/src/types/database";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,24 @@ export type SavedItem = {
   savedAt: string;
 };
 
+type SavedItemRow = Database["public"]["Tables"]["saved_items"]["Row"] & {
+  contents?: {
+    id: string;
+    title: string;
+    type: string;
+    file_url: string | null;
+    chapter_id: string | null;
+    chapters?: {
+      id: string;
+      title: string;
+      disciplines?: {
+        id: string;
+        name: string;
+      } | null;
+    } | null;
+  } | null;
+};
+
 export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
   const { data, error } = await supabase
     .from("saved_items")
@@ -36,27 +55,23 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
 
   if (error || !data) return [];
 
-  return data.map((item: any) => {
+  return (data as unknown as SavedItemRow[]).map((item) => {
     const content = item.contents;
-    const chapter = Array.isArray(content.chapters)
-      ? content.chapters[0]
-      : content.chapters;
+    const chapter = content?.chapters ?? null;
 
     const discipline = chapter?.disciplines
-      ? Array.isArray(chapter.disciplines)
-        ? chapter.disciplines[0]
-        : chapter.disciplines
+      ? chapter.disciplines
       : null;
 
     return {
       savedId: item.id,
-      contentId: content.id,
-      title: content.title,
-      type: content.type,
+      contentId: content?.id ?? "",
+      title: content?.title ?? "",
+      type: (content?.type as SavedItem["type"]) ?? "audio",
       disciplineId: discipline?.id || "",
       disciplineName: discipline?.name || "",
       chapterTitle: chapter?.title || "",
-      fileUrl: content.file_url,
+      fileUrl: content?.file_url ?? null,
       savedAt: item.saved_at,
     };
   });

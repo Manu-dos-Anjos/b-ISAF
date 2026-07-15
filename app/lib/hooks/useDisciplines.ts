@@ -46,6 +46,7 @@ export type DisciplineRow = {
   year:            number;
   semester:        number;
   progress:        number;
+  annual:          boolean;
   chapters:        ChapterRow[];
 };
 
@@ -146,9 +147,15 @@ async function fetchProgressMap(
   return map;
 }
 
-function toDisciplineRow(dc: DBDisciplineCourse, progressMap: ProgressMap): DisciplineRow {
+function toDisciplineRow(
+  dc: DBDisciplineCourse,
+  progressMap: ProgressMap,
+  disciplineSemesterCount?: Map<string, number>
+): DisciplineRow {
   const disc     = dc.disciplines;
   const chapters = buildChapters(disc.chapters, progressMap);
+  const semesterCount = disciplineSemesterCount?.get(disc.id) ?? 1;
+  const annual = semesterCount > 1;
 
   return {
     id:              disc.id,
@@ -160,6 +167,7 @@ function toDisciplineRow(dc: DBDisciplineCourse, progressMap: ProgressMap): Disc
     year:            dc.year,
     semester:        dc.semester,
     progress:        calcProgress(chapters),
+    annual,
     chapters,
   };
 }
@@ -233,9 +241,16 @@ export function useDisciplines() {
 
       const progressMap = await fetchProgressMap(supabase, profile.id, allContentIds);
 
-      const result = rows
-        .map((dc) => toDisciplineRow(dc, progressMap))
-        .sort((a, b) => a.name.localeCompare(b.name));
+      // Detetar disciplinas anuais (mesma disciplina aparece em vários semestres)
+const disciplineSemesterCount = new Map<string, number>();
+for (const row of rows) {
+  const key = row.disciplines.id;
+  disciplineSemesterCount.set(key, (disciplineSemesterCount.get(key) ?? 0) + 1);
+}
+
+const result = rows
+  .map((dc) => toDisciplineRow(dc, progressMap, disciplineSemesterCount))
+  .sort((a, b) => a.name.localeCompare(b.name));
 
       setDisciplines(result);
 
@@ -276,7 +291,8 @@ export function useDiscipline(disciplineId: string) {
           .select(DISCIPLINE_SELECT)
           .eq("discipline_id", disciplineId)
           .eq("course_id",     profile!.course_id!)
-          .single();
+          .limit(1)
+          .maybeSingle();
 
         if (dbErr) throw dbErr;
         if (!data)  { setDiscipline(null); return; }
@@ -293,7 +309,7 @@ export function useDiscipline(disciplineId: string) {
           allContentIds
         );
 
-        setDiscipline(toDisciplineRow(dc, progressMap));
+        setDiscipline(toDisciplineRow(dc, progressMap, new Map([[dc.disciplines.id, 1]])));
 
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao carregar disciplina");

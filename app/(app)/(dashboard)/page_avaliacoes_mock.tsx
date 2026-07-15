@@ -1,9 +1,9 @@
-import AvaliacoesClient from "./AvaliacoesClient";
+import AvaliacoesClient from "./avaliacoes/AvaliacoesClient";
 import {
   mockProfile,
   mockQuizItems,
   mockDisciplines,
-} from "./mockAvaliacoes";
+} from "./avaliacoes/mockAvaliacoes";
 
 export const metadata = {
   title: "Avaliações | B-ISAF",

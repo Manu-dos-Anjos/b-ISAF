@@ -1,3 +1,4 @@
+// app/components/header/Header.tsx
 "use client";
 
 import Image from "next/image";
@@ -27,23 +28,21 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useRouter } from "next/navigation";
+import React from "react";
 
 /* ================================================================
-   TIPOS PÚBLICOS — prontos para ligar ao Supabase
-   ================================================================ */
-
+   TIPOS PÚBLICOS
+================================================================ */
 export type UserRole = "student" | "teacher" | "admin";
 
-/** Dados vindos de auth.users + tabela profiles do Supabase */
 export type UserProfile = {
-  id: string;           // auth.uid()
-  fullName: string;     // profiles.full_name
-  email: string;        // auth.email
-  avatarUrl?: string | null;  // profiles.avatar_url (Supabase Storage URL)
-  role: UserRole;       // profiles.role
-
-  // Campos académicos — read-only (vêm de enrollment / secretaria)
+  id: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string | null;
+  role: UserRole;
   course: string;
   academicYear: number;
   semester: 1 | 2;
@@ -54,7 +53,6 @@ export type UserProfile = {
 export type ProfileUpdatePayload = {
   fullName: string;
   bio?: string | null;
-  // avatarUrl é passado via onAvatarUpload separado
 };
 
 export type HeaderProps = {
@@ -64,34 +62,16 @@ export type HeaderProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   notificationCount?: number;
-
-  /** null = não autenticado · undefined = a carregar */
   user?: UserProfile | null;
-  /** true enquanto o perfil está a ser buscado do Supabase */
   userLoading?: boolean;
-
-  /**
-   * Chamado ao guardar nome/bio.
-   * Deve chamar supabase.from("profiles").update(payload)
-   */
   onProfileSave?: (payload: ProfileUpdatePayload) => Promise<void>;
-
-  /**
-   * Chamado quando o utilizador seleciona uma foto nova.
-   * Deve: 1) fazer upload para Supabase Storage
-   *       2) actualizar profiles.avatar_url
-   *       3) retornar a URL pública final.
-   */
   onAvatarUpload?: (file: File) => Promise<string>;
-
-  /** Deve chamar supabase.auth.signOut() */
   onLogout?: () => Promise<void> | void;
 };
 
 /* ================================================================
    TIPOS INTERNOS
-   ================================================================ */
-
+================================================================ */
 type ProfileDraft = { fullName: string; bio: string };
 
 type NotificationItem = {
@@ -105,14 +85,13 @@ type NotificationItem = {
 
 /* ================================================================
    CONSTANTES
-   ================================================================ */
-
+================================================================ */
 const FILTER_OPTIONS = [
-  { id: "disciplinas",  label: "Disciplinas",    icon: BookOpen,   color: "text-blue-500",   description: "Encontre por matéria" },
-  { id: "slides",       label: "Slides",         icon: FileText,   color: "text-emerald-500", description: "Apresentações de aulas" },
-  { id: "audios",       label: "Áudios",         icon: Headphones, color: "text-purple-500",  description: "Resumos e podcasts" },
-  { id: "quizzes",      label: "Questionários",  icon: Trophy,     color: "text-amber-500",   description: "Teste os seus conhecimentos" },
-  { id: "comunicados",  label: "Comunicados",    icon: Megaphone,  color: "text-cyan-500",    description: "Avisos e novidades" },
+  { id: "disciplinas", label: "Disciplinas",   icon: BookOpen,   color: "text-blue-500",    description: "Encontre por matéria" },
+  { id: "slides",      label: "Slides",        icon: FileText,   color: "text-emerald-500", description: "Apresentações de aulas" },
+  { id: "audios",      label: "Áudios",        icon: Headphones, color: "text-purple-500",  description: "Resumos e podcasts" },
+  { id: "quizzes",     label: "Questionários", icon: Trophy,     color: "text-amber-500",   description: "Teste os seus conhecimentos" },
+  { id: "comunicados", label: "Comunicados",   icon: Megaphone,  color: "text-cyan-500",    description: "Avisos e novidades" },
 ] as const;
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -132,8 +111,7 @@ const MAX_FILE_SIZE_MB = 2;
 
 /* ================================================================
    HELPERS
-   ================================================================ */
-
+================================================================ */
 function getInitials(name?: string | null) {
   if (!name) return "U";
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -156,28 +134,28 @@ function isUnread(n: NotificationItem) {
 }
 
 /* ================================================================
-   SUB-COMPONENTES
-   ================================================================ */
-
-/** Avatar circular com fallback de iniciais */
+   AVATAR
+================================================================ */
 function Avatar({
-  src,
-  name,
-  size = "md",
-  className = "",
+  src, name, size = "md", className = "",
 }: {
   src?: string | null;
   name?: string | null;
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
-  const dims = { sm: "h-8 w-8 text-[11px]", md: "h-10 w-10 text-sm", lg: "h-14 w-14 text-base" }[size];
+  const dims = {
+    sm: "h-8 w-8 text-[11px]",
+    md: "h-10 w-10 text-sm",
+    lg: "h-14 w-14 text-base",
+  }[size];
+
   return (
     <div className={`relative overflow-hidden rounded-full border border-white/10 bg-slate-800 ${dims} ${className}`}>
       {src ? (
         <Image src={src} alt={name ?? "avatar"} fill className="object-cover" unoptimized />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-blue-600 to-indigo-600 font-semibold text-white">
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600 font-semibold text-white">
           {getInitials(name)}
         </div>
       )}
@@ -185,16 +163,358 @@ function Avatar({
   );
 }
 
-/** Skeleton de uma linha de texto */
+/* ================================================================
+   SKELETON
+================================================================ */
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-white/10 ${className}`} />;
 }
 
 /* ================================================================
-   COMPONENTE PRINCIPAL
-   ================================================================ */
+   PROFILE VIEW — fora do Header para evitar remount
+================================================================ */
+interface ProfileViewProps {
+  user: UserProfile;
+  profileSuccess: string | null;
+  loggingOut: boolean;
+  onEdit: () => void;
+  onLogout: () => void;
+  hasLogout: boolean;
+}
 
-export default function Header({
+const ProfileView = memo(function ProfileView({
+  user,
+  profileSuccess,
+  loggingOut,
+  onEdit,
+  onLogout,
+  hasLogout,
+}: ProfileViewProps) {
+  return (
+    <div>
+      {/* Topo com avatar + info */}
+      <div className="border-b border-white/10 px-5 py-4">
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <Avatar src={user.avatarUrl} name={user.fullName} size="lg" className="rounded-2xl" />
+            <span className={`absolute -bottom-1 -right-1 rounded-full border-2 border-slate-900 px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${ROLE_BADGE[user.role]}`}>
+              {ROLE_LABELS[user.role].toUpperCase()}
+            </span>
+          </div>
+
+          <div className="min-w-0 flex-1 pt-0.5">
+            <h3 className="truncate text-base font-semibold text-slate-100">{user.fullName}</h3>
+            {user.bio && (
+              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-400">{user.bio}</p>
+            )}
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+              <Mail size={11} className="shrink-0" />
+              <span className="truncate">{user.email}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Dados académicos */}
+      <div className="px-5 py-4">
+        <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+          Dados Académicos
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
+          {[
+            { label: "Curso",    value: user.course },
+            { label: "Ano",      value: `${user.academicYear}º ano` },
+            { label: "Semestre", value: `${user.semester}º semestre` },
+            { label: "Nº aluno", value: user.studentNumber ?? "—" },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+              <span className="block text-slate-500">{label}</span>
+              <span className="mt-0.5 block truncate font-medium text-slate-100">{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] text-amber-300">
+          <Shield size={12} className="mt-0.5 shrink-0" />
+          <span>Dados académicos são geridos pela secretaria e não podem ser alterados aqui.</span>
+        </div>
+
+        {profileSuccess && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-[11px] text-emerald-300">
+            <Check size={12} className="shrink-0" />
+            {profileSuccess}
+          </div>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500"
+          >
+            <PencilLine size={14} />
+            Editar perfil
+          </button>
+
+          {hasLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={loggingOut}
+              aria-label="Terminar sessão"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-50"
+            >
+              {loggingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* ================================================================
+   PROFILE EDIT — fora do Header para evitar remount
+================================================================ */
+interface ProfileEditProps {
+  user: UserProfile;
+  draft: ProfileDraft;
+  onDraftChange: (draft: ProfileDraft) => void;
+  avatarPreview: string | null;
+  avatarFile: File | null;
+  avatarUploading: boolean;
+  avatarError: string | null;
+  profileError: string | null;
+  saving: boolean;
+  hasProfileSave: boolean;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+const ProfileEdit = memo(function ProfileEdit({
+  user,
+  draft,
+  onDraftChange,
+  avatarPreview,
+  avatarFile,
+  avatarUploading,
+  avatarError,
+  profileError,
+  saving,
+  hasProfileSave,
+  fileInputRef,
+  onFileChange,
+  onSave,
+  onCancel,
+}: ProfileEditProps) {
+  const currentAvatarSrc = avatarPreview ?? user.avatarUrl ?? undefined;
+  const bioLength = draft.bio.length;
+
+  return (
+    <div className="space-y-4 px-5 py-4">
+      {/* Avatar upload */}
+      <div>
+        <p className="mb-2 text-xs font-medium text-slate-400">Foto de perfil</p>
+        <div className="flex items-center gap-4">
+          <div className="relative shrink-0">
+            <Avatar src={currentAvatarSrc} name={user.fullName} size="lg" className="rounded-2xl" />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+              aria-label="Alterar foto"
+              className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 opacity-0 transition-opacity hover:opacity-100 disabled:cursor-wait"
+            >
+              {avatarUploading
+                ? <Loader2 size={18} className="animate-spin text-white" />
+                : <Camera size={18} className="text-white" />}
+            </button>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+            >
+              <Camera size={13} />
+              {avatarFile ? "Trocar imagem" : "Carregar foto"}
+            </button>
+
+            {avatarFile && (
+              <p className="mt-1.5 truncate text-[11px] text-slate-500">{avatarFile.name}</p>
+            )}
+
+            <p className="mt-1 text-[11px] text-slate-600">
+              JPEG, PNG, WebP ou GIF · máx. {MAX_FILE_SIZE_MB} MB
+            </p>
+
+            {avatarError && (
+              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-rose-400">
+                <AlertCircle size={10} />
+                {avatarError}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ALLOWED_IMAGE_TYPES.join(",")}
+          onChange={onFileChange}
+          className="sr-only"
+          tabIndex={-1}
+        />
+      </div>
+
+      {/* Nome */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-slate-400">
+          Nome de exibição <span className="text-rose-400">*</span>
+        </label>
+        <input
+          type="text"
+          value={draft.fullName}
+          onChange={(e) => onDraftChange({ ...draft, fullName: e.target.value })}
+          maxLength={60}
+          placeholder="O teu nome completo"
+          className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
+        />
+        <p className="mt-1 text-right text-[10px] text-slate-600">{draft.fullName.length}/60</p>
+      </div>
+
+      {/* Bio */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-slate-400">
+          Bio <span className="text-slate-600">(opcional)</span>
+        </label>
+        <textarea
+          value={draft.bio}
+          onChange={(e) => onDraftChange({ ...draft, bio: e.target.value })}
+          rows={3}
+          maxLength={160}
+          placeholder="Uma breve apresentação..."
+          className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
+        />
+        <p className={`mt-0.5 text-right text-[10px] transition ${bioLength > 140 ? "text-amber-400" : "text-slate-600"}`}>
+          {bioLength}/160
+        </p>
+      </div>
+
+      {/* Campos bloqueados */}
+      <div>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+          Campos bloqueados
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-[11px] opacity-60">
+          {[
+            { label: "Curso",    value: user.course },
+            { label: "Ano",      value: `${user.academicYear}º ano` },
+            { label: "Semestre", value: `${user.semester}º semestre` },
+            { label: "Perfil",   value: ROLE_LABELS[user.role] },
+          ].map(({ label, value }) => (
+            <div key={label} className="cursor-not-allowed rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
+              <span className="block text-slate-600">{label}</span>
+              <span className="mt-0.5 block truncate font-medium text-slate-400">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Erro */}
+      {profileError && (
+        <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-[11px] text-rose-300">
+          <AlertCircle size={12} className="mt-0.5 shrink-0" />
+          {profileError}
+        </div>
+      )}
+
+      {/* Aviso dev */}
+      {!hasProfileSave && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] text-amber-400">
+          <AlertCircle size={12} className="mt-0.5 shrink-0" />
+          <span>
+            <strong>Dev:</strong> passa <code className="font-mono">onProfileSave</code> e{" "}
+            <code className="font-mono">onAvatarUpload</code> para ligar ao Supabase.
+          </span>
+        </div>
+      )}
+
+      {/* Acções */}
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving || !hasProfileSave}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving
+            ? <><Loader2 size={14} className="animate-spin" />A guardar…</>
+            : <><Check size={14} />Guardar</>}
+        </button>
+      </div>
+    </div>
+  );
+});
+
+/* ================================================================
+   SKELETON / EMPTY DO PERFIL — também fora
+================================================================ */
+const ProfileSkeleton = memo(function ProfileSkeleton() {
+  return (
+    <div className="space-y-4 p-5">
+      <div className="flex items-start gap-4">
+        <Skeleton className="h-14 w-14 shrink-0 rounded-2xl" />
+        <div className="flex-1 space-y-2 pt-1">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-48" />
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <Skeleton className="h-12 rounded-xl" />
+            <Skeleton className="h-12 rounded-xl" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-9 rounded-xl" />
+    </div>
+  );
+});
+
+const ProfileEmpty = memo(function ProfileEmpty() {
+  return (
+    <div className="p-5">
+      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800">
+          <Users size={20} className="text-slate-400" />
+        </div>
+        <p className="text-sm font-medium text-slate-300">Nenhum utilizador autenticado</p>
+        <p className="mt-1 text-xs text-slate-500">Faça login para aceder ao seu perfil.</p>
+      </div>
+    </div>
+  );
+});
+
+/* ================================================================
+   HEADER PRINCIPAL
+================================================================ */
+const Header = memo(function Header({
   expanded,
   mobileOpen,
   setMobileOpen,
@@ -207,29 +527,31 @@ export default function Header({
   onAvatarUpload,
   onLogout,
 }: HeaderProps) {
-  /* ── painéis abertos ── */
-  const [filterOpen,       setFilterOpen]       = useState(false);
-  const [notifOpen,        setNotifOpen]        = useState(false);
-  const [profileOpen,      setProfileOpen]      = useState(false);
-  const [profileMode,      setProfileMode]      = useState<"view" | "edit">("view");
+  const router = useRouter();
+
+  /* ── painéis ── */
+  const [filterOpen,  setFilterOpen]  = useState(false);
+  const [notifOpen,   setNotifOpen]   = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileMode, setProfileMode] = useState<"view" | "edit">("view");
 
   /* ── notificações ── */
-  const [notifications,         setNotifications]         = useState<NotificationItem[]>([]);
-  const [notifLoading,          setNotifLoading]          = useState(false);
-  const [notifError,            setNotifError]            = useState<string | null>(null);
-  const [notifLoadedOnce,       setNotifLoadedOnce]       = useState(false);
+  const [notifications,   setNotifications]   = useState<NotificationItem[]>([]);
+  const [notifLoading,    setNotifLoading]    = useState(false);
+  const [notifError,      setNotifError]      = useState<string | null>(null);
+  const [notifLoadedOnce, setNotifLoadedOnce] = useState(false);
 
   /* ── perfil ── */
-  const [draft,            setDraft]            = useState<ProfileDraft>({ fullName: "", bio: "" });
-  const [saving,           setSaving]           = useState(false);
-  const [profileError,     setProfileError]     = useState<string | null>(null);
-  const [profileSuccess,   setProfileSuccess]   = useState<string | null>(null);
+  const [draft,          setDraft]          = useState<ProfileDraft>({ fullName: "", bio: "" });
+  const [saving,         setSaving]         = useState(false);
+  const [profileError,   setProfileError]   = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
 
   /* ── avatar ── */
-  const [avatarPreview,    setAvatarPreview]    = useState<string | null>(null);
-  const [avatarFile,       setAvatarFile]       = useState<File | null>(null);
-  const [avatarUploading,  setAvatarUploading]  = useState(false);
-  const [avatarError,      setAvatarError]      = useState<string | null>(null);
+  const [avatarPreview,   setAvatarPreview]   = useState<string | null>(null);
+  const [avatarFile,      setAvatarFile]      = useState<File | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError,     setAvatarError]     = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ── logout ── */
@@ -240,15 +562,18 @@ export default function Header({
   const notifRef   = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  /* ── contagem de notificações ── */
   const dynamicCount = notifLoadedOnce && !notifError
     ? notifications.filter(isUnread).length
     : notificationCount;
   const hasNotifs = dynamicCount > 0;
 
-  /* ── fechar ao clicar fora ou Escape ── */
+  /* ── fechar ao clicar fora / Escape ── */
   useEffect(() => {
-    const closeAll = () => { setFilterOpen(false); setNotifOpen(false); setProfileOpen(false); };
+    const closeAll = () => {
+      setFilterOpen(false);
+      setNotifOpen(false);
+      setProfileOpen(false);
+    };
     const handleClick = (e: MouseEvent) => {
       const t = e.target as Node;
       if (filterRef.current  && !filterRef.current.contains(t))  setFilterOpen(false);
@@ -258,10 +583,13 @@ export default function Header({
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeAll(); };
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown",   handleKey);
-    return () => { document.removeEventListener("mousedown", handleClick); document.removeEventListener("keydown", handleKey); };
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown",   handleKey);
+    };
   }, []);
 
-  /* ── reset modo ao fechar ── */
+  /* ── reset ao fechar painel ── */
   useEffect(() => {
     if (!profileOpen) {
       setProfileMode("view");
@@ -272,16 +600,16 @@ export default function Header({
     }
   }, [profileOpen]);
 
-  /* ── preencher draft quando abre em modo edit ── */
+  /* ── preencher draft ao abrir edição ── */
   useEffect(() => {
-    if (profileOpen && user) {
+    if (profileOpen && profileMode === "edit" && user) {
       setDraft({ fullName: user.fullName ?? "", bio: user.bio ?? "" });
       setProfileError(null);
       setProfileSuccess(null);
     }
-  }, [profileOpen, user]);
+  }, [profileOpen, profileMode]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── buscar notificações ── */
+  /* ── notificações ── */
   const fetchNotifs = useCallback(async (signal?: AbortSignal) => {
     setNotifLoading(true);
     setNotifError(null);
@@ -306,16 +634,11 @@ export default function Header({
     return () => ctrl.abort();
   }, [notifOpen, fetchNotifs]);
 
-  /* ================================================================
-     HANDLERS DE AVATAR
-     ================================================================ */
-
+  /* ── handlers de avatar ── */
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setAvatarError(null);
-
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       setAvatarError("Formato não suportado. Use JPEG, PNG, WebP ou GIF.");
       return;
@@ -324,7 +647,6 @@ export default function Header({
       setAvatarError(`O ficheiro excede ${MAX_FILE_SIZE_MB} MB.`);
       return;
     }
-
     setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = () => setAvatarPreview(reader.result as string);
@@ -332,16 +654,14 @@ export default function Header({
   };
 
   const uploadAvatar = async (): Promise<string | null> => {
-    if (!avatarFile) return null;
-    if (!onAvatarUpload) {
-      setAvatarError("Upload de avatar não está configurado.");
+    if (!avatarFile || !onAvatarUpload) {
+      if (!onAvatarUpload) setAvatarError("Upload de avatar não está configurado.");
       return null;
     }
     setAvatarUploading(true);
     setAvatarError(null);
     try {
-      const url = await onAvatarUpload(avatarFile);
-      return url;
+      return await onAvatarUpload(avatarFile);
     } catch {
       setAvatarError("Falha ao fazer upload da imagem.");
       return null;
@@ -350,35 +670,24 @@ export default function Header({
     }
   };
 
-  /* ================================================================
-     HANDLER GUARDAR PERFIL
-     ================================================================ */
-
+  /* ── guardar perfil ── */
   const handleSave = async () => {
     if (!user) return;
-
     const fullName = draft.fullName.trim().replace(/\s+/g, " ").slice(0, 60);
     if (fullName.length < 3) {
       setProfileError("O nome deve ter pelo menos 3 caracteres.");
       return;
     }
-
     const bio = draft.bio.trim().slice(0, 160) || null;
-
     setSaving(true);
     setProfileError(null);
     setProfileSuccess(null);
-
     try {
-      // 1. upload avatar se houver ficheiro novo
       if (avatarFile) {
         const newUrl = await uploadAvatar();
-        if (!newUrl) { setSaving(false); return; } // erro já mostrado
+        if (!newUrl) { setSaving(false); return; }
       }
-
-      // 2. guardar nome + bio
       await onProfileSave?.({ fullName, bio });
-
       setProfileSuccess("Perfil atualizado com sucesso.");
       setAvatarFile(null);
       setAvatarPreview(null);
@@ -390,424 +699,45 @@ export default function Header({
     }
   };
 
-  /* ================================================================
-     HANDLER LOGOUT
-     ================================================================ */
-
+  /* ── logout ── */
   const handleLogout = async () => {
     setLoggingOut(true);
-    try {
-      await onLogout?.();
-    } finally {
+    try { await onLogout?.(); } finally {
       setLoggingOut(false);
+      router.replace("/login");
     }
   };
 
-  /* ================================================================
-     PANEL: FILTROS
-     ================================================================ */
+  /* ── handlers para o ProfileEdit ── */
+  const handleCancelEdit = () => {
+    setProfileMode("view");
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setAvatarError(null);
+  };
 
-  const FilterPanel = () => (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-slate-700 dark:text-slate-300">Filtros Rápidos</h3>
-          <p className="text-xs text-slate-500">Seleciona o tipo de conteúdo</p>
-        </div>
-        <button type="button" onClick={() => setFilterOpen(false)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800" aria-label="Fechar">
-          <X size={16} />
-        </button>
-      </div>
-      <div className="mt-4 space-y-1">
-        {FILTER_OPTIONS.map(({ id, label, icon: Icon, color, description }) => (
-          <button key={id} type="button"
-            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800">
-            <Icon size={17} className={`shrink-0 ${color}`} />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{label}</p>
-              <p className="text-xs text-slate-500">{description}</p>
-            </div>
-            <ChevronRight size={14} className="ml-auto text-slate-300 opacity-0 transition group-hover:opacity-100 dark:text-slate-600" />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  /* ================================================================
-     PANEL: NOTIFICAÇÕES
-     ================================================================ */
-
-  const NotifPanel = () => (
-    <div className="max-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-white/10">
-        <h3 className="font-semibold text-slate-800 dark:text-slate-100">Notificações</h3>
-        <div className="flex items-center gap-2">
-          {hasNotifs && (
-            <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
-              {dynamicCount} nova{dynamicCount !== 1 ? "s" : ""}
-            </span>
-          )}
-          <button type="button" onClick={() => fetchNotifs()} title="Atualizar"
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800">
-            <RefreshCw size={13} className={notifLoading ? "animate-spin" : ""} />
-          </button>
-        </div>
-      </div>
-
-      {/* Corpo */}
-      <div className="max-h-[400px] overflow-y-auto">
-        {notifLoading && (
-          <div className="flex flex-col items-center justify-center gap-3 p-10">
-            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-            <p className="text-sm text-slate-500">A carregar...</p>
-          </div>
-        )}
-
-        {!notifLoading && notifError && (
-          <div className="flex flex-col items-center gap-3 p-10 text-center">
-            <AlertCircle size={24} className="text-rose-400" />
-            <p className="text-sm text-slate-600 dark:text-slate-300">{notifError}</p>
-            <button type="button" onClick={() => fetchNotifs()}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500">
-              Tentar novamente
-            </button>
-          </div>
-        )}
-
-        {!notifLoading && !notifError && notifications.length === 0 && (
-          <div className="flex flex-col items-center gap-3 p-10 text-center">
-            <Inbox className="h-8 w-8 text-slate-300 dark:text-slate-600" />
-            <div>
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Tudo em dia!</p>
-              <p className="mt-0.5 text-xs text-slate-500">Quando houver novidades, aparecem aqui.</p>
-            </div>
-          </div>
-        )}
-
-        {!notifLoading && !notifError && notifications.map((n) => {
-          const Icon = getNotifIcon(n.type);
-          return (
-            <div key={n.id} className={`flex gap-4 border-b border-gray-100 px-5 py-4 last:border-none transition dark:border-white/10 ${
-              isUnread(n) ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
-            } hover:bg-slate-50 dark:hover:bg-slate-800/60`}>
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                <Icon size={16} className="text-slate-500 dark:text-slate-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium leading-snug text-slate-800 dark:text-slate-100">{n.title}</p>
-                <p className="mt-1 text-xs text-slate-500">{n.time ?? "Agora mesmo"}</p>
-              </div>
-              {isUnread(n) && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />}
-            </div>
-          );
-        })}
-      </div>
-
-      {!notifLoading && !notifError && notifications.length > 0 && (
-        <button type="button" className="w-full border-t border-gray-100 px-5 py-3 text-center text-sm font-medium text-blue-600 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800/50">
-          Ver todas as notificações
-        </button>
-      )}
-    </div>
-  );
-
-  /* ================================================================
-     PANEL: PERFIL — estado de carregamento
-     ================================================================ */
-
-  const ProfileSkeleton = () => (
-    <div className="p-5 space-y-4">
-      <div className="flex items-start gap-4">
-        <Skeleton className="h-14 w-14 rounded-2xl shrink-0" />
-        <div className="flex-1 space-y-2 pt-1">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-48" />
-          <div className="grid grid-cols-2 gap-2 pt-2">
-            <Skeleton className="h-12 rounded-xl" />
-            <Skeleton className="h-12 rounded-xl" />
-          </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Skeleton className="h-12 rounded-xl" />
-        <Skeleton className="h-12 rounded-xl" />
-        <Skeleton className="h-12 rounded-xl" />
-        <Skeleton className="h-12 rounded-xl" />
-      </div>
-      <Skeleton className="h-9 rounded-xl" />
-    </div>
-  );
-
-  /* ================================================================
-     PANEL: PERFIL — sem utilizador autenticado
-     ================================================================ */
-
-  const ProfileEmpty = () => (
-    <div className="p-5">
-      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800">
-          <Users size={20} className="text-slate-400" />
-        </div>
-        <p className="text-sm font-medium text-slate-300">Nenhum utilizador autenticado</p>
-        <p className="mt-1 text-xs text-slate-500">Faça login para aceder ao seu perfil.</p>
-      </div>
-    </div>
-  );
-
-  /* ================================================================
-     PANEL: PERFIL — modo VISUALIZAR
-     ================================================================ */
-
-  const ProfileView = () => {
-    if (!user) return null;
-    return (
-      <div>
-        {/* Topo com avatar + info principal */}
-        <div className="border-b border-white/10 px-5 py-4">
-          <div className="flex items-start gap-4">
-            {/* Avatar */}
-            <div className="relative shrink-0">
-              <Avatar src={user.avatarUrl} name={user.fullName} size="lg" className="rounded-2xl" />
-              <span className={`absolute -bottom-1 -right-1 rounded-full border-2 border-slate-900 px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${ROLE_BADGE[user.role]}`}>
-                {ROLE_LABELS[user.role].toUpperCase()}
-              </span>
-            </div>
-
-            {/* Nome + email */}
-            <div className="min-w-0 flex-1 pt-0.5">
-              <h3 className="truncate text-base font-semibold text-slate-100">{user.fullName}</h3>
-
-              {user.bio && (
-                <p className="mt-0.5 text-xs leading-relaxed text-slate-400 line-clamp-2">{user.bio}</p>
-              )}
-
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-                <Mail size={11} className="shrink-0" />
-                <span className="truncate">{user.email}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Dados académicos */}
-        <div className="px-5 py-4">
-          <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-            Dados Académicos
-          </p>
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            {[
-              { label: "Curso",     value: user.course },
-              { label: "Ano",       value: `${user.academicYear}º ano` },
-              { label: "Semestre",  value: `${user.semester}º semestre` },
-              { label: "Nº aluno",  value: user.studentNumber ?? "—" },
-            ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-                <span className="block text-slate-500">{label}</span>
-                <span className="mt-0.5 block truncate font-medium text-slate-100">{value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Aviso read-only */}
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2.5 text-[11px] text-amber-300">
-            <Shield size={12} className="mt-0.5 shrink-0" />
-            <span>Dados académicos são geridos pela secretaria e não podem ser alterados aqui.</span>
-          </div>
-
-          {/* Feedback de sucesso */}
-          {profileSuccess && (
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-[11px] text-emerald-300">
-              <Check size={12} className="shrink-0" />
-              {profileSuccess}
-            </div>
-          )}
-
-          {/* Acções */}
-          <div className="mt-4 flex gap-2">
-            <button type="button"
-              onClick={() => { setProfileMode("edit"); setProfileError(null); setProfileSuccess(null); }}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500">
-              <PencilLine size={14} />
-              Editar perfil
-            </button>
-
-            {onLogout && (
-              <button type="button" onClick={() => void handleLogout()} disabled={loggingOut}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-50"
-                aria-label="Terminar sessão">
-                {loggingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  const handleStartEdit = () => {
+    setProfileError(null);
+    setProfileSuccess(null);
+    setProfileMode("edit");
   };
 
   /* ================================================================
-     PANEL: PERFIL — modo EDITAR
-     ================================================================ */
-
-  const ProfileEdit = () => {
-    if (!user) return null;
-
-    const currentAvatarSrc = avatarPreview ?? user.avatarUrl ?? undefined;
-    const bioLength = draft.bio.length;
-
-    return (
-      <div className="px-5 py-4 space-y-4">
-        {/* Avatar upload */}
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-400">Foto de perfil</p>
-          <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              <Avatar src={currentAvatarSrc} name={user.fullName} size="lg" className="rounded-2xl" />
-
-              {/* Botão overlay */}
-              <button type="button" onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
-                className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 opacity-0 transition-opacity hover:opacity-100 disabled:cursor-wait"
-                aria-label="Alterar foto">
-                {avatarUploading
-                  ? <Loader2 size={18} className="animate-spin text-white" />
-                  : <Camera size={18} className="text-white" />}
-              </button>
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={avatarUploading}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50">
-                <Camera size={13} />
-                {avatarFile ? "Trocar imagem" : "Carregar foto"}
-              </button>
-
-              {avatarFile && (
-                <p className="mt-1.5 truncate text-[11px] text-slate-500">{avatarFile.name}</p>
-              )}
-
-              <p className="mt-1 text-[11px] text-slate-600">
-                JPEG, PNG, WebP ou GIF · máx. {MAX_FILE_SIZE_MB} MB
-              </p>
-
-              {avatarError && (
-                <p className="mt-1.5 flex items-center gap-1 text-[11px] text-rose-400">
-                  <AlertCircle size={10} />
-                  {avatarError}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <input ref={fileInputRef} type="file" accept={ALLOWED_IMAGE_TYPES.join(",")} onChange={handleAvatarFileChange} className="sr-only" tabIndex={-1} />
-        </div>
-
-        {/* Nome */}
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-slate-400">
-            Nome de exibição <span className="text-rose-400">*</span>
-          </label>
-          <input
-            type="text"
-            value={draft.fullName}
-            onChange={(e) => setDraft((d) => ({ ...d, fullName: e.target.value }))}
-            maxLength={60}
-            placeholder="O teu nome completo"
-            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
-          />
-          <p className="mt-1 text-right text-[10px] text-slate-600">{draft.fullName.length}/60</p>
-        </div>
-
-        {/* Bio */}
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-slate-400">
-            Bio <span className="text-slate-600">(opcional)</span>
-          </label>
-          <textarea
-            value={draft.bio}
-            onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
-            rows={3}
-            maxLength={160}
-            placeholder="Uma breve apresentação..."
-            className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
-          />
-          <p className={`mt-0.5 text-right text-[10px] transition ${bioLength > 140 ? "text-amber-400" : "text-slate-600"}`}>
-            {bioLength}/160
-          </p>
-        </div>
-
-        {/* Campos bloqueados */}
-        <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
-            Campos bloqueados
-          </p>
-          <div className="grid grid-cols-2 gap-2 text-[11px] opacity-60">
-            {[
-              { label: "Curso",    value: user.course },
-              { label: "Ano",      value: `${user.academicYear}º ano` },
-              { label: "Semestre", value: `${user.semester}º semestre` },
-              { label: "Perfil",   value: ROLE_LABELS[user.role] },
-            ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5 cursor-not-allowed">
-                <span className="block text-slate-600">{label}</span>
-                <span className="mt-0.5 block truncate font-medium text-slate-400">{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Erros / Sucesso */}
-        {profileError && (
-          <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-[11px] text-rose-300">
-            <AlertCircle size={12} className="mt-0.5 shrink-0" />
-            {profileError}
-          </div>
-        )}
-
-        {/* Nota se callbacks não estiverem ligados */}
-        {!onProfileSave && (
-          <div className="flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/8 px-3 py-2.5 text-[11px] text-amber-400">
-            <AlertCircle size={12} className="mt-0.5 shrink-0" />
-            <span>
-              <strong>Dev:</strong> passa <code className="font-mono">onProfileSave</code> e <code className="font-mono">onAvatarUpload</code> para ligar ao Supabase.
-            </span>
-          </div>
-        )}
-
-        {/* Acções */}
-        <div className="flex gap-2 pt-1">
-          <button type="button" onClick={() => { setProfileMode("view"); setAvatarFile(null); setAvatarPreview(null); setAvatarError(null); }}
-            disabled={saving}
-            className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50">
-            Cancelar
-          </button>
-
-          <button type="button" onClick={() => void handleSave()} disabled={saving || !onProfileSave}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
-            {saving
-              ? <><Loader2 size={14} className="animate-spin" />A guardar…</>
-              : <><Check size={14} />Guardar</>}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  /* ================================================================
-     RENDER PRINCIPAL
-     ================================================================ */
+     RENDER
+  ================================================================ */
   return (
     <>
-      <header className={`fixed top-0 z-40 h-16 border-b border-gray-200 bg-white/80 backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-slate-950/80
-        right-0 left-0 ${expanded ? "md:left-56" : "md:left-16"}`}>
+      <header className={`fixed top-0 z-40 h-16 border-b border-gray-200 bg-white/80 backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-slate-950/80 right-0 left-0 ${expanded ? "md:left-56" : "md:left-16"}`}>
         <div className="mx-auto flex h-full max-w-screen-2xl items-center justify-between gap-3 px-4 md:px-6">
 
-          {/* ── Esquerda: menu mobile + título ── */}
+          {/* ── Esquerda ── */}
           <div className="flex shrink-0 items-center gap-3">
-            <button type="button" onClick={() => setMobileOpen?.(!mobileOpen)}
+            <button
+              type="button"
+              onClick={() => setMobileOpen?.(!mobileOpen)}
               className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden"
-              aria-label="Abrir menu">
+              aria-label="Abrir menu"
+            >
               <Menu size={22} className="text-slate-700 dark:text-slate-200" />
             </button>
             <span className="hidden text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 md:block">
@@ -815,11 +745,10 @@ export default function Header({
             </span>
           </div>
 
-          {/* ── Centro: pesquisa + filtros ── */}
+          {/* ── Centro: pesquisa ── */}
           <div className="min-w-0 flex-1 px-2 md:px-6" ref={filterRef}>
             <div className="relative mx-auto max-w-xl">
               <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-
               <input
                 type="text"
                 value={searchQuery}
@@ -827,21 +756,53 @@ export default function Header({
                 placeholder="Pesquisar disciplinas, temas, slides…"
                 className="h-10 w-full rounded-full border border-slate-200 bg-slate-50/50 pl-10 pr-12 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
               />
-
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => { setFilterOpen(!filterOpen); setNotifOpen(false); setProfileOpen(false); }}
                 className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full transition ${
                   filterOpen ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 }`}
-                aria-label="Filtros">
+                aria-label="Filtros"
+              >
                 <SlidersHorizontal size={14} />
               </button>
 
-              {/* Dropdown de filtros */}
+              {/* Dropdown filtros */}
               <div className={`absolute left-0 right-0 top-full mt-2 origin-top transition-all md:left-auto md:right-0 md:w-80 ${
                 filterOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
               }`}>
-                <FilterPanel />
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-slate-700 dark:text-slate-300">Filtros Rápidos</h3>
+                      <p className="text-xs text-slate-500">Seleciona o tipo de conteúdo</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFilterOpen(false)}
+                      className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                      aria-label="Fechar"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="mt-4 space-y-1">
+                    {FILTER_OPTIONS.map(({ id, label, icon: Icon, color, description }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <Icon size={17} className={`shrink-0 ${color}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{label}</p>
+                          <p className="text-xs text-slate-500">{description}</p>
+                        </div>
+                        <ChevronRight size={14} className="ml-auto text-slate-300 opacity-0 transition group-hover:opacity-100 dark:text-slate-600" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -851,13 +812,15 @@ export default function Header({
 
             {/* Notificações */}
             <div className="relative" ref={notifRef}>
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => { setNotifOpen(!notifOpen); setFilterOpen(false); setProfileOpen(false); }}
                 className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-                aria-label="Notificações">
+                aria-label="Notificações"
+              >
                 <Bell size={18} className="text-slate-600 dark:text-slate-300" />
                 {hasNotifs && (
-                  <span className="absolute -right-1 -top-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">
+                  <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">
                     {dynamicCount > 9 ? "9+" : dynamicCount}
                   </span>
                 )}
@@ -866,16 +829,101 @@ export default function Header({
               <div className={`absolute right-0 top-full mt-2 w-80 origin-top-right transition-all sm:w-96 ${
                 notifOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
               }`}>
-                <NotifPanel />
+                <div className="max-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                  {/* Header notif */}
+                  <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-white/10">
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">Notificações</h3>
+                    <div className="flex items-center gap-2">
+                      {hasNotifs && (
+                        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                          {dynamicCount} nova{dynamicCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => fetchNotifs()}
+                        title="Atualizar"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <RefreshCw size={13} className={notifLoading ? "animate-spin" : ""} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Corpo notif */}
+                  <div className="max-h-[400px] overflow-y-auto">
+                    {notifLoading && (
+                      <div className="flex flex-col items-center justify-center gap-3 p-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                        <p className="text-sm text-slate-500">A carregar...</p>
+                      </div>
+                    )}
+                    {!notifLoading && notifError && (
+                      <div className="flex flex-col items-center gap-3 p-10 text-center">
+                        <AlertCircle size={24} className="text-rose-400" />
+                        <p className="text-sm text-slate-600 dark:text-slate-300">{notifError}</p>
+                        <button
+                          type="button"
+                          onClick={() => fetchNotifs()}
+                          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+                        >
+                          Tentar novamente
+                        </button>
+                      </div>
+                    )}
+                    {!notifLoading && !notifError && notifications.length === 0 && (
+                      <div className="flex flex-col items-center gap-3 p-10 text-center">
+                        <Inbox className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Tudo em dia!</p>
+                          <p className="mt-0.5 text-xs text-slate-500">Quando houver novidades, aparecem aqui.</p>
+                        </div>
+                      </div>
+                    )}
+                    {!notifLoading && !notifError && notifications.map((n) => {
+                      const Icon = getNotifIcon(n.type);
+                      return (
+                        <div
+                          key={n.id}
+                          className={`flex gap-4 border-b border-gray-100 px-5 py-4 last:border-none transition dark:border-white/10 ${
+                            isUnread(n) ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
+                          } hover:bg-slate-50 dark:hover:bg-slate-800/60`}
+                        >
+                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                            <Icon size={16} className="text-slate-500 dark:text-slate-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium leading-snug text-slate-800 dark:text-slate-100">{n.title}</p>
+                            <p className="mt-1 text-xs text-slate-500">{n.time ?? "Agora mesmo"}</p>
+                          </div>
+                          {isUnread(n) && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {!notifLoading && !notifError && notifications.length > 0 && (
+                    <button
+                      type="button"
+                      className="w-full border-t border-gray-100 px-5 py-3 text-center text-sm font-medium text-blue-600 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800/50"
+                    >
+                      Ver todas as notificações
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Perfil */}
             <div className="relative" ref={profileRef}>
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => { setProfileOpen(!profileOpen); setFilterOpen(false); setNotifOpen(false); }}
                 className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-                aria-haspopup="menu" aria-expanded={profileOpen} aria-label="Conta">
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+                aria-label="Conta"
+              >
                 {userLoading
                   ? <Skeleton className="h-8 w-8 rounded-full" />
                   : <Avatar src={user?.avatarUrl} name={user?.fullName} size="sm" className="rounded-full" />}
@@ -901,18 +949,42 @@ export default function Header({
                 <ChevronDown size={13} className={`shrink-0 text-slate-400 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
               </button>
 
-              {/* Dropdown do perfil */}
+              {/* Dropdown perfil */}
               <div className={`absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] origin-top-right transition-all sm:w-[26rem] ${
                 profileOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
               }`}>
                 <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
-                  {userLoading
-                    ? <ProfileSkeleton />
-                    : !user
-                      ? <ProfileEmpty />
-                      : profileMode === "view"
-                        ? <ProfileView />
-                        : <ProfileEdit />}
+                  {userLoading ? (
+                    <ProfileSkeleton />
+                  ) : !user ? (
+                    <ProfileEmpty />
+                  ) : profileMode === "view" ? (
+                    <ProfileView
+                      user={user}
+                      profileSuccess={profileSuccess}
+                      loggingOut={loggingOut}
+                      onEdit={handleStartEdit}
+                      onLogout={() => void handleLogout()}
+                      hasLogout={!!onLogout}
+                    />
+                  ) : (
+                    <ProfileEdit
+                      user={user}
+                      draft={draft}
+                      onDraftChange={setDraft}
+                      avatarPreview={avatarPreview}
+                      avatarFile={avatarFile}
+                      avatarUploading={avatarUploading}
+                      avatarError={avatarError}
+                      profileError={profileError}
+                      saving={saving}
+                      hasProfileSave={!!onProfileSave}
+                      fileInputRef={fileInputRef}
+                      onFileChange={handleAvatarFileChange}
+                      onSave={() => void handleSave()}
+                      onCancel={handleCancelEdit}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -929,4 +1001,6 @@ export default function Header({
       />
     </>
   );
-}
+});
+
+export default Header;
