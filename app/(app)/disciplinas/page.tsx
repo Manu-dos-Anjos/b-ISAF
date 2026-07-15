@@ -6,6 +6,7 @@ import {
   useMemo,
   useEffect,
   useCallback,
+  useRef,
   type ElementType,
   type ReactNode,
 } from "react";
@@ -69,7 +70,7 @@ const CONTENT_FILTERS = [
   { id: "tutor", label: "Tutor IA",      icon: Sparkles   },
 ] as const;
 
-type FilterId = typeof CONTENT_FILTERS[number]["id"];
+type FilterId = (typeof CONTENT_FILTERS)[number]["id"];
 
 /* ================================================================
    CONSTANTES
@@ -97,14 +98,14 @@ const SCROLLBAR_CLASS = [
 ].join(" ");
 
 const TYPE_DOT: Record<string, string> = {
-  "Teórica":         "bg-blue-500",
-  "Prática":         "bg-emerald-500",
+  Teórica:         "bg-blue-500",
+  Prática:         "bg-emerald-500",
   "Teórico-Prática": "bg-violet-500",
 };
 
 const TYPE_BADGE_LIST: Record<string, string> = {
-  "Teórica":         "text-blue-400",
-  "Prática":         "text-emerald-400",
+  Teórica:         "text-blue-400",
+  Prática:         "text-emerald-400",
   "Teórico-Prática": "text-violet-400",
 };
 
@@ -139,8 +140,12 @@ function getCurriculumEntries(courseId: CourseId): CurriculumEntry[] {
         seen.add(disc.id);
         const code = disc.id.split("-").pop()?.toUpperCase() ?? "";
         entries.push({
-          id: disc.id, name: disc.name, code,
-          year: yearData.year, semester: sem.number, annual: disc.annual,
+          id: disc.id,
+          name: disc.name,
+          code,
+          year: yearData.year,
+          semester: sem.number,
+          annual: disc.annual,
         });
       }
     }
@@ -149,8 +154,10 @@ function getCurriculumEntries(courseId: CourseId): CurriculumEntry[] {
 }
 
 function isSemesterAlreadyPassed(
-  discYear: number, discSemester: number,
-  currentYear: number, currentSemester: number,
+  discYear: number,
+  discSemester: number,
+  currentYear: number,
+  currentSemester: number
 ): boolean {
   if (discYear < currentYear) return true;
   if (discYear === currentYear && discSemester < currentSemester) return true;
@@ -160,17 +167,18 @@ function isSemesterAlreadyPassed(
 function resolveRealDisciplineId(
   sourceId: string,
   lookup: Record<string, string>,
-  entries: CurriculumEntry[],
+  entries: CurriculumEntry[]
 ) {
   if (lookup[sourceId]) return lookup[sourceId];
   const code = sourceId.split("-").pop()?.toUpperCase() ?? sourceId.toUpperCase();
   if (lookup[code]) return lookup[code];
   const norm = normalizeText(sourceId);
   if (lookup[norm]) return lookup[norm];
-  const entry = entries.find((e) =>
-    e.id === sourceId ||
-    e.code.toUpperCase() === code ||
-    normalizeText(e.name) === norm,
+  const entry = entries.find(
+    (e) =>
+      e.id === sourceId ||
+      e.code.toUpperCase() === code ||
+      normalizeText(e.name) === norm
   );
   if (entry) {
     return (
@@ -268,18 +276,19 @@ function DisciplineListItem({
       href={discipline.href}
       className="group relative flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:border-white/10 dark:bg-slate-900 dark:hover:border-white/20 dark:hover:shadow-none"
     >
-      {/* Badge (ex: "Semestre anterior") */}
       {badge && (
         <span className="absolute -top-px left-14 z-10 rounded-b-lg border border-t-0 border-indigo-500/30 bg-slate-900 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
           {badge}
         </span>
       )}
 
-      {/* Botão remover */}
       {onRemove && (
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); onRemove(); }}
+          onClick={(e) => {
+            e.preventDefault();
+            onRemove();
+          }}
           className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-slate-400 backdrop-blur-sm transition hover:bg-rose-500/20 hover:text-rose-400"
           title="Remover cadeira"
         >
@@ -287,7 +296,6 @@ function DisciplineListItem({
         </button>
       )}
 
-      {/* ── Coluna esquerda: imagem ── */}
       <div className="relative w-28 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5 sm:w-36">
         {discipline.coverUrl ? (
           <>
@@ -298,12 +306,10 @@ function DisciplineListItem({
               className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
               sizes="144px"
             />
-            {/* Véu */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent to-slate-950/60" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />
           </>
         ) : (
-          /* Placeholder */
           <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
             <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -312,7 +318,6 @@ function DisciplineListItem({
           </div>
         )}
 
-        {/* Badge de progresso sobre a imagem */}
         <div className="absolute bottom-2 left-0 right-0 flex justify-center">
           <div className="flex items-center gap-1 rounded-lg bg-black/50 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
             <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">
@@ -327,7 +332,6 @@ function DisciplineListItem({
           </div>
         </div>
 
-        {/* Badge ano · semestre */}
         <div className="absolute left-0 right-0 top-2 flex justify-center">
           <span className="rounded-md bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/70 backdrop-blur-sm ring-1 ring-white/10">
             {discipline.year}
@@ -335,10 +339,7 @@ function DisciplineListItem({
         </div>
       </div>
 
-      {/* ── Coluna direita: conteúdo ── */}
       <div className="flex min-w-0 flex-1 flex-col gap-2.5 px-4 py-3.5">
-
-        {/* Título + código */}
         <div className="flex items-start justify-between gap-2 pr-6">
           <div className="min-w-0">
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 dark:text-white">
@@ -355,7 +356,6 @@ function DisciplineListItem({
           </div>
         </div>
 
-        {/* Professor */}
         {scheduleInfo?.professor && (
           <div className="flex items-center gap-1.5">
             <User size={10} className="shrink-0 text-slate-400" />
@@ -365,7 +365,6 @@ function DisciplineListItem({
           </div>
         )}
 
-        {/* Próxima aula */}
         {next ? (
           <div className="flex items-center gap-1.5">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_DOT[next.type]}`} />
@@ -389,10 +388,8 @@ function DisciplineListItem({
           </div>
         )}
 
-        {/* Separador */}
         <div className="h-px bg-slate-100 dark:bg-white/5" />
 
-        {/* Conteúdos + seta */}
         <div className="flex items-center gap-2">
           {hasContent ? (
             <>
@@ -414,7 +411,9 @@ function DisciplineListItem({
             </>
           ) : (
             <span className="text-[11px] text-slate-400 dark:text-slate-600">
-              {discipline.chaptersCount} {discipline.chaptersCount === 1 ? "capítulo" : "capítulos"} · sem conteúdos
+              {discipline.chaptersCount}{" "}
+              {discipline.chaptersCount === 1 ? "capítulo" : "capítulos"} · sem
+              conteúdos
             </span>
           )}
           <ArrowRight
@@ -504,9 +503,15 @@ function ListSkeleton() {
    EMPTY STATE / BANNERS
 ================================================================ */
 function EmptyState({
-  icon: Icon, title, description, action,
+  icon: Icon,
+  title,
+  description,
+  action,
 }: {
-  icon: ElementType; title: string; description: string; action?: ReactNode;
+  icon: ElementType;
+  title: string;
+  description: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-16 text-center dark:border-white/10">
@@ -522,20 +527,32 @@ function EmptyState({
 
 function ExtraLimitBanner({ current, max }: { current: number; max: number }) {
   const remaining = max - current;
-  const atLimit   = remaining === 0;
+  const atLimit = remaining === 0;
   return (
-    <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs ${
-      atLimit
-        ? "border-rose-500/20 bg-rose-500/5 text-rose-400"
-        : "border-amber-500/20 bg-amber-500/5 text-amber-400"
-    }`}>
-      {atLimit
-        ? <Lock size={14} className="mt-0.5 shrink-0" />
-        : <Info size={14} className="mt-0.5 shrink-0" />}
+    <div
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs ${
+        atLimit
+          ? "border-rose-500/20 bg-rose-500/5 text-rose-400"
+          : "border-amber-500/20 bg-amber-500/5 text-amber-400"
+      }`}
+    >
+      {atLimit ? (
+        <Lock size={14} className="mt-0.5 shrink-0" />
+      ) : (
+        <Info size={14} className="mt-0.5 shrink-0" />
+      )}
       <p>
-        {atLimit
-          ? <><strong>{max} cadeiras extras</strong>: limite atingido. Remove uma para adicionar outra.</>
-          : <>Podes adicionar <strong>{remaining} cadeira{remaining !== 1 ? "s" : ""}</strong> extra{remaining !== 1 ? "s" : ""} ({current}/{max}).</>}
+        {atLimit ? (
+          <>
+            <strong>{max} cadeiras extras</strong>: limite atingido. Remove uma
+            para adicionar outra.
+          </>
+        ) : (
+          <>
+            Podes adicionar <strong>{remaining} cadeira{remaining !== 1 ? "s" : ""}</strong> extra
+            {remaining !== 1 ? "s" : ""} ({current}/{max}).
+          </>
+        )}
       </p>
     </div>
   );
@@ -545,8 +562,15 @@ function ExtraLimitBanner({ current, max }: { current: number; max: number }) {
    MODAL: ADICIONAR CADEIRA EXTRA
 ================================================================ */
 function AddExtraDisciplineModal({
-  courseId, currentDisciplineIds, pageDisciplineIds, extraDisciplineIds,
-  resolveRealId, currentYear, currentSemester, onAdd, onClose,
+  courseId,
+  currentDisciplineIds,
+  pageDisciplineIds,
+  extraDisciplineIds,
+  resolveRealId,
+  currentYear,
+  currentSemester,
+  onAdd,
+  onClose,
 }: {
   courseId: CourseId;
   currentDisciplineIds: Set<string>;
@@ -560,25 +584,38 @@ function AddExtraDisciplineModal({
 }) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const curriculum = CURRICULUM[courseId];
-  const entries    = useMemo(() => getCurriculumEntries(courseId), [courseId]);
-  const atLimit    = extraDisciplineIds.size >= MAX_EXTRA_DISCIPLINES;
+  const entries = useMemo(() => getCurriculumEntries(courseId), [courseId]);
+  const atLimit = extraDisciplineIds.size >= MAX_EXTRA_DISCIPLINES;
 
   const eligibleYears = useMemo(() => {
     const years = new Set<number>();
     for (const entry of entries) {
-      if (isSemesterAlreadyPassed(entry.year, entry.semester, currentYear, currentSemester))
+      if (
+        isSemesterAlreadyPassed(
+          entry.year,
+          entry.semester,
+          currentYear,
+          currentSemester
+        )
+      )
         years.add(entry.year);
     }
     return years;
   }, [entries, currentYear, currentSemester]);
 
-  const visibleEntries = useMemo(() =>
-    entries.filter((e) => {
-      const passed      = isSemesterAlreadyPassed(e.year, e.semester, currentYear, currentSemester);
-      const matchesYear = !selectedYear || e.year === selectedYear;
-      return passed && matchesYear;
-    }),
-    [entries, currentYear, currentSemester, selectedYear],
+  const visibleEntries = useMemo(
+    () =>
+      entries.filter((e) => {
+        const passed = isSemesterAlreadyPassed(
+          e.year,
+          e.semester,
+          currentYear,
+          currentSemester
+        );
+        const matchesYear = !selectedYear || e.year === selectedYear;
+        return passed && matchesYear;
+      }),
+    [entries, currentYear, currentSemester, selectedYear]
   );
 
   const grouped = useMemo(() => {
@@ -602,7 +639,6 @@ function AddExtraDisciplineModal({
         className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div>
             <h3 className="font-semibold text-white">Adicionar cadeira</h3>
@@ -619,7 +655,6 @@ function AddExtraDisciplineModal({
           </button>
         </div>
 
-        {/* Indicador de limite */}
         <div className="border-b border-white/5 px-5 py-3">
           <div className="flex items-center justify-between">
             <div className="flex gap-1.5">
@@ -632,25 +667,31 @@ function AddExtraDisciplineModal({
                 />
               ))}
             </div>
-            <span className={`text-xs font-medium ${atLimit ? "text-rose-400" : "text-slate-400"}`}>
+            <span
+              className={`text-xs font-medium ${
+                atLimit ? "text-rose-400" : "text-slate-400"
+              }`}
+            >
               {extraDisciplineIds.size}/{MAX_EXTRA_DISCIPLINES} cadeiras extras
             </span>
           </div>
           {atLimit && (
             <p className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-400">
-              <Lock size={11} /> Limite atingido. Remove uma cadeira para adicionar outra.
+              <Lock size={11} /> Limite atingido. Remove uma cadeira para
+              adicionar outra.
             </p>
           )}
         </div>
 
-        {/* Filtro por ano */}
         {hasEligible && (
           <div className="flex gap-2 border-b border-white/10 px-5 py-3">
             <button
               type="button"
               onClick={() => setSelectedYear(null)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                !selectedYear ? "bg-blue-600 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"
+                !selectedYear
+                  ? "bg-blue-600 text-white"
+                  : "bg-white/5 text-slate-400 hover:bg-white/10"
               }`}
             >
               Todos
@@ -663,7 +704,9 @@ function AddExtraDisciplineModal({
                   type="button"
                   onClick={() => setSelectedYear(y.year)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                    selectedYear === y.year ? "bg-blue-600 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"
+                    selectedYear === y.year
+                      ? "bg-blue-600 text-white"
+                      : "bg-white/5 text-slate-400 hover:bg-white/10"
                   }`}
                 >
                   {y.year}º Ano
@@ -672,12 +715,13 @@ function AddExtraDisciplineModal({
           </div>
         )}
 
-        {/* Lista */}
         <div className={`max-h-80 overflow-y-auto p-3 ${SCROLLBAR_CLASS}`}>
           {!hasEligible ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <Lock size={24} className="mb-3 text-slate-600" />
-              <p className="text-sm font-medium text-slate-400">Sem cadeiras disponíveis</p>
+              <p className="text-sm font-medium text-slate-400">
+                Sem cadeiras disponíveis
+              </p>
               <p className="mt-1 max-w-xs text-xs text-slate-600">
                 Só podes adicionar cadeiras de semestres já concluídos.
               </p>
@@ -694,41 +738,67 @@ function AddExtraDisciplineModal({
                 </p>
                 <div className="space-y-1">
                   {yearEntries.map((entry) => {
-                    const realId     = resolveRealId(entry.id);
-                    const isOnPage   = pageDisciplineIds.has(realId);
-                    const isAdded    = extraDisciplineIds.has(realId);
+                    const realId = resolveRealId(entry.id);
+                    const isOnPage = pageDisciplineIds.has(realId);
+                    const isAdded = extraDisciplineIds.has(realId);
                     const isDisabled = isOnPage || isAdded || (atLimit && !isAdded);
                     return (
                       <button
                         key={entry.id}
                         type="button"
                         disabled={isDisabled}
-                        onClick={() => { if (!isDisabled) { onAdd(realId); onClose(); } }}
+                        onClick={() => {
+                          if (!isDisabled) {
+                            onAdd(realId);
+                            onClose();
+                          }
+                        }}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                          isOnPage  ? "border border-blue-500/30 bg-blue-500/10 text-blue-200 ring-1 ring-blue-500/20"
-                          : isAdded ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                          : atLimit ? "cursor-not-allowed opacity-40 text-slate-500"
-                          : "text-slate-300 hover:bg-white/5"
+                          isOnPage
+                            ? "border border-blue-500/30 bg-blue-500/10 text-blue-200 ring-1 ring-blue-500/20"
+                            : isAdded
+                            ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                            : atLimit
+                            ? "cursor-not-allowed opacity-40 text-slate-500"
+                            : "text-slate-300 hover:bg-white/5"
                         }`}
                       >
-                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                          isOnPage  ? "border-blue-400/40 bg-blue-500/20"
-                          : isAdded ? "border-emerald-500/40 bg-emerald-500/20"
-                          : atLimit ? "border-white/5 bg-white/5"
-                          : "border-white/10 bg-white/5"
-                        }`}>
-                          {isOnPage  ? <CheckCircle2 size={12} className="text-blue-400" />
-                          : isAdded  ? <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                          : atLimit  ? <Lock size={9} className="text-slate-600" />
-                          : <Plus size={10} className="text-slate-500" />}
+                        <div
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                            isOnPage
+                              ? "border-blue-400/40 bg-blue-500/20"
+                              : isAdded
+                              ? "border-emerald-500/40 bg-emerald-500/20"
+                              : atLimit
+                              ? "border-white/5 bg-white/5"
+                              : "border-white/10 bg-white/5"
+                          }`}
+                        >
+                          {isOnPage ? (
+                            <CheckCircle2 size={12} className="text-blue-400" />
+                          ) : isAdded ? (
+                            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                          ) : atLimit ? (
+                            <Lock size={9} className="text-slate-600" />
+                          ) : (
+                            <Plus size={10} className="text-slate-500" />
+                          )}
                         </div>
                         <span className="flex-1 leading-snug">{entry.name}</span>
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-                          isOnPage  ? "bg-blue-500/15 text-blue-300"
-                          : isAdded ? "bg-emerald-500/15 text-emerald-300"
-                          : "bg-white/5 text-slate-600"
-                        }`}>
-                          {isOnPage ? "Na página" : isAdded ? "Adicionada" : `${entry.semester}º Sem`}
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                            isOnPage
+                              ? "bg-blue-500/15 text-blue-300"
+                              : isAdded
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-white/5 text-slate-600"
+                          }`}
+                        >
+                          {isOnPage
+                            ? "Na página"
+                            : isAdded
+                            ? "Adicionada"
+                            : `${entry.semester}º Sem`}
                         </span>
                       </button>
                     );
@@ -741,8 +811,8 @@ function AddExtraDisciplineModal({
 
         <div className="border-t border-white/5 px-5 py-3">
           <p className="text-[11px] text-slate-600">
-            Só são listadas cadeiras de semestres anteriores ao actual ({currentYear}º ano,{" "}
-            {currentSemester}º semestre).
+            Só são listadas cadeiras de semestres anteriores ao actual (
+            {currentYear}º ano, {currentSemester}º semestre).
           </p>
         </div>
       </div>
@@ -757,25 +827,34 @@ export default function DisciplinasPage() {
   const { user, profile, course } = useUser();
   const { supabase, user: authUser } = useSupabase();
 
-  const [activeFilters,  setActiveFilters]  = useState<Set<FilterId>>(new Set());
-  const [extraIds,       setExtraIds]       = useState<string[]>([]);
+  const [activeFilters, setActiveFilters] = useState<Set<FilterId>>(new Set());
+  const [extraIds, setExtraIds] = useState<string[]>([]);
   const [showExtraModal, setShowExtraModal] = useState(false);
-  const [viewMode,       setViewMode]       = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const [disciplineLookup, setDisciplineLookup] = useState<Record<string, string>>({});
-  const [lookupReady,      setLookupReady]      = useState(false);
+  const [lookupReady, setLookupReady] = useState(false);
+
+  const [extraDisciplineRows, setExtraDisciplineRows] = useState<Record<string, DisciplineRow>>({});
+  const fetchedExtraIdsRef = useRef<Set<string>>(new Set());
 
   /* ── Restaurar preferência de vista ── */
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_MODE_LS_KEY) as ViewMode | null;
       if (saved === "grid" || saved === "list") setViewMode(saved);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode);
-    try { localStorage.setItem(VIEW_MODE_LS_KEY, mode); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(VIEW_MODE_LS_KEY, mode);
+    } catch {
+      /* ignore */
+    }
   };
 
   /* ── Dados ── */
@@ -785,18 +864,85 @@ export default function DisciplinasPage() {
   const isLoading = discLoading || schedLoading;
 
   /* ── Curso e ano/semestre ── */
-  const courseName      = course?.name ?? user?.academic?.course ?? "";
-  const courseCode      = course?.code ?? "";
-  const currentYear     = profile?.current_year     ?? 1;
+  const courseName = course?.name ?? user?.academic?.course ?? "";
+  const courseCode = course?.code ?? "";
+  const currentYear = profile?.current_year ?? 1;
   const currentSemester = profile?.current_semester ?? 1;
 
-  const currentCourseId      = useMemo(() => resolveCourseId(courseName, courseCode), [courseName, courseCode]);
-  const currentCourseEntries = useMemo(() => getCurriculumEntries(currentCourseId), [currentCourseId]);
-  const pageDisciplineIds    = useMemo(() => new Set(disciplines.map((d) => d.id)), [disciplines]);
+  const currentCourseId = useMemo(
+    () => resolveCourseId(courseName, courseCode),
+    [courseName, courseCode]
+  );
+  const currentCourseEntries = useMemo(
+    () => getCurriculumEntries(currentCourseId),
+    [currentCourseId]
+  );
+  const pageDisciplineIds = useMemo(
+    () => new Set(disciplines.map((d) => d.id)),
+    [disciplines]
+  );
 
   const resolveLocalIdToRealId = useCallback(
-    (sourceId: string) => resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries),
-    [disciplineLookup, currentCourseEntries],
+    (sourceId: string) =>
+      resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries),
+    [disciplineLookup, currentCourseEntries]
+  );
+
+  /* ── Extras ── */
+  const normalizedExtraIds = useMemo(() => {
+    if (!lookupReady) return extraIds;
+    return [
+      ...new Set(
+        extraIds.map((id) =>
+          resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)
+        )
+      ),
+    ].filter((id) => !pageDisciplineIds.has(id));
+  }, [extraIds, lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds]);
+  
+  /* ── Função para buscar dados das extras ── */
+  const fetchExtraDisciplineRows = useCallback(
+    async (ids: string[]) => {
+      const idsToFetch = ids.filter((id) => !fetchedExtraIdsRef.current.has(id));
+      if (idsToFetch.length === 0) return;
+
+      idsToFetch.forEach((id) => fetchedExtraIdsRef.current.add(id));
+
+      try {
+        const { data, error: supaErr } = await supabase
+          .from("disciplines")
+          .select(
+            `id, name, code, cover_image_url, discipline_courses!inner(year, semester)`
+          )
+          .in("id", idsToFetch);
+
+        if (supaErr) throw supaErr;
+
+        setExtraDisciplineRows((prev) => {
+          const next = { ...prev };
+          for (const row of (data ?? []) as any[]) {
+            const dc = Array.isArray(row.discipline_courses)
+              ? row.discipline_courses[0]
+              : row.discipline_courses;
+            next[row.id] = {
+              id: row.id,
+              name: row.name,
+              code: row.code,
+              cover_image_url: row.cover_image_url,
+              year: dc?.year ?? null,
+              semester: dc?.semester ?? null,
+              chapters: [],
+              progress: 0,
+            } as unknown as DisciplineRow;
+          }
+          return next;
+        });
+      } catch (err) {
+        console.warn("Erro ao carregar dados das cadeiras extra:", err);
+        idsToFetch.forEach((id) => fetchedExtraIdsRef.current.delete(id));
+      }
+    },
+    [supabase]
   );
 
   /* ── Lookup ── */
@@ -804,7 +950,10 @@ export default function DisciplinasPage() {
     let active = true;
     const load = async () => {
       const courseUuid = profile?.course_id ?? undefined;
-      if (!courseUuid) { if (active) setLookupReady(true); return; }
+      if (!courseUuid) {
+        if (active) setLookupReady(true);
+        return;
+      }
       try {
         const { data, error: supaErr } = await supabase
           .from("discipline_courses")
@@ -816,7 +965,7 @@ export default function DisciplinasPage() {
           const disc = row.disciplines;
           if (!disc) continue;
           const realId = row.discipline_id || disc.id;
-          if (disc.id)   next[disc.id] = realId;
+          if (disc.id) next[disc.id] = realId;
           if (disc.code) next[String(disc.code).toUpperCase()] = realId;
           if (disc.name) next[normalizeText(disc.name)] = realId;
         }
@@ -824,22 +973,32 @@ export default function DisciplinasPage() {
       } catch (err) {
         console.error("Erro ao carregar lookup:", err);
       } finally {
-        if (active) setLookupReady(true);
+        if (active) {
+          setLookupReady(true);
+        }
       }
     };
     void load();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.course_id, supabase]);
 
-  /* ── Carregar cadeiras extra ── */
+  /* ── Carregar cadeiras extra (IDs) ── */
   useEffect(() => {
     const fromLS = () => {
       try {
         const raw = localStorage.getItem(EXTRA_DISC_LS_KEY);
         if (raw) setExtraIds(JSON.parse(raw) as string[]);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
-    if (!authUser) { fromLS(); return; }
+    if (!authUser) {
+      fromLS();
+      return;
+    }
     const fromSupa = async () => {
       try {
         const { data, error: e } = await supabase
@@ -848,7 +1007,9 @@ export default function DisciplinasPage() {
           .eq("student_id", authUser.id);
         if (e) throw e;
         setExtraIds((data ?? []).map((r: any) => r.discipline_id));
-      } catch { fromLS(); }
+      } catch {
+        fromLS();
+      }
     };
     void fromSupa();
   }, [authUser, supabase]);
@@ -857,28 +1018,40 @@ export default function DisciplinasPage() {
   useEffect(() => {
     if (!lookupReady) return;
     setExtraIds((prev) => {
-      const normalized = [...new Set(
-        prev.map((id) => resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)),
-      )].filter((id) => {
-        if (pageDisciplineIds.has(id)) return false;
-        const entry = currentCourseEntries.find((e) => {
-          const resolved = resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries);
-          return resolved === id;
-        });
-        if (!entry) return false;
-        return isSemesterAlreadyPassed(entry.year, entry.semester, currentYear, currentSemester);
-      });
+      const normalized = [
+        ...new Set(
+          prev.map((id) =>
+            resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)
+          )
+        ),
+      ]
+        .filter((id) => !pageDisciplineIds.has(id))
+        .slice(0, MAX_EXTRA_DISCIPLINES);
       const changed =
-        normalized.length !== prev.length || normalized.some((id, i) => id !== prev[i]);
+        normalized.length !== prev.length ||
+        normalized.some((id, i) => id !== prev[i]);
       if (!changed) return prev;
-      try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(normalized)); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(normalized));
+      } catch {
+        /* ignore */
+      }
       return normalized;
     });
-  }, [lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds, currentYear, currentSemester]);
+  }, [lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds]);
+
+  /* ── Sempre que os IDs normalizados mudarem, buscar os dados ── */
+  useEffect(() => {
+    if (lookupReady && normalizedExtraIds.length > 0) {
+      fetchExtraDisciplineRows(normalizedExtraIds);
+    }
+  }, [normalizedExtraIds, lookupReady, fetchExtraDisciplineRows]);
 
   /* ── Stats ── */
   const stats = useMemo(() => {
-    let audios = 0, slides = 0, quizzes = 0;
+    let audios = 0,
+      slides = 0,
+      quizzes = 0;
     for (const d of disciplines)
       for (const ch of d.chapters ?? [])
         for (const t of ch.topics ?? [])
@@ -888,7 +1061,9 @@ export default function DisciplinasPage() {
             else if (c.type === "quiz") quizzes++;
           }
     const avgProgress = disciplines.length
-      ? Math.round(disciplines.reduce((s, d) => s + (d.progress ?? 0), 0) / disciplines.length)
+      ? Math.round(
+          disciplines.reduce((s, d) => s + (d.progress ?? 0), 0) / disciplines.length
+        )
       : 0;
     return { total: disciplines.length, audios, slides, quizzes, avgProgress };
   }, [disciplines]);
@@ -897,7 +1072,7 @@ export default function DisciplinasPage() {
   const filtered = useMemo(() => {
     if (activeFilters.size === 0) return disciplines;
     return disciplines.filter((d) =>
-      [...activeFilters].every((f) => disciplineHasContentType(d, f)),
+      [...activeFilters].every((f) => disciplineHasContentType(d, f))
     );
   }, [disciplines, activeFilters]);
 
@@ -908,84 +1083,176 @@ export default function DisciplinasPage() {
       return next;
     });
 
-  /* ── Extras ── */
-  const normalizedExtraIds = useMemo(() => {
-    if (!lookupReady) return extraIds;
-    return [...new Set(
-      extraIds.map((id) => resolveRealDisciplineId(id, disciplineLookup, currentCourseEntries)),
-    )].filter((id) => !pageDisciplineIds.has(id));
-  }, [extraIds, lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds]);
 
-  const extraDisciplineIdsSet = useMemo(() => new Set(normalizedExtraIds), [normalizedExtraIds]);
+  const extraDisciplineIdsSet = useMemo(
+    () => new Set(normalizedExtraIds),
+    [normalizedExtraIds]
+  );
 
   const currentDisciplineIds = useMemo(
     () => new Set([...disciplines.map((d) => d.id), ...normalizedExtraIds]),
-    [disciplines, normalizedExtraIds],
+    [disciplines, normalizedExtraIds]
   );
 
-  const extraDisciplineCards = useMemo(() => {
+  const extraDisciplineCards = useMemo<DisciplineCardData[]>(() => {
     if (!lookupReady) return [];
-    return normalizedExtraIds
-      .map((realId) => {
-        const entry = currentCourseEntries.find((e) => {
-          const resolved = resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries);
-          return resolved === realId;
+    const cards: DisciplineCardData[] = [];
+
+    for (const realId of normalizedExtraIds) {
+      const row = extraDisciplineRows[realId];
+      const entry = currentCourseEntries.find((e) => {
+        const resolved = resolveRealDisciplineId(
+          e.id,
+          disciplineLookup,
+          currentCourseEntries
+        );
+        return resolved === realId;
+      });
+
+      if (row) {
+        cards.push({
+          id: realId,
+          title: row.name ?? entry?.name ?? "",
+          code: row.code ?? entry?.code ?? "",
+          href: `/disciplinas/${realId}`,
+          coverUrl: row.cover_image_url ?? null,
+          progress: 0,
+          year: entry
+            ? `${entry.year}º Ano`
+            : row.year
+            ? `${row.year}º Ano`
+            : "",
+          semester: entry
+            ? `${entry.semester}º Semestre`
+            : row.semester
+            ? `${row.semester}º Semestre`
+            : "",
+          lessonCount: 0,
+          chaptersCount: 0,
+          contentCounts: { audio: 0, slide: 0, quiz: 0 },
         });
-        if (!entry) return null;
-        return toExtraCardData(entry, realId);
-      })
-      .filter((d): d is DisciplineCardData => !!d);
-  }, [normalizedExtraIds, lookupReady, currentCourseEntries, disciplineLookup]);
+        continue;
+      }
+
+      if (entry) {
+        cards.push(toExtraCardData(entry, realId));
+      }
+    }
+
+    return cards;
+  }, [
+    normalizedExtraIds,
+    lookupReady,
+    currentCourseEntries,
+    disciplineLookup,
+    extraDisciplineRows,
+  ]);
 
   const atExtraLimit = normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES;
 
   /* ── Adicionar / remover extras ── */
-  const addExtra = useCallback(async (sourceId: string) => {
-    if (normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES) return;
-    const realId = resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries);
-    const entry  = currentCourseEntries.find((e) =>
-      resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries) === realId,
-    );
-    if (!entry || !isSemesterAlreadyPassed(entry.year, entry.semester, currentYear, currentSemester)) return;
-    const newIds = [...new Set([...normalizedExtraIds, realId])].filter((id) => !pageDisciplineIds.has(id));
-    setExtraIds(newIds);
-    if (authUser) {
-      try {
-        await supabase
-          .from("student_extra_disciplines")
-          .upsert(
-            { student_id: authUser.id, discipline_id: realId },
-            { onConflict: "student_id,discipline_id" },
+  const addExtra = useCallback(
+    async (sourceId: string) => {
+      if (normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES) return;
+      const realId = resolveRealDisciplineId(
+        sourceId,
+        disciplineLookup,
+        currentCourseEntries
+      );
+      const entry = currentCourseEntries.find(
+        (e) =>
+          resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries) ===
+          realId
+      );
+      if (
+        !entry ||
+        !isSemesterAlreadyPassed(
+          entry.year,
+          entry.semester,
+          currentYear,
+          currentSemester
+        )
+      )
+        return;
+      const newIds = [...new Set([...normalizedExtraIds, realId])].filter(
+        (id) => !pageDisciplineIds.has(id)
+      );
+      setExtraIds(newIds);
+      if (authUser) {
+        try {
+          await supabase.from("student_extra_disciplines").upsert(
+            { student_id: authUser.id, discipline_id: realId } as any,
+            { onConflict: "student_id,discipline_id" }
           );
-      } catch {
-        try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
+        } catch {
+          try {
+            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+          } catch {
+            /* ignore */
+          }
+        }
+      } else {
+        try {
+          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+        } catch {
+          /* ignore */
+        }
       }
-    } else {
-      try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
-    }
-  }, [authUser, supabase, disciplineLookup, currentCourseEntries, normalizedExtraIds, pageDisciplineIds, currentYear, currentSemester]);
+    },
+    [
+      authUser,
+      supabase,
+      disciplineLookup,
+      currentCourseEntries,
+      normalizedExtraIds,
+      pageDisciplineIds,
+      currentYear,
+      currentSemester,
+    ]
+  );
 
-  const removeExtra = useCallback(async (disciplineId: string) => {
-    const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
-    setExtraIds(newIds);
-    if (authUser) {
-      try {
-        await supabase
-          .from("student_extra_disciplines")
-          .delete()
-          .eq("student_id", authUser.id)
-          .eq("discipline_id", disciplineId);
-      } catch {
-        try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
+  const removeExtra = useCallback(
+    async (disciplineId: string) => {
+      setExtraIds((prev) => prev.filter((id) => id !== disciplineId));
+      setExtraDisciplineRows((prev) => {
+        const next = { ...prev };
+        delete next[disciplineId];
+        return next;
+      });
+      fetchedExtraIdsRef.current.delete(disciplineId);
+
+      if (authUser) {
+        try {
+          await supabase
+            .from("student_extra_disciplines")
+            .delete()
+            .eq("student_id", authUser.id)
+            .eq("discipline_id", disciplineId);
+        } catch {
+          try {
+            const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
+            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+          } catch {
+            /* ignore */
+          }
+        }
+      } else {
+        try {
+          const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
+          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
+        } catch {
+          /* ignore */
+        }
       }
-    } else {
-      try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
-    }
-  }, [authUser, supabase, normalizedExtraIds]);
+    },
+    [authUser, supabase, normalizedExtraIds]
+  );
 
-  const yearLabel     = profile?.current_year     ? `${profile.current_year}º Ano`         : "";
-  const semesterLabel = profile?.current_semester ? `${profile.current_semester}º Semestre` : "";
-  const courseAbbr    = course?.code ?? courseName;
+  const yearLabel = profile?.current_year ? `${profile.current_year}º Ano` : "";
+  const semesterLabel = profile?.current_semester
+    ? `${profile.current_semester}º Semestre`
+    : "";
+  const courseAbbr = course?.code ?? courseName;
 
   /* ── Loading ── */
   if (isLoading) {
@@ -994,11 +1261,15 @@ export default function DisciplinasPage() {
         <div className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
         {viewMode === "grid" ? (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => <ListSkeleton key={i} />)}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ListSkeleton key={i} />
+            ))}
           </div>
         )}
       </div>
@@ -1010,7 +1281,9 @@ export default function DisciplinasPage() {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/5 py-16 text-center">
         <AlertCircle size={28} className="text-rose-400" />
-        <p className="mt-3 font-semibold text-slate-200">Erro ao carregar disciplinas</p>
+        <p className="mt-3 font-semibold text-slate-200">
+          Erro ao carregar disciplinas
+        </p>
         <p className="mt-1 text-sm text-slate-500">{error}</p>
         <button
           type="button"
@@ -1028,7 +1301,6 @@ export default function DisciplinasPage() {
   ================================================================ */
   return (
     <div className="space-y-6">
-
       {/* ── Cabeçalho ── */}
       <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">
@@ -1045,13 +1317,21 @@ export default function DisciplinasPage() {
               <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
                 <TrendingUp size={16} className="shrink-0 text-blue-500" />
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Progresso médio</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-white">{stats.avgProgress}%</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Progresso médio
+                  </p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">
+                    {stats.avgProgress}%
+                  </p>
                 </div>
                 <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Disciplinas</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-white">{stats.total}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                    Disciplinas
+                  </p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">
+                    {stats.total}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1059,14 +1339,16 @@ export default function DisciplinasPage() {
         </div>
         <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-white/5">
           {[
-            { icon: Headphones, label: "Áudios",  value: stats.audios,  color: "text-blue-500"   },
-            { icon: FileText,   label: "Slides",  value: stats.slides,  color: "text-indigo-500" },
-            { icon: Trophy,     label: "Quizzes", value: stats.quizzes, color: "text-amber-500"  },
+            { icon: Headphones, label: "Áudios", value: stats.audios, color: "text-blue-500" },
+            { icon: FileText, label: "Slides", value: stats.slides, color: "text-indigo-500" },
+            { icon: Trophy, label: "Quizzes", value: stats.quizzes, color: "text-amber-500" },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="flex items-center gap-2.5 px-4 py-3">
               <Icon size={15} className={`${color} opacity-80`} />
               <div>
-                <p className="text-base font-bold leading-none text-slate-800 dark:text-white">{value}</p>
+                <p className="text-base font-bold leading-none text-slate-800 dark:text-white">
+                  {value}
+                </p>
                 <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
               </div>
             </div>
@@ -1077,7 +1359,9 @@ export default function DisciplinasPage() {
       {/* ── Filtros ── */}
       <div className="flex min-w-0 items-center gap-2">
         <SlidersHorizontal size={13} className="shrink-0 text-slate-400" />
-        <span className="hidden shrink-0 text-xs text-slate-400 sm:block">Filtrar por:</span>
+        <span className="hidden shrink-0 text-xs text-slate-400 sm:block">
+          Filtrar por:
+        </span>
         <div className="flex flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
           {CONTENT_FILTERS.map(({ id, label, icon: Icon }) => {
             const active = activeFilters.has(id);
@@ -1182,9 +1466,13 @@ export default function DisciplinasPage() {
               Cadeiras adicionais
             </h2>
             {extraDisciplineCards.length > 0 && (
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                atExtraLimit ? "bg-rose-500/15 text-rose-400" : "bg-indigo-500/15 text-indigo-400"
-              }`}>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  atExtraLimit
+                    ? "bg-rose-500/15 text-rose-400"
+                    : "bg-indigo-500/15 text-indigo-400"
+                }`}
+              >
                 {extraDisciplineCards.length}/{MAX_EXTRA_DISCIPLINES}
               </span>
             )}
@@ -1207,12 +1495,16 @@ export default function DisciplinasPage() {
         </div>
 
         {lookupReady && extraDisciplineCards.length > 0 && (
-          <ExtraLimitBanner current={extraDisciplineCards.length} max={MAX_EXTRA_DISCIPLINES} />
+          <ExtraLimitBanner
+            current={extraDisciplineCards.length}
+            max={MAX_EXTRA_DISCIPLINES}
+          />
         )}
 
         <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-xs text-slate-500">
           Cadeiras de semestres anteriores em regime de recurso ou melhoria.
-          Máximo de <strong className="text-slate-400">{MAX_EXTRA_DISCIPLINES}</strong> cadeiras.
+          Máximo de <strong className="text-slate-400">{MAX_EXTRA_DISCIPLINES}</strong>{" "}
+          cadeiras.
         </div>
 
         {!lookupReady ? (
@@ -1224,25 +1516,13 @@ export default function DisciplinasPage() {
           viewMode === "grid" ? (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {extraDisciplineCards.map((d) => (
-                <div key={d.id} className="relative">
-                  <div className="absolute -top-2 left-3 z-10">
-                    <span className="rounded-full border border-indigo-500/30 bg-slate-900 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
-                      Semestre anterior
-                    </span>
-                  </div>
-                  <DisciplineCard
-                    discipline={d}
-                    scheduleInfo={scheduleInfoMap.get(d.id)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void removeExtra(d.id)}
-                    className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-slate-400 backdrop-blur-sm transition hover:bg-rose-500/20 hover:text-rose-400"
-                    title="Remover cadeira"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
+                <DisciplineCard
+                  key={d.id}
+                  discipline={d}
+                  scheduleInfo={scheduleInfoMap.get(d.id)}
+                  badge="Semestre anterior"
+                  onRemove={() => void removeExtra(d.id)}
+                />
               ))}
             </div>
           ) : (
@@ -1258,12 +1538,20 @@ export default function DisciplinasPage() {
               ))}
             </div>
           )
+        ) : normalizedExtraIds.length > 0 ? (
+          <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-slate-950/40 py-10 text-sm text-slate-400">
+            <Loader2 size={16} className="mr-2 animate-spin" />
+            A carregar dados das cadeiras adicionais…
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-10 text-center">
             <GraduationCap size={24} className="mb-2 text-slate-600" />
-            <p className="text-sm font-medium text-slate-500">Nenhuma cadeira adicional</p>
+            <p className="text-sm font-medium text-slate-500">
+              Nenhuma cadeira adicional
+            </p>
             <p className="mt-1 text-xs text-slate-600">
-              Frequentas cadeiras de semestres anteriores? Adiciona-as para aceder aos materiais.
+              Frequentas cadeiras de semestres anteriores? Adiciona-as para aceder
+              aos materiais.
             </p>
           </div>
         )}

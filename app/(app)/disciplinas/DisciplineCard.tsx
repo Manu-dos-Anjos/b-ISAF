@@ -10,6 +10,7 @@ import {
   Clock,
   MapPin,
   ArrowRight,
+  Trash2,
 } from "lucide-react";
 
 /* ================================================================
@@ -44,6 +45,10 @@ export type DisciplineScheduleInfo = {
 type Props = {
   discipline:    DisciplineCardData;
   scheduleInfo?: DisciplineScheduleInfo | null;
+  /** Ex: "Semestre anterior" — mostra um selo discreto sobre a capa */
+  badge?:        string;
+  /** Se definido, mostra um botão de remover integrado à capa */
+  onRemove?:     () => void;
 };
 
 /* ================================================================
@@ -66,7 +71,7 @@ const TYPE_BADGE: Record<string, string> = {
    COMPONENTE PRINCIPAL
 ================================================================ */
 
-export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
+export default function DisciplineCard({ discipline, scheduleInfo, badge, onRemove }: Props) {
   const { contentCounts: counts } = discipline;
   const next       = scheduleInfo?.nextClass;
   const hasContent = counts.audio > 0 || counts.slide > 0 || counts.quiz > 0;
@@ -98,16 +103,40 @@ export default function DisciplineCard({ discipline, scheduleInfo }: Props) {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/20 to-slate-950/30" />
 
         {/* ── Badge ano · semestre (topo esquerdo) ── */}
-        <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white/90 shadow-sm backdrop-blur-sm ring-1 ring-white/10">
-          <BookOpen size={11} className="opacity-70" />
-          <span>
-            {discipline.year} · {discipline.semester}
-          </span>
+        <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
+          <div className="flex items-center gap-1.5 rounded-full bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white/90 shadow-sm backdrop-blur-sm ring-1 ring-white/10">
+            <BookOpen size={11} className="opacity-70" />
+            <span>
+              {discipline.year} · {discipline.semester}
+            </span>
+          </div>
+
+          {/* Selo opcional (ex: "Semestre anterior") */}
+          {badge && (
+            <span className="rounded-full border border-indigo-500/30 bg-slate-950/80 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-300 backdrop-blur-sm">
+              {badge}
+            </span>
+          )}
         </div>
 
-        {/* ── Progresso circular (topo direito) ── */}
-        <div className="absolute right-3 top-3">
+        {/* ── Progresso circular + remover (topo direito) ── */}
+        <div className="absolute right-3 top-3 flex items-center gap-1.5">
           <CircularProgress value={discipline.progress} />
+
+          {onRemove && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRemove();
+              }}
+              title="Remover cadeira"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/70 text-slate-300 shadow-sm backdrop-blur-sm ring-1 ring-white/10 transition hover:bg-rose-500/30 hover:text-rose-300"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
         </div>
 
         {/* ── Título + código — fundo escuro unificado ── */}
