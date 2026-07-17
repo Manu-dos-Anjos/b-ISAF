@@ -35,7 +35,7 @@ import {
   Bookmark,
 } from "lucide-react";
 
-import RevealViewer from "@/app/components/slides/RevealViewer";
+import SlideViewer from "@/app/components/slides/SlideViewer";
 import QuizPlayer from "@/app/components/quiz/QuizPlayer";
 import { useLocalStorageState } from "@/app/lib/hooks/useLocalStorageState";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
@@ -152,8 +152,18 @@ const MOBILE_PANEL_W = 0.94;
 const MOBILE_PANEL_H = 0.82;
 const CONTROLS_HIDE_DELAY = 3000;
 
+// Altura fixa dos dois cabeçalhos "sticky" do painel desktop (índice + tema)
+// — garante que a linha divisória fica ao mesmo nível dos dois lados,
+// independentemente do título ter uma ou duas linhas de texto.
+const PANEL_HEADER_H = "h-[72px]";
+
+// Botão de ação de conteúdo (áudio/slide/tutor): em mobile mostra apenas o
+// ícone (quadrado compacto), a partir de `sm:` (≥640px) mostra ícone + texto.
 const ACTION_BTN =
-  "inline-flex min-h-10 w-full sm:w-auto items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap transition-all duration-200 shadow-sm";
+  "inline-flex h-9 flex-1 min-w-0 shrink-0 items-center justify-center gap-2 rounded-xl shadow-sm transition-all duration-200 sm:h-auto sm:w-auto sm:flex-none sm:rounded-2xl sm:px-4 sm:py-2.5";
+
+const ACTION_LABEL =
+  "hidden text-[11px] font-semibold uppercase tracking-wide sm:inline";
 
 const SCROLLBAR_CLASS = [
   "scrollbar-thin",
@@ -168,6 +178,179 @@ const SCROLLBAR_CLASS = [
 ].join(" ");
 
 /* ================================================================
+   BODY SCROLL LOCK
+   Impede que a página por trás de um overlay fixo (bottom sheet, modal)
+   faça scroll em iOS Safari. É necessário porque, quando o gesto de swipe
+   começa dentro de um <iframe> (ex.: o visualizador de slides), o iOS por
+   vezes propaga esse gesto para o <body> da página — mesmo com o overlay
+   em position:fixed por cima — já que o iframe é um documento à parte e
+   os nossos listeners de toque no wrapper nunca chegam a intercetá-lo.
+   A única forma 100% fiável de evitar isto é fixar o próprio <body> na
+   posição de scroll atual enquanto o overlay estiver aberto, para que
+   simplesmente não haja "para onde" a página ir.
+================================================================ */
+function useBodyScrollLock(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+
+    const body = document.body.style;
+    const html = document.documentElement.style;
+
+    const prev = {
+      bodyOverflow: body.overflow,
+      bodyOverscroll: (body as any).overscrollBehavior,
+      htmlOverflow: html.overflow,
+      htmlOverscroll: (html as any).overscrollBehavior,
+    };
+
+    // Em vez de position:fixed (que quebra o touch scroll e os cliques
+    // DENTRO de iframes com scroll próprio em Safari/Chrome mobile),
+    // usamos overflow:hidden + overscroll-behavior:none. Isto bloqueia
+    // o "scroll chaining" (o swipe que chega ao fim do iframe e escapa
+    // para a página) sem nunca mexer na posição/layout do body — por
+    // isso não interfere com o scroll nem com os cliques nativos do
+    // conteúdo dentro do iframe.
+    body.overflow = "hidden";
+    html.overflow = "hidden";
+    (body as any).overscrollBehavior = "none";
+    (html as any).overscrollBehavior = "none";
+
+    return () => {
+      body.overflow = prev.bodyOverflow;
+      html.overflow = prev.htmlOverflow;
+      (body as any).overscrollBehavior = prev.bodyOverscroll;
+      (html as any).overscrollBehavior = prev.htmlOverscroll;
+    };
+  }, [active]);
+}
+
+/* ================================================================
+   MOBILE SLIDE SHEET — componente separado para registar listeners
+   nativos com passive:false (única forma fiável de o fazer em React)
+================================================================ */
+function MobileSlideSheet({
+  panel,
+  index,
+  theme,
+  onRotate,
+  onFullscreen,
+  onClose,
+  panelRef,
+}: {
+  panel: FloatingContentPanel;
+  index: number;
+  theme: { borderClass: string; iconClass: string };
+  onRotate: () => void;
+  onFullscreen: () => void;
+  onClose: () => void;
+  panelRef: (el: HTMLDivElement | null) => void;
+}) {
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const dragZoneRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = dragZoneRef.current;
+    if (!el) return;
+
+    const stopTouch = (e: TouchEvent) => {
+      e.stopPropagation();
+    };
+    const stopWheel = (e: WheelEvent) => {
+      e.stopPropagation();
+    };
+
+    el.addEventListener("touchstart", stopTouch, { passive: false });
+    el.addEventListener("touchmove", stopTouch, { passive: false });
+    el.addEventListener("touchend", stopTouch, { passive: false });
+    el.addEventListener("wheel", stopWheel, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchstart", stopTouch);
+      el.removeEventListener("touchmove", stopTouch);
+      el.removeEventListener("touchend", stopTouch);
+      el.removeEventListener("wheel", stopWheel);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={(el) => {
+        sheetRef.current = el;
+        panelRef(el);
+      }}
+      data-panel-id={panel.id}
+      style={{ height: "88dvh", zIndex: 60 + index }}
+      className="fixed bottom-0 left-0 right-0 flex flex-col overflow-hidden rounded-t-3xl border-t border-x border-white/10 bg-slate-950/95 shadow-[0_-20px_60px_rgba(0,0,0,0.6)] backdrop-blur-2xl"
+    >
+      {/* Handle + cabeçalho: só esta zona intercepta o toque para permitir
+          arrastar o sheet, sem interferir com o scroll/cliques dentro do iframe */}
+      <div ref={dragZoneRef}>
+        {/* Handle */}
+        <div className="flex shrink-0 justify-center py-2.5">
+          <div className="h-1.5 w-12 rounded-full bg-white/20" />
+        </div>
+
+        {/* Barra de título */}
+        <div
+          className={`shrink-0 flex items-center justify-between gap-2 border-b bg-black/30 px-4 py-2.5 ${theme.borderClass}`}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 ${theme.iconClass}`}
+            >
+              <FileText size={14} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-xs font-bold text-white">
+                {panel.context.content.title}
+              </h3>
+              <p className="truncate text-[10px] text-slate-500 mt-0.5">
+                {panel.context.chapter}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={onRotate}
+              className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10"
+              title="Rodar"
+            >
+              <RotateCw size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={onFullscreen}
+              className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              title="Maximizar"
+            >
+              <Maximize2 size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl p-2 text-slate-400 transition hover:bg-red-500/15 hover:text-red-400"
+              title="Fechar"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Conteúdo — sem listeners de toque a interceptar, o gesto vai direto para o iframe */}
+      <div className="relative min-h-0 flex-1 bg-black/80">
+        <SlideViewer
+          url={panel.context.content.url ?? ""}
+          title={panel.context.content.title}
+        />
+      </div>
+    </div>
+  );
+}
+
+
+/* ================================================================
    COMPONENTE PRINCIPAL
 ================================================================ */
 
@@ -176,7 +359,8 @@ export default function DisciplineClient({ discipline }: Props) {
 
   const { supabase } = useSupabase();
 
-  /* ── Detecção mobile ── */
+  /* ── Detecção mobile (usada só para lógicas de comportamento, não de
+       estilo — o estilo responsivo usa classes Tailwind diretamente) ── */
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -344,14 +528,17 @@ export default function DisciplineClient({ discipline }: Props) {
   /* ── Áudio global ── */
   const audioPlayer = useAudioPlayer();
 
-  /* ── Painéis flutuantes ── */
-  const [contentPanels, setContentPanels] = useLocalStorageState<
-    FloatingContentPanel[]
-  >(`dc-contentPanels-${discipline.id}`, []);
+  /* ── Painéis flutuantes ──
+     IMPORTANTE: o argumento de tipo genérico tem de ficar na MESMA linha
+     do nome da função (useLocalStorageState<Tipo>(...)). Quebrar o `<...>`
+     em várias linhas faz o parser do Turbopack (SWC) confundir isto com
+     JSX dentro de um ficheiro .tsx, causando "Expression expected". */
+  const [contentPanels, setContentPanels] = useLocalStorageState<FloatingContentPanel[]>(
+    `dc-contentPanels-${discipline.id}`,
+    []
+  );
   const [isDraggingContent, setIsDraggingContent] = useState(false);
-  const [browserFullscreenPanelId, setBrowserFullscreenPanelId] = useState<
-    string | null
-  >(null);
+  const [browserFullscreenPanelId, setBrowserFullscreenPanelId] = useState<string | null>(null);
 
   const contentDragRef = useRef<FloatingContentDragState | null>(null);
   const contentPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -371,28 +558,40 @@ export default function DisciplineClient({ discipline }: Props) {
   }, []);
 
   /* ── Carregar guardados ── */
+  const supabaseRef = useRef(supabase);
+  supabaseRef.current = supabase;
+
   useEffect(() => {
+    let cancelled = false;
+
     const loadSaved = async () => {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await supabaseRef.current.auth.getUser();
 
-      if (!user) return;
+      if (!user || cancelled) return;
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabaseRef.current as any)
         .from("saved_items")
         .select("content_id")
         .eq("student_id", user.id);
 
-      if (!error && data) {
+      if (!error && data && !cancelled) {
         setSavedContentIds(
-          new Set((data as { content_id: string }[]).map((item) => item.content_id))
+          new Set(
+            (data as { content_id: string }[]).map((item) => item.content_id)
+          )
         );
       }
     };
 
     void loadSaved();
-  }, [supabase]);
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Corre apenas uma vez — supabase é um singleton estável
 
   /* ── Toggle guardado ── */
   const toggleSaved = async (contentId: string) => {
@@ -775,6 +974,14 @@ export default function DisciplineClient({ discipline }: Props) {
     };
   }, [isDraggingContent]);
 
+  /* ── Lock de scroll do body enquanto algum overlay fixo está aberto ──
+     Ver comentário junto à definição de useBodyScrollLock, acima. */
+  const isMobileSlideSheetOpen = isMobile && contentPanels.length > 0;
+  const isMobileTutorSheetOpen = isMobile && isTutorOpen;
+  useBodyScrollLock(
+    isMobileSlideSheetOpen || isMobileTutorSheetOpen || isVideoOpen || !!activeQuiz
+  );
+
   /* ── Computed ── */
   const activeChapter = chapters.find((ch) => ch.id === activeChapterId) ?? chapters[0] ?? null;
 
@@ -841,27 +1048,15 @@ export default function DisciplineClient({ discipline }: Props) {
       prev.map((p) => (p.id === id ? { ...p, isFullscreen: !p.isFullscreen } : p))
     );
 
-  const rotatePanelMobile = async (id: string) => {
+  const rotatePanel = (id: string) => {
     const current = contentPanels.find((p) => p.id === id);
     const next: 0 | 90 = (current?.rotation ?? 0) === 0 ? 90 : 0;
     setContentPanels((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, rotation: next, isFullscreen: next === 90 } : p
-      )
+      prev.map((p) => (p.id === id ? { ...p, rotation: next } : p))
     );
-    if (!isMobile) {
-      try {
-        const el = contentPanelRefs.current[id];
-        if (next === 90) {
-          if (document.fullscreenElement) await document.exitFullscreen();
-          if (el) await el.requestFullscreen();
-        } else if (document.fullscreenElement) {
-          await document.exitFullscreen();
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+    // Não tentamos requestFullscreen — o CSS transform é suficiente e
+    // requestFullscreen falha silenciosamente no Safari iOS e causa o
+    // "piscar" que se observava.
   };
 
   const applyTutorPreset = (width: number, height: number) => {
@@ -926,16 +1121,6 @@ export default function DisciplineClient({ discipline }: Props) {
     });
   };
 
-  /* ── Abrir quiz ── */
-  const openQuiz = (content: TopicContent) => {
-    setActiveQuiz({
-      contentId: content.id,
-      title: content.title,
-      chapterTitle: activeChapter?.title ?? "",
-      timeLimitSecs: (content as any).timeLimitSeconds ?? null,
-    });
-  };
-
   /* ================================================================
      SUB-RENDERS
   ================================================================ */
@@ -950,7 +1135,7 @@ export default function DisciplineClient({ discipline }: Props) {
         onClick={() => void toggleSaved(contentId)}
         disabled={isSaving}
         title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
-        className={`shrink-0 rounded-xl p-2.5 transition disabled:opacity-50 ${
+        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition disabled:opacity-50 sm:h-auto sm:w-auto sm:p-2.5 ${
           isSaved
             ? "border border-amber-500/30 bg-amber-500/15 text-amber-400"
             : "border border-white/10 bg-white/5 text-slate-500 hover:border-amber-500/30 hover:text-amber-400"
@@ -965,37 +1150,28 @@ export default function DisciplineClient({ discipline }: Props) {
     );
   };
 
+  /**
+   * Botão de um conteúdo de tema (áudio ou slide). Questionários são
+   * geridos apenas ao nível do capítulo (ver renderChapterQuizBanner),
+   * por isso este helper ignora-os de forma defensiva caso apareçam aqui.
+   */
   const renderContentBtn = (content: TopicContent, topicTitle: string) => {
+    if (content.type !== "audio" && content.type !== "slide") return null;
+
     const Icon = getContentIcon(content.type);
     const cls = getContentButtonClass(content.type);
-
-    if (content.type === "quiz") {
-      return (
-        <div key={content.id} className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => openQuiz(content)}
-            className={`${ACTION_BTN} ${cls}`}
-            title={content.title}
-          >
-            <Icon size={14} />
-            <span>Questionário</span>
-          </button>
-          {renderSaveBtn(content.id)}
-        </div>
-      );
-    }
+    const label = content.type === "audio" ? "Áudio" : "Slide";
 
     return (
-      <div key={content.id} className="flex items-center gap-1.5">
+      <div key={content.id} className="flex items-center gap-1">
         <button
           type="button"
           onClick={() => openContent(content, topicTitle)}
+          title={`${label}: ${content.title}`}
           className={`${ACTION_BTN} ${cls}`}
-          title={content.title}
         >
-          <Icon size={14} />
-          <span>{content.type === "audio" ? "Áudio" : "Slide"}</span>
+          <Icon size={16} />
+          <span className={ACTION_LABEL}>{label}</span>
         </button>
         {renderSaveBtn(content.id)}
       </div>
@@ -1003,68 +1179,76 @@ export default function DisciplineClient({ discipline }: Props) {
   };
 
   const renderTopicActions = (topic: Topic) => {
-    const contents = topic.contents ?? [];
-    return (
-      <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-        {contents
-          .filter((c) => c.type === "audio")
-          .map((c) => renderContentBtn(c, topic.title))}
-        {contents
-          .filter((c) => c.type === "slide")
-          .map((c) => renderContentBtn(c, topic.title))}
-        {contents
-          .filter((c) => c.type === "quiz")
-          .map((c) => renderContentBtn(c, topic.title))}
-        <button
-          type="button"
-          onClick={() => openTutor(topic.title)}
-          className={`${ACTION_BTN} border border-violet-500/30 bg-gradient-to-r from-violet-600/15 to-indigo-600/15 text-violet-300 hover:from-violet-600/25 hover:to-indigo-600/25 hover:border-violet-400/50 hover:text-white shadow-violet-500/10`}
-        >
-          <Sparkles size={14} />
-          <span>Tutor IA</span>
-        </button>
-      </div>
-    );
-  };
-
-  const renderChapterQuizBanner = (chapter: Chapter) => {
-    const quizContent = (chapter.topics ?? [])
-      .flatMap((t) => t.contents ?? [])
-      .find((c) => c.type === "quiz");
-
-    if (!quizContent) return null;
-
-    return (
+  const contents = topic.contents ?? [];
+  return (
+    <div className="grid w-full grid-flow-col auto-cols-fr items-stretch gap-1.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:ml-auto sm:justify-end">
+      {contents.map((c) => renderContentBtn(c, topic.title))}
       <button
         type="button"
-        onClick={() =>
-          setActiveQuiz({
-            contentId: quizContent.id,
-            title: quizContent.title,
-            chapterTitle: chapter.title,
-            timeLimitSecs: (quizContent as any).timeLimitSeconds ?? null,
-          })
-        }
-        className="mt-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-500/20 bg-indigo-500/8 px-4 py-3 text-left transition hover:border-indigo-500/40 hover:bg-indigo-500/12 active:scale-[0.99]"
+        onClick={() => openTutor(topic.title)}
+        title="Tutor IA"
+        className={`${ACTION_BTN} border border-violet-500/30 bg-gradient-to-r from-violet-600/15 to-indigo-600/15 text-violet-300 hover:from-violet-600/25 hover:to-indigo-600/25 hover:border-violet-400/50 hover:text-white shadow-violet-500/10`}
       >
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15">
-            <Trophy size={14} className="text-indigo-400" />
-          </div>
-          <div>
-            <p className="line-clamp-1 text-xs font-bold leading-snug text-indigo-300">
-              {quizContent.title}
-            </p>
-            <p className="text-[11px] text-indigo-400/60">
-              {(quizContent as any).timeLimitSeconds
-                ? `⏱ ${Math.floor((quizContent as any).timeLimitSeconds / 60)} min · `
-                : ""}
-              Questionário do capítulo
-            </p>
-          </div>
-        </div>
-        <ChevronRight size={14} className="shrink-0 text-indigo-400/50" />
+        <Sparkles size={16} />
+        <span className={ACTION_LABEL}>Tutor IA</span>
       </button>
+    </div>
+  );
+};
+
+  /**
+   * Questionários pertencem ao capítulo, não a um tema específico.
+   * Recolhe todos os conteúdos do tipo "quiz" em qualquer tema do
+   * capítulo (sem duplicados) e mostra um banner por cada um.
+   */
+  const renderChapterQuizBanner = (chapter: Chapter) => {
+    const seen = new Set<string>();
+    const quizzes = (chapter.topics ?? [])
+      .flatMap((t) => t.contents ?? [])
+      .filter((c) => {
+        if (c.type !== "quiz" || seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+
+    if (quizzes.length === 0) return null;
+
+    return (
+      <div className="mt-3 space-y-2">
+        {quizzes.map((quizContent) => (
+          <button
+            key={quizContent.id}
+            type="button"
+            onClick={() =>
+              setActiveQuiz({
+                contentId: quizContent.id,
+                title: quizContent.title,
+                chapterTitle: chapter.title,
+                timeLimitSecs: (quizContent as any).timeLimitSeconds ?? null,
+              })
+            }
+            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-500/20 bg-indigo-500/8 px-4 py-3 text-left transition hover:border-indigo-500/40 hover:bg-indigo-500/12 active:scale-[0.99]"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15">
+                <Trophy size={14} className="text-indigo-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="line-clamp-1 text-xs font-bold leading-snug text-indigo-300">
+                  {quizContent.title}
+                </p>
+                <p className="truncate text-[11px] text-indigo-400/60">
+                  {(quizContent as any).timeLimitSeconds
+                    ? `⏱ ${Math.floor((quizContent as any).timeLimitSeconds / 60)} min · `
+                    : ""}
+                  Questionário do capítulo
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={14} className="shrink-0 text-indigo-400/50" />
+          </button>
+        ))}
+      </div>
     );
   };
 
@@ -1078,7 +1262,7 @@ export default function DisciplineClient({ discipline }: Props) {
             setActiveChapterId(chapter.id);
             setMobileView("topics");
           }}
-          className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
+          className={`w-full rounded-2xl border p-3.5 text-left transition-all duration-200 ${
             isActive
               ? "border-indigo-500/40 bg-indigo-950/40 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-900/20"
               : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20"
@@ -1249,7 +1433,7 @@ export default function DisciplineClient({ discipline }: Props) {
   if (chapters.length === 0) {
     return (
       <div className="space-y-6">
-        <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-6">
+        <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 sm:p-6">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
           {discipline.coverUrl && (
             <div className="absolute inset-0 opacity-20 mix-blend-overlay">
@@ -1284,7 +1468,7 @@ export default function DisciplineClient({ discipline }: Props) {
   return (
     <div className="space-y-6">
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-6 md:p-8">
+      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 sm:p-6 md:p-8">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
         {discipline.coverUrl && (
           <>
@@ -1294,12 +1478,12 @@ export default function DisciplineClient({ discipline }: Props) {
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-transparent" />
           </>
         )}
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-2xl space-y-4">
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl space-y-3.5">
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
               {discipline.year} · {discipline.semester}
             </p>
-            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
               {discipline.title}
             </h1>
             <div className="flex flex-wrap gap-2">
@@ -1343,7 +1527,7 @@ export default function DisciplineClient({ discipline }: Props) {
                   key={view}
                   type="button"
                   onClick={() => setMobileView(view)}
-                  className={`flex-1 rounded-lg py-2.5 text-xs font-semibold transition ${
+                  className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
                     mobileView === view
                       ? "bg-indigo-600 text-white shadow-md"
                       : "text-slate-400 hover:text-white"
@@ -1355,14 +1539,14 @@ export default function DisciplineClient({ discipline }: Props) {
             </div>
           </div>
 
-          <div className="p-4">
+          <div className="p-3">
             {mobileView === "chapters" ? (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {chapters.map((c) => renderChapterCard(c, c.id === activeChapter?.id))}
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
                   <div className="min-w-0">
                     <h2 className="truncate text-base font-bold text-white">
                       {activeChapter?.title}
@@ -1382,13 +1566,13 @@ export default function DisciplineClient({ discipline }: Props) {
 
                 {activeChapter && renderChapterQuizBanner(activeChapter)}
 
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {activeChapter?.topics?.map((topic, index) => (
                     <article
                       key={topic.id}
-                      className="rounded-2xl border border-white/5 bg-white/[0.02] p-4"
+                      className="rounded-2xl border border-white/5 bg-white/[0.02] p-3.5"
                     >
-                      <div className="mb-4 flex items-start gap-3">
+                      <div className="mb-3 flex items-start gap-3">
                         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-[10px] font-bold text-indigo-400">
                           {index + 1}
                         </span>
@@ -1417,12 +1601,16 @@ export default function DisciplineClient({ discipline }: Props) {
           ref={chaptersPanelRef}
           className={`h-full overflow-y-auto border-r border-white/10 bg-black/20 ${SCROLLBAR_CLASS}`}
         >
-          <div className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/90 px-5 py-4 backdrop-blur-sm">
+          {/* Cabeçalho com altura fixa (PANEL_HEADER_H) — alinha exatamente
+              com o cabeçalho do painel de temas ao lado. */}
+          <div
+            className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center border-b border-white/10 bg-slate-950/90 px-5 backdrop-blur-sm`}
+          >
             <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
               Índice
             </h2>
           </div>
-          <div className="space-y-2.5 p-4">
+          <div className="space-y-2 p-3">
             {chapters.map((c) => renderChapterCard(c, c.id === activeChapter?.id))}
           </div>
         </aside>
@@ -1431,22 +1619,27 @@ export default function DisciplineClient({ discipline }: Props) {
           ref={topicsPanelRef}
           className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}
         >
-          <div className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/90 px-6 py-4 backdrop-blur-sm">
-            <h2 className="text-lg font-bold text-white">{activeChapter?.title}</h2>
+          {/* Mesma altura fixa do cabeçalho "Índice" ao lado. */}
+          <div
+            className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex flex-col justify-center border-b border-white/10 bg-slate-950/90 px-6 backdrop-blur-sm`}
+          >
+            <h2 className="truncate text-lg font-bold text-white">
+              {activeChapter?.title}
+            </h2>
             {activeChapter && (
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="mt-0.5 truncate text-xs text-slate-500">
                 {activeChapter.status} · {activeChapter.topics?.length ?? 0} temas
               </p>
             )}
           </div>
 
-          <div className="space-y-3 p-6">
+          <div className="space-y-2.5 p-5">
             {activeChapter && renderChapterQuizBanner(activeChapter)}
 
             {activeChapter?.topics?.map((topic, index) => (
               <article
                 key={topic.id}
-                className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-white/[0.02] p-5 transition hover:border-white/10 hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4 transition hover:border-white/10 hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between"
               >
                 <div className="flex min-w-0 flex-1 items-start gap-4">
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-[11px] font-bold text-indigo-400">
@@ -1469,10 +1662,75 @@ export default function DisciplineClient({ discipline }: Props) {
         const isBrowserFs = browserFullscreenPanelId === panel.id;
         const isAppFs = !!panel.isFullscreen;
         const rotation: 0 | 90 = panel.rotation ?? 0;
-        const isMobileLs = isMobile && rotation === 90;
-        const isAnyFs = isBrowserFs || isAppFs || isMobileLs;
+        const isRotated = rotation === 90;
+        const isAnyFs = isBrowserFs || isAppFs;
         const pw = panel.size?.width ?? DEFAULT_PANEL_W;
         const ph = panel.size?.height ?? DEFAULT_PANEL_H;
+
+        /* ══════════════════════════════════════════════════════════════
+           MOBILE — bottom-sheet
+           Nasce do fundo do ecrã com altura fixa (88dvh), portanto o seu
+           topo fica sempre ABAIXO da faixa do header (64px). Isto elimina
+           o overlap de z-index que bloqueava o botão de tema e qualquer
+           interação fora do painel.
+        ══════════════════════════════════════════════════════════════ */
+        if (isMobile && !isAnyFs && !isRotated) {
+          return (
+            <div key={panel.id}>
+              <div
+                className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm"
+                onClick={() =>
+                  setContentPanels((p) => p.filter((x) => x.id !== panel.id))
+                }
+              />
+
+              <MobileSlideSheet
+                panel={panel}
+                index={index}
+                theme={theme}
+                onRotate={() => rotatePanel(panel.id)}
+                onFullscreen={() => togglePanelFullscreen(panel.id)}
+                onClose={() =>
+                  setContentPanels((p) => p.filter((x) => x.id !== panel.id))
+                }
+                panelRef={(el) => {
+                  contentPanelRefs.current[panel.id] = el;
+                }}
+              />
+            </div>
+          );
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           DESKTOP (ou fullscreen/rotated em qualquer dispositivo)
+           — painel flutuante arrastável, comportamento original.
+        ══════════════════════════════════════════════════════════════ */
+        const baseStyle: React.CSSProperties = isAnyFs
+          ? { left: 0, top: 0, right: 0, bottom: 0, width: undefined, height: undefined }
+          : {
+              left: `${panel.position.x}px`,
+              top: `${panel.position.y}px`,
+              width: `${pw}px`,
+              height: `${ph}px`,
+            };
+
+        const rotatedStyle: React.CSSProperties = isRotated
+          ? {
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              width: `${window.innerHeight}px`,
+              height: `${window.innerWidth}px`,
+              transform: "translate(-50%, -50%) rotate(90deg)",
+              transformOrigin: "center center",
+            }
+          : {};
+
+        const panelStyle: React.CSSProperties = {
+          ...baseStyle,
+          ...(isRotated ? rotatedStyle : {}),
+          zIndex: 59 + index,
+        };
 
         return (
           <div
@@ -1481,32 +1739,23 @@ export default function DisciplineClient({ discipline }: Props) {
             ref={(el) => {
               contentPanelRefs.current[panel.id] = el;
             }}
-            style={{
-              ...(isAnyFs
-                ? { left: 0, top: 0, right: 0, bottom: 0 }
-                : {
-                    left: `${panel.position.x}px`,
-                    top: `${panel.position.y}px`,
-                    width: `${pw}px`,
-                    height: `${ph}px`,
-                  }),
-              zIndex: 59 + index,
-            }}
+            style={panelStyle}
             className={`fixed flex flex-col overflow-hidden bg-slate-950/90 backdrop-blur-2xl ${
-              isAnyFs
-                ? "w-auto h-auto max-w-none max-h-none rounded-none border-0"
+              isAnyFs || isRotated
+                ? "rounded-none border-0"
                 : "rounded-3xl border border-white/10 ring-1 ring-white/5 shadow-[0_30px_100px_rgba(0,0,0,0.65)] min-w-[20rem] min-h-[16rem] max-w-[96vw] max-h-[90dvh] resize"
             }`}
           >
             <div
               className={`shrink-0 flex items-center justify-between gap-2 border-b bg-black/30 px-3 py-2.5 md:px-4 ${theme.borderClass}`}
+              style={{ touchAction: "none" }}
             >
               <div
                 className={`flex min-w-0 flex-1 select-none items-center gap-2.5 ${
-                  isAnyFs ? "cursor-default" : "cursor-move"
+                  isAnyFs || isRotated ? "cursor-default" : "cursor-move"
                 }`}
                 onPointerDown={(e) => {
-                  if (isAnyFs || e.button !== 0) return;
+                  if (isAnyFs || isRotated || e.button !== 0) return;
                   const el = contentPanelRefs.current[panel.id];
                   if (!el) return;
                   focusContentPanel(panel.id);
@@ -1528,13 +1777,13 @@ export default function DisciplineClient({ discipline }: Props) {
                   <h3 className="truncate text-xs font-bold text-white">
                     {panel.context.content.title}
                   </h3>
-                  {!isAnyFs && (
+                  {!isAnyFs && !isRotated && (
                     <p className="truncate text-[10px] text-slate-500 mt-0.5">
                       {panel.context.chapter}
                     </p>
                   )}
                 </div>
-                {!isAnyFs && (
+                {!isAnyFs && !isRotated && (
                   <GripVertical size={13} className="hidden shrink-0 text-slate-600 sm:block" />
                 )}
               </div>
@@ -1542,9 +1791,11 @@ export default function DisciplineClient({ discipline }: Props) {
               <div className="flex shrink-0 items-center gap-0.5">
                 <button
                   type="button"
-                  onClick={() => void rotatePanelMobile(panel.id)}
-                  className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white md:hidden"
-                  title="Rodar"
+                  onClick={() => rotatePanel(panel.id)}
+                  className={`rounded-xl p-2 transition hover:bg-white/10 ${
+                    isRotated ? "text-indigo-400" : "text-slate-400 hover:text-white"
+                  }`}
+                  title={isRotated ? "Desfazer rotação" : "Rodar para horizontal"}
                 >
                   <RotateCw size={14} />
                 </button>
@@ -1577,26 +1828,11 @@ export default function DisciplineClient({ discipline }: Props) {
               </div>
             </div>
 
-                        <div className="relative min-h-0 flex-1 overflow-hidden bg-black/80">
-              {panel.context.content.url ? (
-                <RevealViewer url={panel.context.content.url} />
-              ) : (
-                <div className="flex h-full items-center justify-center p-6">
-                  <div className="max-w-sm space-y-4 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-500">
-                      <FileText size={24} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-200">
-                        Slide a carregar
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        O conteúdo será carregado do Supabase brevemente.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div className="relative min-h-0 flex-1 bg-black/80">
+              <SlideViewer
+                url={panel.context.content.url ?? ""}
+                title={panel.context.content.title}
+              />
             </div>
           </div>
         );

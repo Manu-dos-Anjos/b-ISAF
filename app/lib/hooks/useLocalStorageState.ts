@@ -1,56 +1,98 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+function readFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw != null ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeToStorage(key: string, value: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* quota excedida ou storage indisponível */
+  }
+}
 
 /**
- * Hook personalizado que funciona como o useState, mas persiste o valor
- * no localStorage do navegador.
- * 
- * @param key Chave única para identificar este estado no localStorage.
- * @param defaultValue Valor inicial usado no primeiro render (Server-Side).
- * @returns Uma tuple [valor, setter], igual ao useState.
+ * Estado sincronizado com localStorage.
+ *
+ * Arquitectura sem loops:
+ *
+ * • initialValue é guardado numa ref e NUNCA entra nas deps de efeitos.
+ *   Literais de array/objeto criam referência nova a cada render e
+ *   causariam loops se entrassem nas deps.
+ *
+ * • O estado é inicializado de forma preguiçosa (callback do useState)
+ *   para ler o localStorage de forma síncrona antes do primeiro paint,
+ *   sem precisar de useEffect.
+ *
+ * • Existe apenas UM useEffect, com deps [key, state].
+ *   — Não chama setState → não pode causar loop por si mesmo.
+ *   — Quando a key muda, lê o novo valor e chama setStateRaw FORA do
+ *     efeito de gravação, através de um efeito separado dedicado APENAS
+ *     à mudança de key (deps: [key]), que não grava nada.
+ *
+ * • O efeito de leitura (key change) usa uma ref para não re-correr
+ *   quando a key é a mesma string (mesmo que seja uma nova referência
+ *   de template literal criada a cada render).
  */
 export function useLocalStorageState<T>(
   key: string,
-  defaultValue: T
-): [T, (value: T | ((prev: T) => T)) => void] {
-  // Estado em memória, inicializado com o valor padrão para evitar erros de hidratação
-  const [state, setState] = useState<T>(defaultValue);
+  initialValue: T
+): readonly [T, (value: T | ((prev: T) => T)) => void] {
+  // Ref estável para o fallback — nunca entra nas deps.
+  const fallbackRef = useRef<T>(initialValue);
 
-  // Efeito executado apenas no cliente: carrega o valor guardado no localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(key);
-      if (stored !== null) {
-        // Se existir, atualiza o estado com o valor guardado
-        setState(JSON.parse(stored));
-      }
-    } catch (error) {
-      // Se algo correr mal (ex: JSON inválido), mantém o valor padrão
-      console.warn(`Erro ao ler localStorage key "${key}":`, error);
-    }
-  }, [key]);
-
-  // Efeito executado sempre que o estado muda: guarda no localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(state));
-    } catch (error) {
-      // Se o localStorage estiver cheio ou inacessível, avisa
-      console.warn(`Erro ao guardar localStorage key "${key}":`, error);
-    }
-  }, [key, state]);
-
-  // Setter com suporte a função (prev => newValue), igual ao useState
-  const setValue = useCallback(
-    (value: T | ((prev: T) => T)) => {
-      setState((prev) => {
-        const next = typeof value === "function" ? (value as (prev: T) => T)(prev) : value;
-        return next;
-      });
-    },
-    []
+  // Leitura síncrona antes do primeiro paint.
+  const [state, setStateRaw] = useState<T>(() =>
+    readFromStorage(key, fallbackRef.current)
   );
 
-  return [state, setValue];
+  // Ref que rastreia a última key processada.
+  const activeKeyRef = useRef<string>(key);
+
+  // Efeito 1 — LEITURA: só corre quando a key muda de valor.
+  // Não escreve no localStorage, não tem `state` nas deps.
+  // Usar ref de comparação evita que template literals idênticos
+  // (mas com referências diferentes) disparem o efeito em loop.
+  useEffect(() => {
+    if (activeKeyRef.current === key) return;
+    activeKeyRef.current = key;
+    const next = readFromStorage(key, fallbackRef.current);
+    setStateRaw(next);
+    // `next` será gravado pelo Efeito 2 no ciclo seguinte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // Efeito 2 — GRAVAÇÃO: corre quando key ou state mudam.
+  // NUNCA chama setState → não pode causar loop.
+  // Usa activeKeyRef para garantir que grava na key activa
+  // (já atualizada pelo Efeito 1) e não na key anterior.
+  const stateRef = useRef<T>(state);
+  stateRef.current = state;
+
+  useEffect(() => {
+    // Se a key mudou mas o Efeito 1 ainda não correu neste ciclo,
+    // activeKeyRef.current já foi atualizado pelo Efeito 1 acima.
+    // Usamos `key` diretamente (não activeKeyRef) para garantir
+    // que gravamos na key correcta após a leitura.
+    writeToStorage(key, stateRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, state]);
+
+  const setValue = useCallback((value: T | ((prev: T) => T)) => {
+    setStateRaw((prev) =>
+      typeof value === "function" ? (value as (p: T) => T)(prev) : value
+    );
+  }, []);
+
+  return [state, setValue] as const;
 }

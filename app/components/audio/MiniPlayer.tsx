@@ -5,6 +5,7 @@ import Image from "next/image";
 import {
   ChevronDown,
   ChevronUp,
+  EyeOff,
   GripVertical,
   Pause,
   Play,
@@ -29,6 +30,8 @@ function formatTime(sec: number) {
 
 const POS_KEY = "b-isaf:miniplayer:pos:v8";
 const MINIMIZED_KEY = "b-isaf:miniplayer:minimized:v8";
+const VOLUME_KEY = "b-isaf:miniplayer:volume:v8";
+const HIDDEN_KEY = "b-isaf:miniplayer:hidden:v8";
 
 type DragState = { offsetX: number; offsetY: number };
 
@@ -39,6 +42,7 @@ type ModernSliderProps = {
   onChange: (nextValue: number) => void;
   ariaLabel: string;
   keyboardStep?: number;
+  disabled?: boolean;
 };
 
 function ModernSlider({
@@ -48,6 +52,7 @@ function ModernSlider({
   onChange,
   ariaLabel,
   keyboardStep = 5,
+  disabled = false,
 }: ModernSliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
 
@@ -68,9 +73,10 @@ function ModernSlider({
   return (
     <div
       ref={trackRef}
-      className="relative h-4 w-full select-none"
+      className={`relative h-4 w-full select-none ${disabled ? "pointer-events-none opacity-50" : ""}`}
       style={{ touchAction: "none" }}
       onPointerDown={(e) => {
+        if (disabled) return;
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         setFromClientX(e.clientX);
 
@@ -90,8 +96,10 @@ function ModernSlider({
       aria-valuemin={min}
       aria-valuemax={safeMax}
       aria-valuenow={safeValue}
-      tabIndex={0}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
       onKeyDown={(e) => {
+        if (disabled) return;
         if (e.key === "ArrowLeft") onChange(clamp(safeValue - keyboardStep, min, safeMax));
         if (e.key === "ArrowRight") onChange(clamp(safeValue + keyboardStep, min, safeMax));
       }}
@@ -130,6 +138,7 @@ export default function MiniPlayer() {
   const [isDragging, setIsDragging] = useState(false);
 
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
   const [hasLoadedPrefs, setHasLoadedPrefs] = useState(false);
 
   const [isMuted, setIsMuted] = useState(false);
@@ -138,6 +147,11 @@ export default function MiniPlayer() {
   const safeDuration = Math.max(0, duration || 0);
   const safeCurrent = clamp(currentTime || 0, 0, safeDuration || 0);
   const timeLeft = safeDuration ? Math.max(0, safeDuration - safeCurrent) : 0;
+
+  // Enquanto a duração ainda não é conhecida (metadados a carregar), o
+  // slider de progresso é desativado para evitar seeks para posições
+  // inválidas, e mostramos um indicador em vez de "--:--".
+  const isBuffering = !!track && safeDuration === 0;
 
   const jumpSeconds = (delta: number) => {
     if (!safeDuration) return;
@@ -155,21 +169,31 @@ export default function MiniPlayer() {
     }
   };
 
-  // Carregar preferências
+  // Carregar preferências (minimizado + oculto + volume)
   useEffect(() => {
     if (!track || hasLoadedPrefs) return;
 
     try {
       const savedMin = localStorage.getItem(MINIMIZED_KEY);
       if (savedMin != null) setIsMinimized(savedMin === "1");
+
+      const savedHidden = localStorage.getItem(HIDDEN_KEY);
+      if (savedHidden != null) setIsHidden(savedHidden === "1");
+
+      const savedVol = localStorage.getItem(VOLUME_KEY);
+      if (savedVol != null) {
+        const v = Number(savedVol);
+        if (Number.isFinite(v) && v >= 0 && v <= 1) setVolume(v);
+      }
     } catch {
       // ignore
     } finally {
       setHasLoadedPrefs(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track, hasLoadedPrefs]);
 
-  // Persistir preferências
+  // Persistir minimizado
   useEffect(() => {
     if (!track || !hasLoadedPrefs) return;
     try {
@@ -178,6 +202,26 @@ export default function MiniPlayer() {
       // ignore
     }
   }, [track, isMinimized, hasLoadedPrefs]);
+
+  // Persistir oculto
+  useEffect(() => {
+    if (!track || !hasLoadedPrefs) return;
+    try {
+      localStorage.setItem(HIDDEN_KEY, isHidden ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [track, isHidden, hasLoadedPrefs]);
+
+  // Persistir volume
+  useEffect(() => {
+    if (!track || !hasLoadedPrefs) return;
+    try {
+      localStorage.setItem(VOLUME_KEY, String(volume));
+    } catch {
+      // ignore
+    }
+  }, [track, volume, hasLoadedPrefs]);
 
   // Restaurar posição
   useEffect(() => {
@@ -286,11 +330,39 @@ export default function MiniPlayer() {
 
   if (!track) return null;
 
+  // ── Estado "oculto": mantém o áudio a tocar, mas mostra apenas uma
+  // pastilha flutuante compacta para não atrapalhar a visualização do site.
+  if (isHidden) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsHidden(false)}
+        className="fixed bottom-4 right-4 z-[90] flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/90 px-3 py-2.5 shadow-2xl backdrop-blur-xl transition hover:bg-slate-900/90 active:scale-95"
+        title="Mostrar leitor de áudio"
+      >
+        <span
+          className={`flex h-8 w-8 items-center justify-center rounded-full ${
+            isPlaying ? "bg-blue-600" : "bg-white/10"
+          }`}
+        >
+          {isPlaying ? (
+            <Pause size={14} className="text-white" />
+          ) : (
+            <Play size={14} className="ml-0.5 text-white" />
+          )}
+        </span>
+        <span className="max-w-[140px] truncate text-xs font-medium text-slate-200">
+          {track.title}
+        </span>
+      </button>
+    );
+  }
+
   const glassBtn =
     "rounded-xl bg-white/5 ring-1 ring-white/10 text-slate-200 hover:bg-white/10 transition active:scale-[0.97]";
-  const iconBtn = `inline-flex h-10 w-10 items-center justify-center ${glassBtn}`;
+  const iconBtn = `inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center ${glassBtn}`;
   const primaryBtn =
-    "inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition active:scale-[0.97]";
+    "inline-flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500 transition active:scale-[0.97]";
 
   const containerStyle = {
     left: position.x,
@@ -299,8 +371,8 @@ export default function MiniPlayer() {
 
   const containerClassName = [
     "fixed z-[90] overflow-hidden rounded-2xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur-xl",
-    "w-[min(420px,calc(100vw-16px))]",
-    isMinimized ? "w-[min(320px,calc(100vw-16px))]" : "",
+    "w-[min(400px,calc(100vw-16px))] sm:w-[min(420px,calc(100vw-16px))]",
+    isMinimized ? "w-[min(300px,calc(100vw-16px))] sm:w-[min(320px,calc(100vw-16px))]" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -336,12 +408,30 @@ export default function MiniPlayer() {
         </div>
 
         {!isMinimized && (
-          <p className="shrink-0 text-[11px] tabular-nums text-slate-400">
-            {formatTime(safeCurrent)}
-            <span className="text-slate-600">/</span>
-            {safeDuration ? formatTime(safeDuration) : "--:--"}
+          <p
+            className={`shrink-0 text-[11px] tabular-nums ${
+              isBuffering ? "animate-pulse text-slate-600" : "text-slate-400"
+            }`}
+          >
+            {isBuffering ? "A carregar…" : (
+              <>
+                {formatTime(safeCurrent)}
+                <span className="text-slate-600">/</span>
+                {formatTime(safeDuration)}
+              </>
+            )}
           </p>
         )}
+
+        <button
+          type="button"
+          onClick={() => setIsHidden(true)}
+          className="rounded-xl p-2 text-slate-400 transition hover:bg-white/5 hover:text-white"
+          aria-label="Ocultar"
+          title="Ocultar leitor (continua a tocar)"
+        >
+          <EyeOff size={16} />
+        </button>
 
         <button
           type="button"
@@ -366,14 +456,14 @@ export default function MiniPlayer() {
 
       {/* Minimized */}
       {isMinimized ? (
-        <div className="px-3 py-3">
+        <div className="px-3 py-2.5">
           <div className="flex items-center gap-3">
-            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
               {track.coverUrl ? (
                 <Image src={track.coverUrl} alt="" fill className="object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
-                  <Volume2 size={18} className="text-slate-500" />
+                  <Volume2 size={16} className="text-slate-500" />
                 </div>
               )}
             </div>
@@ -398,9 +488,9 @@ export default function MiniPlayer() {
         </div>
       ) : (
         /* Expanded */
-        <div className="flex flex-col gap-4 px-4 py-4">
+        <div className="flex flex-col gap-3.5 px-3.5 py-3.5 sm:px-4 sm:py-4">
           <div className="flex items-center gap-3">
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 sm:h-14 sm:w-14">
               {track.coverUrl ? (
                 <Image src={track.coverUrl} alt="" fill className="object-cover" />
               ) : (
@@ -422,7 +512,9 @@ export default function MiniPlayer() {
           <div>
             <div className="mb-1 flex items-center justify-between text-[11px] tabular-nums text-slate-500">
               <span>{formatTime(safeCurrent)}</span>
-              <span>-{safeDuration ? formatTime(timeLeft) : "--:--"}</span>
+              <span className={isBuffering ? "animate-pulse text-slate-600" : undefined}>
+                {isBuffering ? "A carregar…" : `-${formatTime(timeLeft)}`}
+              </span>
             </div>
 
             <ModernSlider
@@ -432,15 +524,17 @@ export default function MiniPlayer() {
               onChange={(v) => seek(v)}
               ariaLabel="Progresso do áudio"
               keyboardStep={5}
+              disabled={isBuffering}
             />
           </div>
 
           {/* Controls */}
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-3 sm:gap-4">
             <button
               type="button"
               onClick={() => jumpSeconds(-15)}
               className={iconBtn}
+              disabled={isBuffering}
               aria-label="Voltar 15 segundos"
               title="Voltar 15 segundos"
             >
@@ -461,6 +555,7 @@ export default function MiniPlayer() {
               type="button"
               onClick={() => jumpSeconds(15)}
               className={iconBtn}
+              disabled={isBuffering}
               aria-label="Avançar 15 segundos"
               title="Avançar 15 segundos"
             >
