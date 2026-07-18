@@ -12,11 +12,9 @@ import {
   BarChart3,
   BookOpen,
   Target,
-  Flame,
   Award,
   ChevronRight,
   ChevronDown,
-  Sparkles,
 } from "lucide-react";
 import React from "react";
 
@@ -210,149 +208,104 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
 
   return (
     <>
-      <div className="pb-24">
+      <div className="space-y-6">
 
         {/* ══════════════════════════════════════════
-            HERO — sem px próprio
+            CABEÇALHO — mesmo padrão do "Meu Curso"
         ══════════════════════════════════════════ */}
-        <section>
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 md:p-6">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.18),transparent_45%)]" />
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(34,197,94,0.08),transparent_50%)]" />
+        <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 md:p-6">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
+          <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+                Avaliações
+              </p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-white md:text-3xl">
+                Olá, {firstName}
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm text-slate-400">
+                Questionários e avaliações das tuas disciplinas, organizados por
+                capítulo, com histórico, revisão e estatísticas.
+              </p>
+            </div>
 
-            <div className="relative z-10 grid gap-5 lg:grid-cols-[1.3fr_0.8fr]">
-              {/* esquerda */}
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-indigo-300">
-                  <Sparkles size={12} />
-                  Avaliações
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-                    Olá, <span className="text-indigo-300">{firstName}</span>
-                  </h1>
-                  <p className="mt-1 max-w-2xl text-sm text-slate-400">
-                    Aqui tens os questionários e avaliações das tuas disciplinas,
-                    organizados por capítulo, com histórico, revisão e estatísticas.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-                  {[
-                    { label: "Disponíveis", value: quizItems.length,                         icon: BookOpen,     color: "text-blue-300",    bg: "bg-blue-500/10"    },
-                    { label: "Concluídos",  value: doneCount,                                icon: CheckCircle2, color: "text-emerald-300", bg: "bg-emerald-500/10" },
-                    { label: "Pendentes",   value: pendingCount,                             icon: Target,       color: "text-amber-300",   bg: "bg-amber-500/10"   },
-                    { label: "Média",       value: avgScore !== null ? `${avgScore}%` : "—", icon: Trophy,       color: avgScore !== null && avgScore >= 50 ? "text-indigo-300" : "text-slate-300", bg: "bg-indigo-500/10" },
-                  ].map(({ label, value, icon: Icon, color, bg }) => (
-                    <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 backdrop-blur-sm sm:p-4">
-                      <div className={`mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}>
-                        <Icon size={16} className={color} />
-                      </div>
-                      <p className={`text-center text-xl font-bold tabular-nums ${color}`}>{value}</p>
-                      <p className="text-center text-[10px] font-medium uppercase tracking-widest text-slate-500">{label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* painel lateral */}
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm sm:p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Resumo rápido</p>
-                    <h2 className="mt-1 text-lg font-semibold text-white">O teu progresso</h2>
-                  </div>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-300">
-                    <Flame size={18} />
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4">
-                    <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
-                      <span>Questionários feitos</span>
-                      <span>{doneCount}/{quizItems.length}</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-                        style={{ width: `${quizItems.length ? (doneCount / quizItems.length) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4">
-                      <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">Média tentativas</p>
-                      <p className="mt-2 text-2xl font-bold text-white tabular-nums">{avgAttempts}</p>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4">
-                      <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">Disciplinas</p>
-                      <p className="mt-2 text-2xl font-bold text-white tabular-nums">{disciplineStats.length}</p>
-                    </div>
-                  </div>
-
-                  {topDiscipline && (
-                    <div className="rounded-xl border border-white/10 bg-slate-950/60 p-4">
-                      <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">
-                        Disciplina com mais quizzes
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-200">{topDiscipline.name}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">{topDiscipline.total} avaliação/avaliações</p>
-                    </div>
-                  )}
-                </div>
+            <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+              <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">
+                Média geral
+              </p>
+              <p className="text-3xl font-bold text-white">
+                {avgScore !== null ? avgScore : "—"}
+                {avgScore !== null && <span className="text-base font-medium text-slate-400">%</span>}
+              </p>
+              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+                  style={{ width: `${quizItems.length ? (doneCount / quizItems.length) * 100 : 0}%` }}
+                />
               </div>
             </div>
           </div>
-        </section>
 
-        {/* ══════════════════════════════════════════
-            FILTROS STICKY
-            — sticky sai do fluxo, precisa de px
-              igual ao AppShell: px-4 lg:px-6
-        ══════════════════════════════════════════ */}
-        <section className="sticky top-0 z-20 border-b border-white/10 bg-[#050816]/95 px-4 py-3 backdrop-blur-xl lg:px-6">
-          <div className="space-y-3">
+          {/* Stats — mesmo grid de "cards" usado no resto da app */}
+          <div className="relative z-10 mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              { label: "Disponíveis", value: quizItems.length, icon: BookOpen },
+              { label: "Concluídos", value: doneCount, icon: CheckCircle2 },
+              { label: "Pendentes", value: pendingCount, icon: Target },
+              { label: "Tentativas", value: avgAttempts, icon: Trophy },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <Icon size={12} />
+                  <p className="text-[10px] font-medium uppercase tracking-widest">{label}</p>
+                </div>
+                <p className="mt-1.5 text-xl font-bold tabular-nums text-white">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Barra de pesquisa + filtro de estado — mesmo estilo de "tabs" */}
+          <div className="relative z-10 mt-5 space-y-2">
             <div className="relative">
               <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Pesquisar questionários, capítulos ou disciplinas..."
-                className="min-h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20"
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20"
               />
             </div>
 
-            <div className={`flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible ${SCROLLBAR_X}`}>
-              <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:inline-flex">
-                <Filter size={12} />
-                Filtrar
-              </span>
-
+            <div className="flex gap-1 rounded-xl bg-white/5 p-1">
               {([{ key: "all", label: "Todos" }, { key: "pending", label: "Por fazer" }, { key: "done", label: "Concluídos" }] as const).map((item) => (
                 <button
                   key={item.key}
+                  type="button"
                   onClick={() => setFilterStatus(item.key)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition ${
                     filterStatus === item.key
-                      ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
-                      : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {item.label}
                 </button>
               ))}
+            </div>
 
-              <div className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
+            <div className={`flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible ${SCROLLBAR_X}`}>
+              <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:inline-flex">
+                <Filter size={12} />
+                Disciplina
+              </span>
 
               <button
+                type="button"
                 onClick={() => setFilterDisc("all")}
                 className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                   filterDisc === "all"
-                    ? "border-blue-500/30 bg-blue-500/15 text-blue-200"
-                    : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                    ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
+                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
                 }`}
               >
                 Todas as disciplinas
@@ -361,11 +314,12 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
               {disciplineStats.map((d) => (
                 <button
                   key={d.id}
+                  type="button"
                   onClick={() => setFilterDisc(d.id)}
                   className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                     filterDisc === d.id
                       ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
-                      : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                      : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
                   }`}
                 >
                   {d.name}
@@ -378,7 +332,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
         {/* ══════════════════════════════════════════
             LISTA AGRUPADA
         ══════════════════════════════════════════ */}
-        <section className="py-6">
+        <div className="space-y-4">
           {groupedByDiscipline.length === 0 ? (
             <div className="flex min-h-[38vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-white/[0.03] p-8 text-center sm:min-h-[42vh] sm:p-10">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.04]">
@@ -556,7 +510,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
               })}
             </div>
           )}
-        </section>
+        </div>
       </div>
 
       {/* MODAIS */}

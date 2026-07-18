@@ -148,69 +148,60 @@ export default function GuardadosClient({
   ];
 
   return (
-    <div className="pb-24">
+    <div className="space-y-6">
 
       {/* ══════════════════════════════════════════
-          HERO
-          — sem px próprio: o AppShell já fornece
-            px-4 md:px-4 lg:px-6
+          CABEÇALHO — mesmo padrão do "Meu Curso"
       ══════════════════════════════════════════ */}
-      <section>
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 md:p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.18),transparent_45%)]" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(34,197,94,0.08),transparent_50%)]" />
+      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 md:p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
+        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+              Guardados
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white md:text-3xl">
+              Os teus guardados, {firstName}
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-400">
+              Acede rapidamente aos áudios, slides e quizzes que guardaste para
+              rever mais tarde, organizados por disciplina e capítulo.
+            </p>
+          </div>
 
-          <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            {/* esquerda */}
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-indigo-300">
-                <Bookmark size={12} />
-                Guardados
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
-                  Os teus guardados,{" "}
-                  <span className="text-indigo-300">{firstName}</span>
-                </h1>
-                <p className="mt-1 max-w-lg text-sm text-slate-400">
-                  Acede rapidamente aos áudios, slides e quizzes que guardaste
-                  para rever mais tarde. Tudo organizado por disciplina e capítulo.
-                </p>
-              </div>
-            </div>
-
-            {/* direita — stat cards */}
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {[
-                { label: "Total",       value: items.length,                  color: "text-white"       },
-                { label: "Disciplinas", value: disciplinesWithItems.length,   color: "text-indigo-300"  },
-                { label: "Áudios",      value: typeCount["audio"]     ?? 0,   color: "text-blue-300"    },
-                { label: "Slides",      value: typeCount["slide"]     ?? 0,   color: "text-emerald-300" },
-              ].map(({ label, value, color }) => (
-                <div
-                  key={label}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center backdrop-blur-sm"
-                >
-                  <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
-                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                    {label}
-                  </p>
-                </div>
-              ))}
-            </div>
+          <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+            <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">
+              Total guardado
+            </p>
+            <p className="text-3xl font-bold text-white">
+              {items.length}
+            </p>
+            <p className="text-xs text-slate-500">
+              em {disciplinesWithItems.length} disciplina{disciplinesWithItems.length === 1 ? "" : "s"}
+            </p>
           </div>
         </div>
-      </section>
 
-      {/* ══════════════════════════════════════════
-          FILTROS STICKY
-          — sticky usa posição fixa, não herda px
-            do AppShell, por isso mantemos px aqui
-            mas igual ao valor do AppShell
-      ══════════════════════════════════════════ */}
-      <section className="sticky top-0 z-20 border-b border-white/10 bg-[#050816]/95 py-3 backdrop-blur-xl">
-        <div className="space-y-3">
+        {/* Stats — mesmo grid de "cards" usado no resto da app */}
+        <div className="relative z-10 mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { label: "Total", value: items.length, icon: Bookmark },
+            { label: "Áudios", value: typeCount["audio"] ?? 0, icon: Headphones },
+            { label: "Slides", value: typeCount["slide"] ?? 0, icon: FileText },
+            { label: "Quizzes", value: typeCount["quiz"] ?? 0, icon: Trophy },
+          ].map(({ label, value, icon: Icon }) => (
+            <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center gap-1.5 text-slate-500">
+                <Icon size={12} />
+                <p className="text-[10px] font-medium uppercase tracking-widest">{label}</p>
+              </div>
+              <p className="mt-1.5 text-xl font-bold tabular-nums text-white">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Barra de pesquisa + filtro de tipo — mesmo estilo de "tabs" */}
+        <div className="relative z-10 mt-5 space-y-2">
           <div className="relative">
             <Search
               size={14}
@@ -220,38 +211,40 @@ export default function GuardadosClient({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar guardados..."
-              className="min-h-11 w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20"
+              className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20"
             />
           </div>
 
-          <div className={`flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible ${SCROLLBAR_X}`}>
-            <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:inline-flex">
-              <Filter size={12} />
-              Filtrar
-            </span>
-
+          <div className="flex gap-1 overflow-x-auto rounded-xl bg-white/5 p-1 sm:overflow-visible">
             {typeOptions.map(({ key, label }) => (
               <button
                 key={key}
+                type="button"
                 onClick={() => setFilterType(key)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                className={`flex flex-1 shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition ${
                   filterType === key
-                    ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
-                    : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
               >
                 {label}
               </button>
             ))}
+          </div>
 
-            <div className="mx-1 hidden h-5 w-px bg-white/10 sm:block" />
+          <div className={`flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible ${SCROLLBAR_X}`}>
+            <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:inline-flex">
+              <Filter size={12} />
+              Disciplina
+            </span>
 
             <button
+              type="button"
               onClick={() => setFilterDisc("all")}
               className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                 filterDisc === "all"
-                  ? "border-blue-500/30 bg-blue-500/15 text-blue-200"
-                  : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                  ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
+                  : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
               }`}
             >
               Todas as disciplinas
@@ -260,11 +253,12 @@ export default function GuardadosClient({
             {disciplinesWithItems.map((d) => (
               <button
                 key={d.id}
+                type="button"
                 onClick={() => setFilterDisc(d.id)}
                 className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                   filterDisc === d.id
                     ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
-                    : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
                 }`}
               >
                 {d.name}
@@ -277,7 +271,7 @@ export default function GuardadosClient({
       {/* ══════════════════════════════════════════
           CONTEÚDO
       ══════════════════════════════════════════ */}
-      <section className="py-6">
+      <div className="space-y-4">
         {grouped.length === 0 ? (
           <div className="flex min-h-[38vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-white/[0.03] p-8 text-center sm:min-h-[42vh] sm:p-10">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.04]">
@@ -402,7 +396,7 @@ export default function GuardadosClient({
             })}
           </div>
         )}
-      </section>
+      </div>
     </div>
   );
 }

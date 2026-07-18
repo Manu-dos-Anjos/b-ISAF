@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+
+  // Permite aceder ao servidor de dev via túnel Cloudflare
+  // (sem isto, os chunks JS de /_next/* ficam bloqueados por
+  // cross-origin e o React nunca hidrata — formulários "recarregam"
+  // em vez de correr o onSubmit).
+  allowedDevOrigins: [
+    "*.trycloudflare.com",
+  ],
 };
 
 export default nextConfig;
