@@ -39,8 +39,8 @@ export default function MeuCursoPageWrapper() {
   if (!user) {
     return (
       <div className="space-y-4">
-        <div className="h-48 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
-        <div className="h-64 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+        <div className="h-40 animate-pulse rounded-2xl bg-slate-200/70 dark:bg-white/5 sm:h-48" />
+        <div className="h-56 animate-pulse rounded-2xl bg-slate-200/70 dark:bg-white/5 sm:h-64" />
       </div>
     );
   }

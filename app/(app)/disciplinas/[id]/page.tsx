@@ -57,8 +57,8 @@ export default function Page({ params }: PageProps) {
   if (isLoading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
-        <Loader2 size={24} className="animate-spin text-blue-500" />
-        <p className="text-sm text-slate-400">A carregar disciplina…</p>
+        <Loader2 size={24} className="animate-spin text-indigo-600 dark:text-blue-500" />
+        <p className="text-sm text-slate-600 dark:text-slate-400">A carregar disciplina…</p>
       </div>
     );
   }
@@ -66,9 +66,9 @@ export default function Page({ params }: PageProps) {
   if (error) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
-        <AlertCircle size={28} className="text-rose-400" />
-        <p className="font-semibold text-slate-200">Erro ao carregar disciplina</p>
-        <p className="max-w-xs text-sm text-slate-500">{error}</p>
+        <AlertCircle size={28} className="text-rose-500 dark:text-rose-400" />
+        <p className="font-semibold text-slate-900 dark:text-slate-200">Erro ao carregar disciplina</p>
+        <p className="max-w-xs text-sm text-slate-600 dark:text-slate-500">{error}</p>
       </div>
     );
   }
@@ -76,9 +76,9 @@ export default function Page({ params }: PageProps) {
   if (!adapted) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
-        <AlertCircle size={28} className="text-rose-400" />
-        <p className="font-semibold text-slate-200">Disciplina não encontrada</p>
-        <p className="max-w-xs text-sm text-slate-500">
+        <AlertCircle size={28} className="text-rose-500 dark:text-rose-400" />
+        <p className="font-semibold text-slate-900 dark:text-slate-200">Disciplina não encontrada</p>
+        <p className="max-w-xs text-sm text-slate-600 dark:text-slate-500">
           A disciplina que procuras não existe ou não está disponível.
         </p>
       </div>

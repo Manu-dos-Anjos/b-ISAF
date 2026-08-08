@@ -14,7 +14,7 @@ type Crumb = {
   label:       string;
   href?:       string;
   isEllipsis?: boolean;
-  isDynamic?:  boolean; // marcador para substituição dinâmica
+  isDynamic?:  boolean;
 };
 
 /* ================================================================
@@ -31,7 +31,6 @@ const routeLabels: Record<string, string> = {
   eventos:      "Eventos",
 };
 
-// UUID v4 — detecta se um segmento é um UUID
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -57,7 +56,6 @@ function formatSegmentLabel(segment: string): string {
 
 function extractDisciplineId(pathname: string): string | null {
   const segments = pathname.split("/").filter(Boolean);
-  // /disciplinas/[uuid]
   if (segments.length >= 2 && segments[0] === "disciplinas" && isUUID(segments[1]!)) {
     return segments[1]!;
   }
@@ -65,7 +63,7 @@ function extractDisciplineId(pathname: string): string | null {
 }
 
 /* ================================================================
-   COMPONENTE INTERNO — com acesso ao hook dinâmico
+   COMPONENTE INTERNO
    ================================================================ */
 
 function BreadcrumbInner({
@@ -77,18 +75,13 @@ function BreadcrumbInner({
 }) {
   const { name: disciplineName, isLoading } = useBreadcrumbDiscipline(disciplineId);
 
-  // Substituir o label dinâmico pelo nome real da disciplina
   const resolvedItems: Crumb[] = safeItems.map((item) => {
     if (item.isDynamic && disciplineId) {
-      return {
-        ...item,
-        label: disciplineName ?? item.label,
-      };
+      return { ...item, label: disciplineName ?? item.label };
     }
     return item;
   });
 
-  // Mobile compactado
   const mobileItems: Crumb[] =
     resolvedItems.length <= 2
       ? resolvedItems
@@ -112,27 +105,26 @@ function BreadcrumbInner({
         >
           {index > 0 && (
             <ChevronRight
-              size={14}
-              className="mx-2 shrink-0 text-slate-400 dark:text-slate-500"
+              size={13}
+              className="mx-2 shrink-0 text-slate-400 dark:text-slate-600"
             />
           )}
 
           {item.isEllipsis ? (
-            <span className="flex items-center text-slate-400 dark:text-slate-500">
+            <span className="flex items-center text-slate-400 dark:text-slate-600">
               <MoreHorizontal size={14} />
             </span>
           ) : item.href && !isLast ? (
             <Link
               href={item.href}
-              className={`truncate ${labelWidthClass} text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-white`}
+              className={`truncate ${labelWidthClass} text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-white`}
             >
               {item.label}
             </Link>
           ) : (
             <span
-              className={`flex items-center gap-1.5 truncate ${labelWidthClass} font-medium text-slate-900 dark:text-slate-100`}
+              className={`flex items-center gap-1.5 truncate ${labelWidthClass} font-semibold text-slate-800 dark:text-slate-100`}
             >
-              {/* Loading enquanto busca o nome */}
               {isLast && item.isDynamic && isLoading && (
                 <Loader2
                   size={11}
@@ -148,7 +140,7 @@ function BreadcrumbInner({
   }
 
   return (
-    <div className="sticky top-16 z-30 w-full border-b border-gray-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
+    <div className="sticky top-16 z-30 w-full border-b border-slate-200/70 bg-slate-100/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
       <nav
         aria-label="Breadcrumb"
         className="flex h-11 items-center px-4 md:px-6 lg:px-8"
@@ -156,7 +148,7 @@ function BreadcrumbInner({
         <div className="flex min-w-0 items-center gap-2 text-sm">
           <FolderOpen
             size={15}
-            className="shrink-0 text-slate-500 dark:text-slate-400"
+            className="shrink-0 text-slate-600 dark:text-slate-400"
           />
 
           {/* Desktop */}
@@ -182,20 +174,19 @@ export default function Breadcrumbs() {
   const pathname = usePathname();
   if (!pathname) return null;
 
-  /* ── Página inicial ── */
   if (pathname === "/") {
     return (
-      <div className="sticky top-16 z-30 w-full border-b border-slate-200 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
+      <div className="sticky top-16 z-30 w-full border-b border-slate-200/70 bg-slate-100/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
         <nav
           aria-label="Breadcrumb"
           className="flex h-11 items-center px-4 md:px-6 lg:px-8"
         >
-          <div className="ml-1.5 flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm">
             <FolderOpen
               size={15}
-              className="shrink-0 text-slate-500 dark:text-slate-400"
+              className="shrink-0 text-slate-600 dark:text-slate-400"
             />
-            <span className="font-medium text-slate-900 dark:text-slate-100">
+            <span className="font-semibold text-slate-800 dark:text-slate-100">
               Início
             </span>
           </div>
@@ -204,10 +195,8 @@ export default function Breadcrumbs() {
     );
   }
 
-  /* ── Detectar UUID de disciplina ── */
   const disciplineId = extractDisciplineId(pathname);
 
-  /* ── Construir crumbs ── */
   const rawSegments = pathname.split("/").filter(Boolean);
 
   const rawItems: (Crumb & { segment: string })[] = rawSegments.map(
@@ -215,19 +204,10 @@ export default function Breadcrumbs() {
       const href = "/" + rawSegments.slice(0, index + 1).join("/");
 
       if (isUUID(segment)) {
-        return {
-          segment,
-          label:     "A carregar…",
-          href,
-          isDynamic: true,
-        };
+        return { segment, label: "A carregar…", href, isDynamic: true };
       }
 
-      return {
-        segment,
-        label: formatSegmentLabel(segment),
-        href,
-      };
+      return { segment, label: formatSegmentLabel(segment), href };
     }
   );
 

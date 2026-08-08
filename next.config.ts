@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
   // em vez de correr o onSubmit).
   allowedDevOrigins: [
     "*.trycloudflare.com",
+    "192.168.43.81",
+    "localhost",
   ],
 };
 

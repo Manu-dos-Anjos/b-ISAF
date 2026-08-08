@@ -16,35 +16,35 @@ export default function AudioCard({
   thumbnail = "/thumbnails/default.jpg",
 }: AudioCardProps) {
   return (
-    <div className="h-[110px] w-[200px] shrink-0 rounded-[12px] overflow-hidden relative group cursor-pointer">
-      
-      {/* Imagem que preenche todo o card */}
+    <div className="group relative h-[110px] w-[200px] shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-slate-300 shadow-md shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-xl hover:shadow-slate-300/60 dark:border-white/10 dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none">
+
+      {/* Imagem */}
       <Image
         src={thumbnail}
         alt={tema}
-        fill                // ← Esta é a chave!
-        sizes="200px"       // ← Otimização importante
+        fill
+        sizes="200px"
         className="object-cover transition-transform duration-300 group-hover:scale-105"
         priority={false}
       />
 
-      {/* Overlay escuro */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-black/20" />
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
 
-      {/* Informações do áudio */}
+      {/* Informações */}
       <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
-        <p className="text-xs text-white/70">{disciplina}</p>
-        <p className="text-sm font-medium line-clamp-2 leading-tight">{tema}</p>
+        <p className="text-xs font-medium text-white/80">{disciplina}</p>
+        <p className="line-clamp-2 text-sm font-semibold leading-tight">{tema}</p>
       </div>
 
       {/* Duração */}
-      <div className="absolute top-3 right-3 bg-black/70 text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
+      <div className="absolute left-3 top-3 rounded-md bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/10">
         {duracao}
       </div>
 
       {/* Botão Play */}
-      <div className="absolute bottom-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110">
-        <Play className="w-4 h-4 text-black ml-0.5" fill="black" />
+      <div className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-lg transition-transform group-hover:scale-110">
+        <Play className="ml-0.5 h-4 w-4 text-black" fill="black" />
       </div>
     </div>
   );

@@ -90,23 +90,25 @@ const COURSE_ID_MAP: Record<string, CourseId> = {
 };
 
 const SCROLLBAR_CLASS = [
-  "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700/40",
-  "hover:scrollbar-thumb-slate-600/60 [&::-webkit-scrollbar]:w-1.5",
+  "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-300/60",
+  "hover:scrollbar-thumb-slate-400/80 [&::-webkit-scrollbar]:w-1.5",
   "[&::-webkit-scrollbar-track]:bg-transparent",
-  "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-700/40",
-  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
+  "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/60",
+  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/80",
+  "dark:scrollbar-thumb-slate-700/40 dark:hover:scrollbar-thumb-slate-600/60",
+  "dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/40 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
 ].join(" ");
 
 const TYPE_DOT: Record<string, string> = {
-  Teórica:         "bg-blue-500",
-  Prática:         "bg-emerald-500",
+  Teórica:           "bg-blue-500",
+  Prática:           "bg-emerald-500",
   "Teórico-Prática": "bg-violet-500",
 };
 
 const TYPE_BADGE_LIST: Record<string, string> = {
-  Teórica:         "text-blue-400",
-  Prática:         "text-emerald-400",
-  "Teórico-Prática": "text-violet-400",
+  Teórica:           "text-blue-700 dark:text-blue-400",
+  Prática:           "text-emerald-700 dark:text-emerald-400",
+  "Teórico-Prática": "text-violet-700 dark:text-violet-400",
 };
 
 /* ================================================================
@@ -212,8 +214,8 @@ function toDisciplineCardData(discipline: DisciplineRow): DisciplineCardData {
     coverUrl: discipline.cover_image_url ?? null,
     progress: discipline.progress ?? 0,
     year: discipline.annual
-    ? `${discipline.year}º Ano (Anual)`
-    : `${discipline.year}º Ano`,
+      ? `${discipline.year}º Ano (Anual)`
+      : `${discipline.year}º Ano`,
     semester: `${discipline.semester}º Semestre`,
     lessonCount,
     chaptersCount: discipline.chapters?.length ?? 0,
@@ -276,10 +278,10 @@ function DisciplineListItem({
   return (
     <Link
       href={discipline.href}
-      className="group relative flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:border-white/10 dark:bg-slate-900 dark:hover:border-white/20 dark:hover:shadow-none"
+      className="group relative flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none"
     >
       {badge && (
-        <span className="absolute -top-px left-14 z-10 rounded-b-lg border border-t-0 border-indigo-500/30 bg-slate-900 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400">
+        <span className="absolute -top-px left-14 z-10 rounded-b-lg border border-t-0 border-indigo-400/30 bg-indigo-600 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
           {badge}
         </span>
       )}
@@ -291,55 +293,55 @@ function DisciplineListItem({
             e.preventDefault();
             onRemove();
           }}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-slate-400 backdrop-blur-sm transition hover:bg-rose-500/20 hover:text-rose-400"
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-slate-300 backdrop-blur-sm transition hover:bg-rose-500/30 hover:text-rose-300"
           title="Remover cadeira"
         >
           <Trash2 size={12} />
         </button>
       )}
 
-        <div className="relative w-28 shrink-0 overflow-hidden bg-slate-100 dark:bg-white/5 sm:w-36">
-  {discipline.coverUrl ? (
-    <Image
-      src={discipline.coverUrl}
-      alt={`Capa de ${discipline.title}`}
-      fill
-      quality={100}
-      unoptimized
-      sizes="(max-width: 640px) 112px, 144px"
-      className="object-cover object-center"
-    />
-  ) : (
-    <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
-      <div className="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <BookOpen size={24} className="text-slate-500/80" />
-      </div>
-    </div>
-  )}
+      <div className="relative w-28 shrink-0 overflow-hidden bg-slate-200 dark:bg-white/5 sm:w-36">
+        {discipline.coverUrl ? (
+          <Image
+            src={discipline.coverUrl}
+            alt={`Capa de ${discipline.title}`}
+            fill
+            quality={100}
+            unoptimized
+            sizes="(max-width: 640px) 112px, 144px"
+            className="object-cover object-center"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
+            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <BookOpen size={24} className="text-slate-500/80" />
+            </div>
+          </div>
+        )}
 
-  {/* Ano */}
-  <div className="absolute left-0 right-0 top-2 flex justify-center">
-    <span className="rounded-md bg-black/35 px-2 py-0.5 text-[9px] font-semibold text-white/80 backdrop-blur-sm ring-1 ring-white/10">
-      {discipline.year}
-    </span>
-  </div>
+        {/* Ano */}
+        <div className="absolute left-0 right-0 top-2 flex justify-center">
+          <span className="rounded-md bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm ring-1 ring-white/10">
+            {discipline.year}
+          </span>
+        </div>
 
-  {/* Progresso */}
-  <div className="absolute bottom-2 left-0 right-0 flex justify-center">
-    <div className="flex items-center gap-1 rounded-lg bg-black/35 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
-      <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 transition-all"
-          style={{ width: `${progress}%` }}
-        />
+        {/* Progresso */}
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+          <div className="flex items-center gap-1 rounded-lg bg-black/40 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
+            <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="text-[9px] font-bold tabular-nums text-white/90">
+              {progress}%
+            </span>
+          </div>
+        </div>
       </div>
-      <span className="text-[9px] font-bold tabular-nums text-white/80">
-        {progress}%
-      </span>
-    </div>
-  </div>
-</div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2.5 px-4 py-3.5">
         <div className="flex items-start justify-between gap-2 pr-6">
@@ -347,10 +349,10 @@ function DisciplineListItem({
             <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 dark:text-white">
               {discipline.title}
             </h3>
-            <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+            <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-500">
               {discipline.semester}
               {discipline.code && (
-                <span className="ml-2 rounded bg-slate-100 px-1.5 py-px font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400">
+                <span className="ml-2 rounded bg-slate-100 px-1.5 py-px font-bold text-slate-600 dark:bg-white/10 dark:text-slate-400">
                   {discipline.code}
                 </span>
               )}
@@ -360,8 +362,8 @@ function DisciplineListItem({
 
         {scheduleInfo?.professor && (
           <div className="flex items-center gap-1.5">
-            <User size={10} className="shrink-0 text-slate-400" />
-            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+            <User size={10} className="shrink-0 text-slate-500" />
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
               {scheduleInfo.professor}
             </p>
           </div>
@@ -376,7 +378,7 @@ function DisciplineListItem({
                 <span className="opacity-70"> – {next.endTime}</span>
               )}
               {next.room && (
-                <span className="ml-1 inline-flex items-center gap-0.5 opacity-60 text-slate-400">
+                <span className="ml-1 inline-flex items-center gap-0.5 text-slate-500 opacity-60 dark:text-slate-400">
                   <MapPin size={9} />
                   {next.room}
                 </span>
@@ -396,23 +398,23 @@ function DisciplineListItem({
           {hasContent ? (
             <>
               {contentCounts.audio > 0 && (
-                <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500 dark:bg-blue-500/10 dark:text-blue-400">
+                <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
                   <Headphones size={10} /> {contentCounts.audio}
                 </span>
               )}
               {contentCounts.slide > 0 && (
-                <span className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-500/10 dark:text-indigo-400">
+                <span className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400">
                   <FileText size={10} /> {contentCounts.slide}
                 </span>
               )}
               {contentCounts.quiz > 0 && (
-                <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-500 dark:bg-amber-500/10 dark:text-amber-400">
+                <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                   <Trophy size={10} /> {contentCounts.quiz}
                 </span>
               )}
             </>
           ) : (
-            <span className="text-[11px] text-slate-400 dark:text-slate-600">
+            <span className="text-[11px] text-slate-500 dark:text-slate-600">
               {discipline.chaptersCount}{" "}
               {discipline.chaptersCount === 1 ? "capítulo" : "capítulos"} · sem
               conteúdos
@@ -420,7 +422,7 @@ function DisciplineListItem({
           )}
           <ArrowRight
             size={13}
-            className="ml-auto shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
+            className="ml-auto shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
           />
         </div>
       </div>
@@ -433,7 +435,7 @@ function DisciplineListItem({
 ================================================================ */
 function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-slate-900">
+    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-slate-900">
       <button
         type="button"
         onClick={() => onChange("grid")}
@@ -441,7 +443,7 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
         className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
           mode === "grid"
             ? "bg-blue-600 text-white shadow-sm"
-            : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
         }`}
       >
         <LayoutGrid size={14} />
@@ -453,7 +455,7 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
         className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
           mode === "list"
             ? "bg-blue-600 text-white shadow-sm"
-            : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
         }`}
       >
         <List size={14} />
@@ -516,12 +518,12 @@ function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-16 text-center dark:border-white/10">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-16 text-center dark:border-white/10 dark:bg-transparent">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
-        <Icon size={24} className="text-slate-400 dark:text-slate-600" />
+        <Icon size={24} className="text-slate-500 dark:text-slate-600" />
       </div>
-      <h3 className="mt-4 font-semibold text-slate-700 dark:text-slate-300">{title}</h3>
-      <p className="mt-1.5 max-w-xs text-sm text-slate-500">{description}</p>
+      <h3 className="mt-4 font-semibold text-slate-800 dark:text-slate-300">{title}</h3>
+      <p className="mt-1.5 max-w-xs text-sm text-slate-600">{description}</p>
       {action}
     </div>
   );
@@ -534,8 +536,8 @@ function ExtraLimitBanner({ current, max }: { current: number; max: number }) {
     <div
       className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs ${
         atLimit
-          ? "border-rose-500/20 bg-rose-500/5 text-rose-400"
-          : "border-amber-500/20 bg-amber-500/5 text-amber-400"
+          ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/5 dark:text-rose-400"
+          : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-400"
       }`}
     >
       {atLimit ? (
@@ -638,47 +640,47 @@ function AddExtraDisciplineModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl"
+        className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
           <div>
-            <h3 className="font-semibold text-white">Adicionar cadeira</h3>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <h3 className="font-semibold text-slate-900 dark:text-white">Adicionar cadeira</h3>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               Apenas cadeiras de semestres já concluídos
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/5 dark:hover:text-white"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="border-b border-white/5 px-5 py-3">
+        <div className="border-b border-slate-100 px-5 py-3 dark:border-white/5">
           <div className="flex items-center justify-between">
             <div className="flex gap-1.5">
               {Array.from({ length: MAX_EXTRA_DISCIPLINES }).map((_, i) => (
                 <div
                   key={i}
                   className={`h-1.5 w-8 rounded-full transition-colors ${
-                    i < extraDisciplineIds.size ? "bg-indigo-500" : "bg-white/10"
+                    i < extraDisciplineIds.size ? "bg-indigo-500" : "bg-slate-200 dark:bg-white/10"
                   }`}
                 />
               ))}
             </div>
             <span
               className={`text-xs font-medium ${
-                atLimit ? "text-rose-400" : "text-slate-400"
+                atLimit ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"
               }`}
             >
               {extraDisciplineIds.size}/{MAX_EXTRA_DISCIPLINES} cadeiras extras
             </span>
           </div>
           {atLimit && (
-            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-400">
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-600 dark:text-rose-400">
               <Lock size={11} /> Limite atingido. Remove uma cadeira para
               adicionar outra.
             </p>
@@ -686,14 +688,14 @@ function AddExtraDisciplineModal({
         </div>
 
         {hasEligible && (
-          <div className="flex gap-2 border-b border-white/10 px-5 py-3">
+          <div className="flex gap-2 border-b border-slate-100 px-5 py-3 dark:border-white/10">
             <button
               type="button"
               onClick={() => setSelectedYear(null)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 !selectedYear
                   ? "bg-blue-600 text-white"
-                  : "bg-white/5 text-slate-400 hover:bg-white/10"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
               }`}
             >
               Todos
@@ -708,7 +710,7 @@ function AddExtraDisciplineModal({
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                     selectedYear === y.year
                       ? "bg-blue-600 text-white"
-                      : "bg-white/5 text-slate-400 hover:bg-white/10"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
                   }`}
                 >
                   {y.year}º Ano
@@ -720,11 +722,11 @@ function AddExtraDisciplineModal({
         <div className={`max-h-80 overflow-y-auto p-3 ${SCROLLBAR_CLASS}`}>
           {!hasEligible ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
-              <Lock size={24} className="mb-3 text-slate-600" />
-              <p className="text-sm font-medium text-slate-400">
+              <Lock size={24} className="mb-3 text-slate-400 dark:text-slate-600" />
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                 Sem cadeiras disponíveis
               </p>
-              <p className="mt-1 max-w-xs text-xs text-slate-600">
+              <p className="mt-1 max-w-xs text-xs text-slate-500">
                 Só podes adicionar cadeiras de semestres já concluídos.
               </p>
             </div>
@@ -757,31 +759,31 @@ function AddExtraDisciplineModal({
                         }}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
                           isOnPage
-                            ? "border border-blue-500/30 bg-blue-500/10 text-blue-200 ring-1 ring-blue-500/20"
+                            ? "border border-blue-300 bg-blue-50 text-blue-800 ring-1 ring-blue-200 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-500/20"
                             : isAdded
-                            ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                            ? "border border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
                             : atLimit
-                            ? "cursor-not-allowed opacity-40 text-slate-500"
-                            : "text-slate-300 hover:bg-white/5"
+                            ? "cursor-not-allowed text-slate-400 opacity-40 dark:text-slate-500"
+                            : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
                         }`}
                       >
                         <div
                           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
                             isOnPage
-                              ? "border-blue-400/40 bg-blue-500/20"
+                              ? "border-blue-400 bg-blue-100 dark:border-blue-400/40 dark:bg-blue-500/20"
                               : isAdded
-                              ? "border-emerald-500/40 bg-emerald-500/20"
+                              ? "border-emerald-400 bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/20"
                               : atLimit
-                              ? "border-white/5 bg-white/5"
-                              : "border-white/10 bg-white/5"
+                              ? "border-slate-200 bg-slate-100 dark:border-white/5 dark:bg-white/5"
+                              : "border-slate-300 bg-slate-50 dark:border-white/10 dark:bg-white/5"
                           }`}
                         >
                           {isOnPage ? (
-                            <CheckCircle2 size={12} className="text-blue-400" />
+                            <CheckCircle2 size={12} className="text-blue-600 dark:text-blue-400" />
                           ) : isAdded ? (
-                            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
                           ) : atLimit ? (
-                            <Lock size={9} className="text-slate-600" />
+                            <Lock size={9} className="text-slate-400 dark:text-slate-600" />
                           ) : (
                             <Plus size={10} className="text-slate-500" />
                           )}
@@ -790,10 +792,10 @@ function AddExtraDisciplineModal({
                         <span
                           className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
                             isOnPage
-                              ? "bg-blue-500/15 text-blue-300"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
                               : isAdded
-                              ? "bg-emerald-500/15 text-emerald-300"
-                              : "bg-white/5 text-slate-600"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                              : "bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-600"
                           }`}
                         >
                           {isOnPage
@@ -811,8 +813,8 @@ function AddExtraDisciplineModal({
           )}
         </div>
 
-        <div className="border-t border-white/5 px-5 py-3">
-          <p className="text-[11px] text-slate-600">
+        <div className="border-t border-slate-100 px-5 py-3 dark:border-white/5">
+          <p className="text-[11px] text-slate-500 dark:text-slate-600">
             Só são listadas cadeiras de semestres anteriores ao actual (
             {currentYear}º ano, {currentSemester}º semestre).
           </p>
@@ -840,32 +842,23 @@ export default function DisciplinasPage() {
   const [extraDisciplineRows, setExtraDisciplineRows] = useState<Record<string, DisciplineRow>>({});
   const fetchedExtraIdsRef = useRef<Set<string>>(new Set());
 
-  /* ── Restaurar preferência de vista ── */
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_MODE_LS_KEY) as ViewMode | null;
       if (saved === "grid" || saved === "list") setViewMode(saved);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }, []);
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode);
-    try {
-      localStorage.setItem(VIEW_MODE_LS_KEY, mode);
-    } catch {
-      /* ignore */
-    }
+    try { localStorage.setItem(VIEW_MODE_LS_KEY, mode); } catch { /* ignore */ }
   };
 
-  /* ── Dados ── */
   const { disciplines, isLoading: discLoading, error, refetch } = useDisciplines();
   const { schedule, isLoading: schedLoading } = useSchedule();
   const scheduleInfoMap = useScheduleInfo(disciplines, schedule);
   const isLoading = discLoading || schedLoading;
 
-  /* ── Curso e ano/semestre ── */
   const courseName = course?.name ?? user?.academic?.course ?? "";
   const courseCode = course?.code ?? "";
   const currentYear = profile?.current_year ?? 1;
@@ -890,7 +883,6 @@ export default function DisciplinasPage() {
     [disciplineLookup, currentCourseEntries]
   );
 
-  /* ── Extras ── */
   const normalizedExtraIds = useMemo(() => {
     if (!lookupReady) return extraIds;
     return [
@@ -901,25 +893,18 @@ export default function DisciplinasPage() {
       ),
     ].filter((id) => !pageDisciplineIds.has(id));
   }, [extraIds, lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds]);
-  
-  /* ── Função para buscar dados das extras ── */
+
   const fetchExtraDisciplineRows = useCallback(
     async (ids: string[]) => {
       const idsToFetch = ids.filter((id) => !fetchedExtraIdsRef.current.has(id));
       if (idsToFetch.length === 0) return;
-
       idsToFetch.forEach((id) => fetchedExtraIdsRef.current.add(id));
-
       try {
         const { data, error: supaErr } = await supabase
           .from("disciplines")
-          .select(
-            `id, name, code, cover_image_url, discipline_courses!inner(year, semester)`
-          )
+          .select(`id, name, code, cover_image_url, discipline_courses!inner(year, semester)`)
           .in("id", idsToFetch);
-
         if (supaErr) throw supaErr;
-
         setExtraDisciplineRows((prev) => {
           const next = { ...prev };
           for (const row of (data ?? []) as any[]) {
@@ -947,7 +932,6 @@ export default function DisciplinasPage() {
     [supabase]
   );
 
-  /* ── Lookup ── */
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -975,32 +959,22 @@ export default function DisciplinasPage() {
       } catch (err) {
         console.error("Erro ao carregar lookup:", err);
       } finally {
-        if (active) {
-          setLookupReady(true);
-        }
+        if (active) setLookupReady(true);
       }
     };
     void load();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.course_id, supabase]);
 
-  /* ── Carregar cadeiras extra (IDs) ── */
   useEffect(() => {
     const fromLS = () => {
       try {
         const raw = localStorage.getItem(EXTRA_DISC_LS_KEY);
         if (raw) setExtraIds(JSON.parse(raw) as string[]);
-      } catch {
-        /* ignore */
-      }
+      } catch { /* ignore */ }
     };
-    if (!authUser) {
-      fromLS();
-      return;
-    }
+    if (!authUser) { fromLS(); return; }
     const fromSupa = async () => {
       try {
         const { data, error: e } = await supabase
@@ -1009,14 +983,11 @@ export default function DisciplinasPage() {
           .eq("student_id", authUser.id);
         if (e) throw e;
         setExtraIds((data ?? []).map((r: any) => r.discipline_id));
-      } catch {
-        fromLS();
-      }
+      } catch { fromLS(); }
     };
     void fromSupa();
   }, [authUser, supabase]);
 
-  /* ── Normalizar extras ── */
   useEffect(() => {
     if (!lookupReady) return;
     setExtraIds((prev) => {
@@ -1033,27 +1004,19 @@ export default function DisciplinasPage() {
         normalized.length !== prev.length ||
         normalized.some((id, i) => id !== prev[i]);
       if (!changed) return prev;
-      try {
-        localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(normalized));
-      } catch {
-        /* ignore */
-      }
+      try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(normalized)); } catch { /* ignore */ }
       return normalized;
     });
   }, [lookupReady, disciplineLookup, currentCourseEntries, pageDisciplineIds]);
 
-  /* ── Sempre que os IDs normalizados mudarem, buscar os dados ── */
   useEffect(() => {
     if (lookupReady && normalizedExtraIds.length > 0) {
       fetchExtraDisciplineRows(normalizedExtraIds);
     }
   }, [normalizedExtraIds, lookupReady, fetchExtraDisciplineRows]);
 
-  /* ── Stats ── */
   const stats = useMemo(() => {
-    let audios = 0,
-      slides = 0,
-      quizzes = 0;
+    let audios = 0, slides = 0, quizzes = 0;
     for (const d of disciplines)
       for (const ch of d.chapters ?? [])
         for (const t of ch.topics ?? [])
@@ -1070,7 +1033,6 @@ export default function DisciplinasPage() {
     return { total: disciplines.length, audios, slides, quizzes, avgProgress };
   }, [disciplines]);
 
-  /* ── Filtro ── */
   const filtered = useMemo(() => {
     if (activeFilters.size === 0) return disciplines;
     return disciplines.filter((d) =>
@@ -1085,7 +1047,6 @@ export default function DisciplinasPage() {
       return next;
     });
 
-
   const extraDisciplineIdsSet = useMemo(
     () => new Set(normalizedExtraIds),
     [normalizedExtraIds]
@@ -1099,18 +1060,12 @@ export default function DisciplinasPage() {
   const extraDisciplineCards = useMemo<DisciplineCardData[]>(() => {
     if (!lookupReady) return [];
     const cards: DisciplineCardData[] = [];
-
     for (const realId of normalizedExtraIds) {
       const row = extraDisciplineRows[realId];
       const entry = currentCourseEntries.find((e) => {
-        const resolved = resolveRealDisciplineId(
-          e.id,
-          disciplineLookup,
-          currentCourseEntries
-        );
+        const resolved = resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries);
         return resolved === realId;
       });
-
       if (row) {
         cards.push({
           id: realId,
@@ -1119,62 +1074,29 @@ export default function DisciplinasPage() {
           href: `/disciplinas/${realId}`,
           coverUrl: row.cover_image_url ?? null,
           progress: 0,
-          year: entry
-            ? `${entry.year}º Ano`
-            : row.year
-            ? `${row.year}º Ano`
-            : "",
-          semester: entry
-            ? `${entry.semester}º Semestre`
-            : row.semester
-            ? `${row.semester}º Semestre`
-            : "",
+          year: entry ? `${entry.year}º Ano` : row.year ? `${row.year}º Ano` : "",
+          semester: entry ? `${entry.semester}º Semestre` : row.semester ? `${row.semester}º Semestre` : "",
           lessonCount: 0,
           chaptersCount: 0,
           contentCounts: { audio: 0, slide: 0, quiz: 0 },
         });
         continue;
       }
-
-      if (entry) {
-        cards.push(toExtraCardData(entry, realId));
-      }
+      if (entry) cards.push(toExtraCardData(entry, realId));
     }
-
     return cards;
-  }, [
-    normalizedExtraIds,
-    lookupReady,
-    currentCourseEntries,
-    disciplineLookup,
-    extraDisciplineRows,
-  ]);
+  }, [normalizedExtraIds, lookupReady, currentCourseEntries, disciplineLookup, extraDisciplineRows]);
 
   const atExtraLimit = normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES;
 
-  /* ── Adicionar / remover extras ── */
   const addExtra = useCallback(
     async (sourceId: string) => {
       if (normalizedExtraIds.length >= MAX_EXTRA_DISCIPLINES) return;
-      const realId = resolveRealDisciplineId(
-        sourceId,
-        disciplineLookup,
-        currentCourseEntries
-      );
+      const realId = resolveRealDisciplineId(sourceId, disciplineLookup, currentCourseEntries);
       const entry = currentCourseEntries.find(
-        (e) =>
-          resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries) ===
-          realId
+        (e) => resolveRealDisciplineId(e.id, disciplineLookup, currentCourseEntries) === realId
       );
-      if (
-        !entry ||
-        !isSemesterAlreadyPassed(
-          entry.year,
-          entry.semester,
-          currentYear,
-          currentSemester
-        )
-      )
+      if (!entry || !isSemesterAlreadyPassed(entry.year, entry.semester, currentYear, currentSemester))
         return;
       const newIds = [...new Set([...normalizedExtraIds, realId])].filter(
         (id) => !pageDisciplineIds.has(id)
@@ -1187,110 +1109,67 @@ export default function DisciplinasPage() {
             { onConflict: "student_id,discipline_id" }
           );
         } catch {
-          try {
-            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-          } catch {
-            /* ignore */
-          }
+          try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
         }
       } else {
-        try {
-          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-        } catch {
-          /* ignore */
-        }
+        try { localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
       }
     },
-    [
-      authUser,
-      supabase,
-      disciplineLookup,
-      currentCourseEntries,
-      normalizedExtraIds,
-      pageDisciplineIds,
-      currentYear,
-      currentSemester,
-    ]
+    [authUser, supabase, disciplineLookup, currentCourseEntries, normalizedExtraIds, pageDisciplineIds, currentYear, currentSemester]
   );
 
   const removeExtra = useCallback(
     async (disciplineId: string) => {
       setExtraIds((prev) => prev.filter((id) => id !== disciplineId));
-      setExtraDisciplineRows((prev) => {
-        const next = { ...prev };
-        delete next[disciplineId];
-        return next;
-      });
+      setExtraDisciplineRows((prev) => { const next = { ...prev }; delete next[disciplineId]; return next; });
       fetchedExtraIdsRef.current.delete(disciplineId);
-
       if (authUser) {
         try {
-          await supabase
-            .from("student_extra_disciplines")
-            .delete()
-            .eq("student_id", authUser.id)
-            .eq("discipline_id", disciplineId);
+          await supabase.from("student_extra_disciplines").delete()
+            .eq("student_id", authUser.id).eq("discipline_id", disciplineId);
         } catch {
-          try {
-            const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
-            localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-          } catch {
-            /* ignore */
-          }
+          try { const newIds = normalizedExtraIds.filter((id) => id !== disciplineId); localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
         }
       } else {
-        try {
-          const newIds = normalizedExtraIds.filter((id) => id !== disciplineId);
-          localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds));
-        } catch {
-          /* ignore */
-        }
+        try { const newIds = normalizedExtraIds.filter((id) => id !== disciplineId); localStorage.setItem(EXTRA_DISC_LS_KEY, JSON.stringify(newIds)); } catch { /* ignore */ }
       }
     },
     [authUser, supabase, normalizedExtraIds]
   );
 
   const yearLabel = profile?.current_year ? `${profile.current_year}º Ano` : "";
-  const semesterLabel = profile?.current_semester
-    ? `${profile.current_semester}º Semestre`
-    : "";
+  const semesterLabel = profile?.current_semester ? `${profile.current_semester}º Semestre` : "";
   const courseAbbr = course?.code ?? courseName;
 
-  /* ── Loading ── */
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
         {viewMode === "grid" ? (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
+            {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <ListSkeleton key={i} />
-            ))}
+            {Array.from({ length: 6 }).map((_, i) => <ListSkeleton key={i} />)}
           </div>
         )}
       </div>
     );
   }
 
-  /* ── Erro ── */
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/5 py-16 text-center">
-        <AlertCircle size={28} className="text-rose-400" />
-        <p className="mt-3 font-semibold text-slate-200">
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-300 bg-rose-50 py-16 text-center dark:border-rose-500/20 dark:bg-rose-500/5">
+        <AlertCircle size={28} className="text-rose-500 dark:text-rose-400" />
+        <p className="mt-3 font-semibold text-slate-900 dark:text-slate-200">
           Erro ao carregar disciplinas
         </p>
-        <p className="mt-1 text-sm text-slate-500">{error}</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-500">{error}</p>
         <button
           type="button"
           onClick={refetch}
-          className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-400 transition hover:bg-rose-500/20"
+          className="mt-4 rounded-xl border border-rose-300 bg-rose-100 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-200 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
         >
           Tentar novamente
         </button>
@@ -1298,17 +1177,14 @@ export default function DisciplinasPage() {
     );
   }
 
-  /* ================================================================
-     RENDER
-  ================================================================ */
   return (
     <div className="space-y-6">
       {/* ── Cabeçalho ── */}
-      <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none">
         <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 dark:text-blue-400">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                 {courseName}
               </p>
               <h1 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -1316,7 +1192,7 @@ export default function DisciplinasPage() {
               </h1>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
                 <TrendingUp size={16} className="shrink-0 text-blue-500" />
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
@@ -1341,9 +1217,9 @@ export default function DisciplinasPage() {
         </div>
         <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-white/5">
           {[
-            { icon: Headphones, label: "Áudios", value: stats.audios, color: "text-blue-500" },
-            { icon: FileText, label: "Slides", value: stats.slides, color: "text-indigo-500" },
-            { icon: Trophy, label: "Quizzes", value: stats.quizzes, color: "text-amber-500" },
+            { icon: Headphones, label: "Áudios", value: stats.audios, color: "text-blue-600" },
+            { icon: FileText, label: "Slides", value: stats.slides, color: "text-indigo-600" },
+            { icon: Trophy, label: "Quizzes", value: stats.quizzes, color: "text-amber-600" },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="flex items-center gap-2.5 px-4 py-3">
               <Icon size={15} className={`${color} opacity-80`} />
@@ -1360,8 +1236,8 @@ export default function DisciplinasPage() {
 
       {/* ── Filtros ── */}
       <div className="flex min-w-0 items-center gap-2">
-        <SlidersHorizontal size={13} className="shrink-0 text-slate-400" />
-        <span className="hidden shrink-0 text-xs text-slate-400 sm:block">
+        <SlidersHorizontal size={13} className="shrink-0 text-slate-500" />
+        <span className="hidden shrink-0 text-xs text-slate-600 dark:text-slate-400 sm:block">
           Filtrar por:
         </span>
         <div className="flex flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
@@ -1374,8 +1250,8 @@ export default function DisciplinasPage() {
                 onClick={() => toggleFilter(id)}
                 className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
                   active
-                    ? "border-blue-500 bg-blue-500 text-white shadow-sm shadow-blue-500/30"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
+                    ? "border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
                 }`}
               >
                 <Icon size={12} />
@@ -1387,7 +1263,7 @@ export default function DisciplinasPage() {
             <button
               type="button"
               onClick={() => setActiveFilters(new Set())}
-              className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
+              className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs text-slate-500 transition hover:text-slate-700 dark:hover:text-slate-300"
             >
               <X size={11} />
               <span className="hidden sm:inline">Limpar</span>
@@ -1395,7 +1271,7 @@ export default function DisciplinasPage() {
           )}
         </div>
         {activeFilters.size > 0 && (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-semibold text-blue-400 sm:hidden">
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700 sm:hidden dark:bg-blue-500/15 dark:text-blue-400">
             <SlidersHorizontal size={9} />
             {activeFilters.size}
           </span>
@@ -1405,7 +1281,7 @@ export default function DisciplinasPage() {
       {/* ── Disciplinas ── */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
             {activeFilters.size > 0
               ? `${filtered.length} resultado${filtered.length !== 1 ? "s" : ""}`
               : `${stats.total} disciplina${stats.total !== 1 ? "s" : ""}`}
@@ -1450,7 +1326,7 @@ export default function DisciplinasPage() {
               <button
                 type="button"
                 onClick={() => setActiveFilters(new Set())}
-                className="mt-4 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-400 transition hover:bg-blue-500/20"
+                className="mt-4 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20"
               >
                 Limpar filtros
               </button>
@@ -1463,16 +1339,16 @@ export default function DisciplinasPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <GraduationCap size={16} className="text-indigo-400" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <GraduationCap size={16} className="text-indigo-500 dark:text-indigo-400" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Cadeiras adicionais
             </h2>
             {extraDisciplineCards.length > 0 && (
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   atExtraLimit
-                    ? "bg-rose-500/15 text-rose-400"
-                    : "bg-indigo-500/15 text-indigo-400"
+                    ? "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400"
+                    : "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400"
                 }`}
               >
                 {extraDisciplineCards.length}/{MAX_EXTRA_DISCIPLINES}
@@ -1485,10 +1361,10 @@ export default function DisciplinasPage() {
             disabled={!lookupReady || atExtraLimit}
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
               atExtraLimit
-                ? "cursor-not-allowed border-rose-500/20 bg-rose-500/5 text-rose-500/50"
+                ? "cursor-not-allowed border-rose-200 bg-rose-50 text-rose-400 dark:border-rose-500/20 dark:bg-rose-500/5 dark:text-rose-500/50"
                 : lookupReady
-                ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20"
-                : "cursor-not-allowed border-white/5 bg-white/5 text-slate-600 opacity-50"
+                ? "border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
+                : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-50 dark:border-white/5 dark:bg-white/5 dark:text-slate-600"
             }`}
           >
             {atExtraLimit ? <Lock size={13} /> : <Plus size={13} />}
@@ -1497,20 +1373,17 @@ export default function DisciplinasPage() {
         </div>
 
         {lookupReady && extraDisciplineCards.length > 0 && (
-          <ExtraLimitBanner
-            current={extraDisciplineCards.length}
-            max={MAX_EXTRA_DISCIPLINES}
-          />
+          <ExtraLimitBanner current={extraDisciplineCards.length} max={MAX_EXTRA_DISCIPLINES} />
         )}
 
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-xs text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500">
           Cadeiras de semestres anteriores em regime de recurso ou melhoria.
-          Máximo de <strong className="text-slate-400">{MAX_EXTRA_DISCIPLINES}</strong>{" "}
+          Máximo de <strong className="text-slate-800 dark:text-slate-400">{MAX_EXTRA_DISCIPLINES}</strong>{" "}
           cadeiras.
         </div>
 
         {!lookupReady ? (
-          <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-slate-950/40 py-10 text-sm text-slate-400">
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 py-10 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
             <Loader2 size={16} className="mr-2 animate-spin" />
             A carregar cadeiras adicionais…
           </div>
@@ -1541,17 +1414,17 @@ export default function DisciplinasPage() {
             </div>
           )
         ) : normalizedExtraIds.length > 0 ? (
-          <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-slate-950/40 py-10 text-sm text-slate-400">
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 py-10 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
             <Loader2 size={16} className="mr-2 animate-spin" />
             A carregar dados das cadeiras adicionais…
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-10 text-center">
-            <GraduationCap size={24} className="mb-2 text-slate-600" />
-            <p className="text-sm font-medium text-slate-500">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-10 text-center dark:border-white/10 dark:bg-transparent">
+            <GraduationCap size={24} className="mb-2 text-slate-400 dark:text-slate-600" />
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-500">
               Nenhuma cadeira adicional
             </p>
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-600">
               Frequentas cadeiras de semestres anteriores? Adiciona-as para aceder
               aos materiais.
             </p>

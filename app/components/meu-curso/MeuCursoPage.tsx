@@ -50,10 +50,11 @@ const SCROLLBAR_X = [
   "[&::-webkit-scrollbar]:h-1",
   "[&::-webkit-scrollbar-track]:bg-transparent",
   "[&::-webkit-scrollbar-thumb]:rounded-full",
-  "[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
-  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
+  "[&::-webkit-scrollbar-thumb]:bg-slate-300/60",
+  "dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
+  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/70",
+  "dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
 ].join(" ");
-
 /* ================================================================
    TIPOS
 ================================================================ */
@@ -626,9 +627,12 @@ const CURRICULUM: Record<CourseId, CourseData> = {
 const DAYS_ORDER = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"] as const;
 
 const TYPE_COLORS: Record<WeeklySlot["type"], string> = {
-  Teórica:           "border-blue-500/30 bg-blue-500/10 text-blue-300",
-  Prática:           "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-  "Teórico-Prática": "border-violet-500/30 bg-violet-500/10 text-violet-300",
+  Teórica:
+    "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
+  Prática:
+    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300",
+  "Teórico-Prática":
+    "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300",
 };
 
 const DAY_LABELS: Record<WeeklySlot["day"], string> = {
@@ -1017,17 +1021,17 @@ export default function MeuCursoPage({
   );
 
   const statusIcon = (status: DisciplineStatus) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />;
-      case "current":
-        return <Circle size={14} className="text-blue-400 shrink-0 fill-blue-400/30" />;
-      case "extra":
-        return <Sparkles size={14} className="text-violet-400 shrink-0" />;
-      case "upcoming":
-        return <Circle size={14} className="text-slate-500 shrink-0" />;
-    }
-  };
+  switch (status) {
+    case "completed":
+      return <CheckCircle2 size={14} className="shrink-0 text-emerald-500 dark:text-emerald-400" />;
+    case "current":
+      return <Circle size={14} className="shrink-0 fill-blue-500/30 text-blue-500 dark:fill-blue-400/30 dark:text-blue-400" />;
+    case "extra":
+      return <Sparkles size={14} className="shrink-0 text-violet-500 dark:text-violet-400" />;
+    case "upcoming":
+      return <Circle size={14} className="shrink-0 text-slate-400 dark:text-slate-500" />;
+  }
+};
 
   const statusLabel: Record<DisciplineStatus, string> = {
     completed: "Concluída",
@@ -1136,79 +1140,93 @@ export default function MeuCursoPage({
 
   /* ── Estilos partilhados ──────────────────────────────────── */
   const selectSm =
-    "w-full appearance-none rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 " +
-    "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition";
+  "w-full appearance-none rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 " +
+  "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200 transition " +
+  "dark:border-white/15 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40";
 
-  const SelectWrap = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
-    <div className={`relative ${className}`}>
-      {children}
-      <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-    </div>
-  );
+const SelectWrap = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
+  <div className={`relative ${className}`}>
+    {children}
+    <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400" />
+  </div>
+);
 
   /* ==============================================================
      RENDER
   ============================================================== */
   return (
-    <div className="space-y-6">
+  <div className="space-y-4 sm:space-y-6">
 
-      {scheduleError && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+          {scheduleError && (
+        <div className="flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
           <AlertCircle size={15} className="shrink-0" />
           <span>{scheduleError}</span>
         </div>
       )}
 
       {/* ── Cabeçalho ── */}
-      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 md:p-6">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
-        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+      <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-slate-950/50 dark:shadow-none sm:rounded-2xl sm:p-5 md:p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-50 dark:from-indigo-950/60 dark:via-slate-950/80 dark:to-slate-950" />
+
+        {/* Título + progresso — linha única no mobile */}
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 sm:text-xs">
               Meu Curso
             </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white md:text-3xl">
+            <h1 className="mt-0.5 truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl md:text-3xl">
               {course.name}
             </h1>
-            <p className="mt-1 text-sm text-slate-400">{studentName}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <GraduationCap size={14} className="text-indigo-400" />
-                {currentYear}º Ano · {currentSemester}º Semestre
-              </span>
-              {studentNumber && (
-                <span className="flex items-center gap-1.5">
-                  <FileText size={14} className="text-indigo-400" />
-                  Nº {studentNumber}
-                </span>
-              )}
-            </div>
+            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400 sm:mt-1 sm:text-sm">
+              {studentName}
+            </p>
           </div>
 
-          <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-            <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">
+          <div className="flex shrink-0 flex-col items-end text-right">
+            <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl">
+              {progress}
+              <span className="text-sm font-medium text-slate-400 dark:text-slate-400 sm:text-base">%</span>
+            </p>
+            <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px]">
               Progresso
             </p>
-            <p className="text-3xl font-bold text-white">
-              {progress}
-              <span className="text-base font-medium text-slate-400">%</span>
-            </p>
-            <div className="h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
           </div>
         </div>
 
+        {/* Meta (ano/semestre/número) — abaixo, mais discreto no mobile */}
+        <div className="relative z-10 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 sm:mt-2 sm:text-sm">
+          <span className="flex items-center gap-1.5">
+            <GraduationCap size={13} className="text-indigo-500 dark:text-indigo-400 sm:size-[14px]" />
+            {currentYear}º Ano · {currentSemester}º Semestre
+          </span>
+          {studentNumber && (
+            <span className="flex items-center gap-1.5">
+              <FileText size={13} className="text-indigo-500 dark:text-indigo-400 sm:size-[14px]" />
+              Nº {studentNumber}
+            </span>
+          )}
+        </div>
+
+        {/* Barra de progresso — visível e compacta no mobile */}
+        <div className="relative z-10 mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10 sm:hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
         {/* Tabs */}
-        <div className="relative z-10 mt-5 flex gap-1 rounded-xl bg-white/5 p-1">
+        <div className={`relative z-10 mt-3 flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 dark:bg-white/5 sm:mt-5 sm:rounded-xl ${SCROLLBAR_X}`}>
           {(["curriculo", "horario", "mudanca"] as Tab[]).map((tab) => {
             const labels: Record<Tab, string> = {
               curriculo: "Grelha Curricular",
               horario:   "Horário Semanal",
               mudanca:   "Mudar de Curso",
+            };
+            const labelsShort: Record<Tab, string> = {
+              curriculo: "Currículo",
+              horario:   "Horário",
+              mudanca:   "Mudança",
             };
             const icons: Record<Tab, ElementType> = {
               curriculo: Layers,
@@ -1221,13 +1239,14 @@ export default function MeuCursoPage({
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                className={`flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-2 text-[11px] font-medium transition sm:gap-2 sm:rounded-lg sm:px-3 sm:text-xs ${
                   activeTab === tab
                     ? "bg-indigo-600 text-white"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    : "text-slate-500 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
                 }`}
               >
                 <Icon size={14} />
+                <span className="sm:hidden">{labelsShort[tab]}</span>
                 <span className="hidden sm:inline">{labels[tab]}</span>
               </button>
             );
@@ -1238,408 +1257,408 @@ export default function MeuCursoPage({
       {/* ══════════════════════════════════════════
           TAB: GRELHA CURRICULAR
       ══════════════════════════════════════════ */}
-      {activeTab === "curriculo" && (
-        <div className="space-y-4">
-          {extrasLoading && (
-            <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-2.5 text-xs text-slate-500">
-              <Loader2 size={12} className="animate-spin" />
-              A carregar cadeiras extra…
-            </div>
-          )}
+          {activeTab === "curriculo" && (
+      <div className="space-y-3 sm:space-y-4">
+        {extrasLoading && (
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-500 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500">
+            <Loader2 size={12} className="animate-spin" />
+            A carregar cadeiras extra…
+          </div>
+        )}
 
-          {course.years.map((yearData) => {
-            const isCurrentYear = yearData.year === currentYear;
-            const isExpanded    = expandedYears.has(yearData.year);
-            const isCompleted   = yearData.year < currentYear;
+        {course.years.map((yearData) => {
+          const isCurrentYear = yearData.year === currentYear;
+          const isExpanded    = expandedYears.has(yearData.year);
+          const isCompleted   = yearData.year < currentYear;
 
-            return (
-              <div
-                key={yearData.year}
-                className={`overflow-hidden rounded-2xl border transition-all ${
+          return (
+            <div
+              key={yearData.year}
+              className={`overflow-hidden rounded-xl border transition-all sm:rounded-2xl ${
+                isCurrentYear
+                  ? "border-indigo-300 shadow-md shadow-indigo-100 dark:border-indigo-500/40 dark:shadow-lg dark:shadow-indigo-500/10"
+                  : "border-slate-200 dark:border-white/10"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggleYear(yearData.year)}
+                className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition sm:gap-4 sm:px-5 sm:py-4 ${
                   isCurrentYear
-                    ? "border-indigo-500/40 shadow-lg shadow-indigo-500/10"
-                    : "border-white/10"
+                    ? "bg-indigo-50 dark:bg-indigo-950/60"
+                    : isCompleted
+                    ? "bg-emerald-50 dark:bg-emerald-950/20"
+                    : "bg-slate-50 dark:bg-slate-950/40"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => toggleYear(yearData.year)}
-                  className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition ${
-                    isCurrentYear
-                      ? "bg-indigo-950/60"
-                      : isCompleted
-                      ? "bg-emerald-950/20"
-                      : "bg-slate-950/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${
-                        isCurrentYear
-                          ? "bg-indigo-600 text-white"
-                          : isCompleted
-                          ? "bg-emerald-600/30 text-emerald-400"
-                          : "bg-white/5 text-slate-400"
-                      }`}
-                    >
-                      {yearData.year}
-                    </div>
-                    <div>
-                      <p className={`font-semibold ${isCurrentYear ? "text-white" : "text-slate-300"}`}>
-                        {yearData.year}º Ano
-                        {isCurrentYear && (
-                          <span className="ml-2 rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-medium text-indigo-300">
-                            Ano Corrente
-                          </span>
-                        )}
-                        {isCompleted && (
-                          <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                            Concluído
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Carga horária: {yearData.semesters[0].totalHours}h
-                      </p>
-                    </div>
+                <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 ${
+                      isCurrentYear
+                        ? "bg-indigo-600 text-white"
+                        : isCompleted
+                        ? "bg-emerald-200 text-emerald-700 dark:bg-emerald-600/30 dark:text-emerald-400"
+                        : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-slate-400"
+                    }`}
+                  >
+                    {yearData.year}
                   </div>
-                  {isExpanded
-                    ? <ChevronDown  size={16} className="text-slate-400" />
-                    : <ChevronRight size={16} className="text-slate-400" />
-                  }
-                </button>
+                  <div className="min-w-0">
+                    <p className={`flex flex-wrap items-center gap-1.5 truncate font-semibold sm:gap-2 ${isCurrentYear ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300"}`}>
+                      {yearData.year}º Ano
+                      {isCurrentYear && (
+                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                          Ano Corrente
+                        </span>
+                      )}
+                      {isCompleted && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                          Concluído
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-500">
+                      Carga horária: {yearData.semesters[0].totalHours}h
+                    </p>
+                  </div>
+                </div>
+                {isExpanded
+                  ? <ChevronDown  size={16} className="shrink-0 text-slate-400" />
+                  : <ChevronRight size={16} className="shrink-0 text-slate-400" />
+                }
+              </button>
 
-                {isExpanded && (
-                  <div className="grid divide-y divide-white/5 bg-slate-950/30 md:grid-cols-2 md:divide-x md:divide-y-0">
-                    {yearData.semesters.map((sem) => {
-                      const semBaseStatus = (() => {
-                        if (yearData.year < currentYear) return "completed";
-                        if (yearData.year === currentYear && sem.number < currentSemester) return "completed";
-                        if (yearData.year === currentYear && sem.number === currentSemester) return "current";
-                        return "upcoming";
-                      })();
-                      const isSemCurrent = semBaseStatus === "current";
+              {isExpanded && (
+                <div className="grid divide-y divide-slate-100 bg-slate-50/50 dark:divide-white/5 dark:bg-slate-950/30 md:grid-cols-2 md:divide-x md:divide-y-0">
+                  {yearData.semesters.map((sem) => {
+                    const semBaseStatus = (() => {
+                      if (yearData.year < currentYear) return "completed";
+                      if (yearData.year === currentYear && sem.number < currentSemester) return "completed";
+                      if (yearData.year === currentYear && sem.number === currentSemester) return "current";
+                      return "upcoming";
+                    })();
+                    const isSemCurrent = semBaseStatus === "current";
 
-                      return (
-                        <div key={sem.number} className="p-4">
-                          <div
-                            className={`mb-3 flex items-center gap-2 border-b pb-2 ${
-                              isSemCurrent ? "border-indigo-500/30" : "border-white/5"
-                            }`}
-                          >
-                            <div className={`h-1.5 w-1.5 rounded-full ${isSemCurrent ? "bg-indigo-400" : "bg-slate-600"}`} />
-                            <p className={`text-xs font-semibold uppercase tracking-wider ${isSemCurrent ? "text-indigo-400" : "text-slate-500"}`}>
-                              {sem.number}º Semestre
-                            </p>
-                          </div>
+                    return (
+                      <div key={sem.number} className="p-3 sm:p-4">
+                        <div
+                          className={`mb-2.5 flex items-center gap-2 border-b pb-2 sm:mb-3 ${
+                            isSemCurrent ? "border-indigo-200 dark:border-indigo-500/30" : "border-slate-200 dark:border-white/5"
+                          }`}
+                        >
+                          <div className={`h-1.5 w-1.5 rounded-full ${isSemCurrent ? "bg-indigo-400" : "bg-slate-300 dark:bg-slate-600"}`} />
+                          <p className={`text-xs font-semibold uppercase tracking-wider ${isSemCurrent ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500 dark:text-slate-500"}`}>
+                            {sem.number}º Semestre
+                          </p>
+                        </div>
 
-                          <div className="space-y-1.5">
-                            {sem.disciplines.map((disc) => {
-                              const discStatus = getDisciplineStatus(disc.id, yearData.year, sem.number);
-                              const isSelected = selectedDisciplineId === disc.id;
-                              const isCurrent  = discStatus === "current";
-                              const isExtraDisc = discStatus === "extra";
+                        <div className="space-y-1 sm:space-y-1.5">
+                          {sem.disciplines.map((disc) => {
+                            const discStatus = getDisciplineStatus(disc.id, yearData.year, sem.number);
+                            const isSelected = selectedDisciplineId === disc.id;
+                            const isCurrent  = discStatus === "current";
+                            const isExtraDisc = discStatus === "extra";
 
-                              return (
-                                <button
-                                  key={disc.id}
-                                  type="button"
-                                  onClick={() => setSelectedDisciplineId(isSelected ? null : disc.id)}
-                                  className={`group flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
+                            return (
+                              <button
+                                key={disc.id}
+                                type="button"
+                                onClick={() => setSelectedDisciplineId(isSelected ? null : disc.id)}
+                                className={`group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-all sm:px-3 sm:py-2.5 ${
+                                  isSelected
+                                    ? isExtraDisc
+                                      ? "bg-violet-100 ring-1 ring-violet-300 dark:bg-violet-600/20 dark:ring-violet-500/40"
+                                      : "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-600/20 dark:ring-indigo-500/40"
+                                    : isExtraDisc
+                                    ? "bg-violet-50 ring-1 ring-violet-200 hover:bg-violet-100 dark:bg-violet-950/30 dark:ring-violet-500/20 dark:hover:bg-violet-950/50"
+                                    : isCurrent
+                                    ? "hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                                    : "hover:bg-slate-100 dark:hover:bg-white/5"
+                                }`}
+                              >
+                                {statusIcon(discStatus)}
+
+                                <span
+                                  className={`flex-1 leading-snug ${
                                     isSelected
-                                      ? isExtraDisc
-                                        ? "bg-violet-600/20 ring-1 ring-violet-500/40"
-                                        : "bg-indigo-600/20 ring-1 ring-indigo-500/40"
+                                      ? isExtraDisc ? "text-violet-800 dark:text-violet-200" : "text-indigo-800 dark:text-indigo-200"
                                       : isExtraDisc
-                                      ? "bg-violet-950/30 ring-1 ring-violet-500/20 hover:bg-violet-950/50"
-                                      : isCurrent
-                                      ? "hover:bg-indigo-950/40"
-                                      : "hover:bg-white/5"
+                                      ? "text-violet-700 dark:text-violet-200"
+                                      : "text-slate-700 dark:text-slate-300"
                                   }`}
                                 >
-                                  {statusIcon(discStatus)}
-
-                                  <span
-                                    className={`flex-1 leading-snug ${
-                                      isSelected
-                                        ? isExtraDisc ? "text-violet-200" : "text-indigo-200"
-                                        : isExtraDisc
-                                        ? "text-violet-200"
-                                        : "text-slate-300"
-                                    }`}
-                                  >
-                                    {disc.name}
-                                    {disc.annual && (
-                                      <span className="ml-1.5 text-[10px] text-slate-500">(Anual)</span>
-                                    )}
-                                  </span>
-
-                                  {isExtraDisc && (
-                                    <span className="shrink-0 rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-400">
-                                      Extra
-                                    </span>
+                                  {disc.name}
+                                  {disc.annual && (
+                                    <span className="ml-1.5 text-[10px] text-slate-500 dark:text-slate-500">(Anual)</span>
                                   )}
+                                </span>
 
-                                  <ChevronRight
-                                    size={12}
-                                    className={`shrink-0 transition-transform ${
-                                      isSelected
-                                        ? isExtraDisc ? "rotate-90 text-violet-400" : "rotate-90 text-indigo-400"
-                                        : "text-slate-600 group-hover:text-slate-400"
-                                    }`}
-                                  />
-                                </button>
-                              );
-                            })}
-                          </div>
+                                {isExtraDisc && (
+                                  <span className="shrink-0 rounded-full border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-400">
+                                    Extra
+                                  </span>
+                                )}
+
+                                <ChevronRight
+                                  size={12}
+                                  className={`shrink-0 transition-transform ${
+                                    isSelected
+                                      ? isExtraDisc ? "rotate-90 text-violet-500 dark:text-violet-400" : "rotate-90 text-indigo-500 dark:text-indigo-400"
+                                      : "text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-400"
+                                  }`}
+                                />
+                              </button>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {isExpanded &&
+                selectedDiscipline &&
+                selectedDiscipline.year === yearData.year && (
+                  <div ref={disciplinePanelRef}>
+                    <DisciplinePanel
+                      discipline={selectedDiscipline.discipline}
+                      year={selectedDiscipline.year}
+                      semester={selectedDiscipline.semester}
+                      status={getDisciplineStatus(
+                        selectedDiscipline.discipline.id,
+                        selectedDiscipline.year,
+                        selectedDiscipline.semester
+                      )}
+                      courseId={courseId}
+                      onClose={() => setSelectedDisciplineId(null)}
+                      onGoToDiscipline={goToDiscipline}
+                    />
                   </div>
                 )}
+            </div>
+          );
+        })}
 
-                {isExpanded &&
-                  selectedDiscipline &&
-                  selectedDiscipline.year === yearData.year && (
-                    <div ref={disciplinePanelRef}>
-                      <DisciplinePanel
-                        discipline={selectedDiscipline.discipline}
-                        year={selectedDiscipline.year}
-                        semester={selectedDiscipline.semester}
-                        status={getDisciplineStatus(
-                          selectedDiscipline.discipline.id,
-                          selectedDiscipline.year,
-                          selectedDiscipline.semester
-                        )}
-                        courseId={courseId}
-                        onClose={() => setSelectedDisciplineId(null)}
-                        onGoToDiscipline={goToDiscipline}
-                      />
-                    </div>
-                  )}
-              </div>
-            );
-          })}
-
-          {/* Legenda */}
-          <div className="flex flex-wrap items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-[11px] text-slate-500">
-            <span className="font-medium text-slate-400">Legenda:</span>
-            {(["completed", "current", "upcoming", "extra"] as DisciplineStatus[]).map((s) => (
-              <span key={s} className="flex items-center gap-1.5">
-                {statusIcon(s)}
-                <span className={s === "extra" ? "text-violet-400" : ""}>{statusLabel[s]}</span>
-              </span>
-            ))}
-          </div>
+        {/* Legenda */}
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] text-slate-500 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500 sm:gap-4">
+          <span className="font-medium text-slate-600 dark:text-slate-400">Legenda:</span>
+          {(["completed", "current", "upcoming", "extra"] as DisciplineStatus[]).map((s) => (
+            <span key={s} className="flex items-center gap-1.5">
+              {statusIcon(s)}
+              <span className={s === "extra" ? "text-violet-600 dark:text-violet-400" : ""}>{statusLabel[s]}</span>
+            </span>
+          ))}
         </div>
-      )}
+      </div>
+    )}
 
       {/* ══════════════════════════════════════════
           TAB: HORÁRIO SEMANAL
       ══════════════════════════════════════════ */}
-      {activeTab === "horario" && (
-        <div className="space-y-4">
-          {scheduleLoading ? (
-            <div className="flex items-center justify-center gap-3 py-16">
-              <Loader2 size={20} className="animate-spin text-indigo-400" />
-              <p className="text-sm text-slate-400">A carregar horário…</p>
-            </div>
-          ) : scheduleMode === "view" ? (
-            <>
-              {mySchedule.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-10 text-center">
-                  <Calendar size={48} className="mx-auto mb-4 text-slate-600" />
-                  <p className="text-lg font-semibold text-slate-300">
-                    Ainda não tens horário configurado
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Preenche o teu horário manualmente
-                  </p>
-                  <div className="mt-6 flex justify-center">
-                    <button
-                      onClick={() => { setManualGrid({}); setScheduleMode("manual"); }}
-                      className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
-                    >
-                      <Plus size={16} /> Criar horário manualmente
-                    </button>
+          {activeTab === "horario" && (
+      <div className="space-y-3 sm:space-y-4">
+        {scheduleLoading ? (
+          <div className="flex items-center justify-center gap-3 py-16">
+            <Loader2 size={20} className="animate-spin text-indigo-500 dark:text-indigo-400" />
+            <p className="text-sm text-slate-500 dark:text-slate-400">A carregar horário…</p>
+          </div>
+        ) : scheduleMode === "view" ? (
+          <>
+            {mySchedule.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none sm:p-10">
+                <Calendar size={40} className="mx-auto mb-4 text-slate-300 dark:text-slate-600 sm:size-12" />
+                <p className="text-base font-semibold text-slate-700 dark:text-slate-300 sm:text-lg">
+                  Ainda não tens horário configurado
+                </p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">
+                  Preenche o teu horário manualmente
+                </p>
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={() => { setManualGrid({}); setScheduleMode("manual"); }}
+                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+                  >
+                    <Plus size={16} /> Criar horário manualmente
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      const newGrid: Record<GridKey, GridCell> = {};
+                      for (const slot of mySchedule) {
+                        const periodKey = `${slot.startTime}-${slot.endTime}`;
+                        const key: GridKey = `${slot.day}|${periodKey}`;
+                        const disc = currentSemesterDisciplines.find((d) => d.name === slot.discipline);
+                        newGrid[key] = {
+                          disciplineId: disc?.id ?? "",
+                          room:         slot.room ?? globalRoom,
+                          professor:    slot.professor ?? "",
+                          type:         slot.type,
+                        };
+                      }
+                      setManualGrid(newGrid);
+                      setScheduleMode("manual");
+                    }}
+                    className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <Edit3 size={14} /> Editar horário
+                  </button>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/[0.08] dark:text-blue-300">
+                  <Info size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Clica em qualquer aula</strong> para aceder ao conteúdo da disciplina.
+                  </span>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+                  <div className="border-b border-slate-200 px-4 py-4 dark:border-white/10">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                      <div>
+                        <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg">Horário Semanal</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-500">Estruturado conforme os horários do ISAF</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{currentYear}º Ano</span>
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{currentSemester}º Semestre</span>
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{course.name}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`overflow-x-auto ${SCROLLBAR_X}`}>
+                    <table className="min-w-[980px] w-full border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-white/[0.03]">
+                          <th className="w-24 border-b border-r border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:text-slate-500">
+                            Hora
+                          </th>
+                          {DAYS_ORDER.map((day) => (
+                            <th
+                              key={day}
+                              className="border-b border-r border-slate-200 px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-700 dark:border-white/10 dark:text-slate-300 last:border-r-0"
+                            >
+                              {DAY_LABELS[day]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activePeriods.map((period, idx) => (
+                          <tr key={period.key} className="group">
+                            <td className={`border-b border-r border-slate-200 px-3 py-3 align-middle dark:border-white/10 ${idx % 2 === 0 ? "bg-slate-50 dark:bg-white/[0.02]" : "bg-white dark:bg-white/[0.04]"}`}>
+                              <div className="flex flex-col items-center leading-none">
+                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{period.startTime}</span>
+                                <span className="mt-1 text-xs text-slate-400 dark:text-slate-500">{period.endTime}</span>
+                              </div>
+                            </td>
+                            {DAYS_ORDER.map((day) => {
+                              const slot = getCellSlot(mySchedule, day, period);
+                              return (
+                                <td
+                                  key={`${day}-${period.key}`}
+                                  className={`border-b border-r border-slate-200 px-2 py-2 align-middle dark:border-white/10 last:border-r-0 ${idx % 2 === 0 ? "bg-white dark:bg-slate-950/30" : "bg-slate-50/60 dark:bg-slate-950/45"}`}
+                                >
+                                  {slot ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => goToScheduleDiscipline(slot)}
+                                      className={`flex min-h-[56px] w-full flex-col items-center justify-center rounded-xl border px-2 py-2 text-center transition hover:brightness-105 active:scale-[0.985] dark:hover:brightness-110 ${TYPE_COLORS[slot.type]}`}
+                                      title={slot.discipline}
+                                    >
+                                      <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-slate-800 dark:text-white">
+                                        {getDisciplineShortName(slot.discipline)}
+                                      </span>
+                                      {slot.room && (
+                                        <span className="mt-1 text-[10px] leading-none text-slate-600 dark:text-white/70">{slot.room}</span>
+                                      )}
+                                      <span className="mt-1 inline-flex rounded-full bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-slate-700 dark:bg-black/20 dark:text-white/75">
+                                        {slot.type}
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <div className="flex min-h-[56px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.015]">
+                                      <span className="text-[10px] text-slate-300 dark:text-slate-700">—</span>
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => {
-                        const newGrid: Record<GridKey, GridCell> = {};
-                        for (const slot of mySchedule) {
-                          const periodKey = `${slot.startTime}-${slot.endTime}`;
-                          const key: GridKey = `${slot.day}|${periodKey}`;
-                          const disc = currentSemesterDisciplines.find((d) => d.name === slot.discipline);
-                          newGrid[key] = {
-                            disciplineId: disc?.id ?? "",
-                            room:         slot.room ?? globalRoom,
-                            professor:    slot.professor ?? "",
-                            type:         slot.type,
-                          };
-                        }
-                        setManualGrid(newGrid);
-                        setScheduleMode("manual");
-                      }}
-                      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-                    >
-                      <Edit3 size={14} /> Editar horário
-                    </button>
-                  </div>
 
-                  <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.08] px-4 py-3 text-xs text-blue-300">
-                    <Info size={14} className="mt-0.5 shrink-0" />
-                    <span>
-                      <strong>Clica em qualquer aula</strong> para aceder ao conteúdo da disciplina.
+                <div className="flex flex-wrap gap-2 text-[11px] sm:gap-3">
+                  {(Object.entries(TYPE_COLORS) as [WeeklySlot["type"], string][]).map(([type, cls]) => (
+                    <span key={type} className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${cls}`}>
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      {type}
                     </span>
-                  </div>
+                  ))}
+                </div>
 
-                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
-                    <div className="border-b border-white/10 px-4 py-4">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                        <div>
-                          <h2 className="text-lg font-semibold text-white">Horário Semanal</h2>
-                          <p className="text-xs text-slate-500">Estruturado conforme os horários do ISAF</p>
+                {scheduleProfessors.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
+                      Professores associados
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {scheduleProfessors.map((item) => (
+                        <div
+                          key={`${item.discipline}-${item.professor}`}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/5 dark:bg-white/[0.02]"
+                        >
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                            {getDisciplineShortName(item.discipline)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
+                            {item.professor}{item.room ? ` · ${item.room}` : ""}
+                          </p>
                         </div>
-                        <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{currentYear}º Ano</span>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{currentSemester}º Semestre</span>
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">{course.name}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`overflow-x-auto ${SCROLLBAR_X}`}>
-                      <table className="min-w-[980px] w-full border-collapse">
-                        <thead>
-                          <tr className="bg-white/[0.03]">
-                            <th className="w-24 border-b border-r border-white/10 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                              Hora
-                            </th>
-                            {DAYS_ORDER.map((day) => (
-                              <th
-                                key={day}
-                                className="border-b border-r border-white/10 px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-300 last:border-r-0"
-                              >
-                                {DAY_LABELS[day]}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {activePeriods.map((period, idx) => (
-                            <tr key={period.key} className="group">
-                              <td className={`border-b border-r border-white/10 px-3 py-3 align-middle ${idx % 2 === 0 ? "bg-white/[0.02]" : "bg-white/[0.04]"}`}>
-                                <div className="flex flex-col items-center leading-none">
-                                  <span className="text-sm font-semibold text-slate-200">{period.startTime}</span>
-                                  <span className="mt-1 text-xs text-slate-500">{period.endTime}</span>
-                                </div>
-                              </td>
-                              {DAYS_ORDER.map((day) => {
-                                const slot = getCellSlot(mySchedule, day, period);
-                                return (
-                                  <td
-                                    key={`${day}-${period.key}`}
-                                    className={`border-b border-r border-white/10 px-2 py-2 align-middle last:border-r-0 ${idx % 2 === 0 ? "bg-slate-950/30" : "bg-slate-950/45"}`}
-                                  >
-                                    {slot ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => goToScheduleDiscipline(slot)}
-                                        className={`flex min-h-[56px] w-full flex-col items-center justify-center rounded-xl border px-2 py-2 text-center transition hover:brightness-110 active:scale-[0.985] ${TYPE_COLORS[slot.type]}`}
-                                        title={slot.discipline}
-                                      >
-                                        <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-white">
-                                          {getDisciplineShortName(slot.discipline)}
-                                        </span>
-                                        {slot.room && (
-                                          <span className="mt-1 text-[10px] leading-none text-white/70">{slot.room}</span>
-                                        )}
-                                        <span className="mt-1 inline-flex rounded-full bg-black/20 px-1.5 py-0.5 text-[9px] font-medium text-white/75">
-                                          {slot.type}
-                                        </span>
-                                      </button>
-                                    ) : (
-                                      <div className="flex min-h-[56px] items-center justify-center rounded-xl border border-dashed border-white/5 bg-white/[0.015]">
-                                        <span className="text-[10px] text-slate-700">—</span>
-                                      </div>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      ))}
                     </div>
                   </div>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <ManualScheduleEditor
+            currentYear={currentYear}
+            currentSemester={currentSemester}
+            disciplines={currentSemesterDisciplines}
+            manualGrid={manualGrid}
+            globalRoom={globalRoom}
+            manualPeriodGroup={manualPeriodGroup}
+            filteredPeriods={filteredPeriods}
+            saving={scheduleSaving}
+            filledCellCount={filledCellCount}
+            selectSm={selectSm}
+            SelectWrap={SelectWrap}
+            onUpdateCell={updateGridCell}
+            onGetCell={getGridCell}
+            onGlobalRoomChange={handleGlobalRoomChange}
+            onPeriodGroupChange={setManualPeriodGroup}
+            onApplyBlock={applyBlockToGrid}
+            onSave={saveManual}
+            onCancel={() => setScheduleMode("view")}
+          />
+        )}
+      </div>
+    )}
 
-                  <div className="flex flex-wrap gap-3 text-[11px]">
-                    {(Object.entries(TYPE_COLORS) as [WeeklySlot["type"], string][]).map(([type, cls]) => (
-                      <span key={type} className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${cls}`}>
-                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        {type}
-                      </span>
-                    ))}
-                  </div>
-
-                  {scheduleProfessors.length > 0 && (
-                    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-                        Professores associados
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {scheduleProfessors.map((item) => (
-                          <div
-                            key={`${item.discipline}-${item.professor}`}
-                            className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2"
-                          >
-                            <p className="text-sm font-medium text-slate-200">
-                              {getDisciplineShortName(item.discipline)}
-                            </p>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {item.professor}{item.room ? ` · ${item.room}` : ""}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          ) : (
-            <ManualScheduleEditor
-              currentYear={currentYear}
-              currentSemester={currentSemester}
-              disciplines={currentSemesterDisciplines}
-              manualGrid={manualGrid}
-              globalRoom={globalRoom}
-              manualPeriodGroup={manualPeriodGroup}
-              filteredPeriods={filteredPeriods}
-              saving={scheduleSaving}
-              filledCellCount={filledCellCount}
-              selectSm={selectSm}
-              SelectWrap={SelectWrap}
-              onUpdateCell={updateGridCell}
-              onGetCell={getGridCell}
-              onGlobalRoomChange={handleGlobalRoomChange}
-              onPeriodGroupChange={setManualPeriodGroup}
-              onApplyBlock={applyBlockToGrid}
-              onSave={saveManual}
-              onCancel={() => setScheduleMode("view")}
-            />
-          )}
-        </div>
-      )}
-
-      {/* TAB: MUDANCA */}
-      {activeTab === "mudanca" && <CourseChangeSection currentCourseId={courseId} />}
-    </div>
-  );
+    {/* TAB: MUDANCA */}
+    {activeTab === "mudanca" && <CourseChangeSection currentCourseId={courseId} />}
+  </div>
+);
 }
 
 /* ================================================================
@@ -1730,44 +1749,49 @@ function ManualScheduleEditor({
     onApplyBlock(day, periodKey, cell, autoBlockSize);
   };
 
+  const inputStyle =
+    "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 placeholder-slate-400 " +
+    "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200 transition " +
+    "dark:border-white/15 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40";
+
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/40">
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10 sm:px-5 sm:py-4">
         <div>
-          <h2 className="text-lg font-semibold text-white">Preenchimento Manual</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg">Preenchimento Manual</h2>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
             {currentYear}º Ano · {currentSemester}º Semestre — selecciona a disciplina em cada tempo
           </p>
         </div>
-        <button type="button" onClick={onCancel} className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-300">
+        <button type="button" onClick={onCancel} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300">
           <X size={18} />
         </button>
       </div>
 
-      <div className="border-b border-white/10 bg-white/[0.015] px-5 py-4">
-        <div className="flex flex-wrap items-start gap-6">
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.015] sm:px-5">
+        <div className="flex flex-wrap items-start gap-4 sm:gap-6">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sala (padrão)</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sala (padrão)</label>
             <input
               type="text"
               value={globalRoom}
               onChange={(e) => onGlobalRoomChange(e.target.value)}
               placeholder="ex: S.03"
-              className="w-32 rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 transition"
+              className={`w-28 sm:w-32 ${inputStyle}`}
             />
           </div>
 
-          <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
+          <div className="hidden h-auto w-px self-stretch bg-slate-200 dark:bg-white/10 md:block" />
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Turno</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Turno</label>
             <div className="flex gap-1">
               {([{ key: "manha", label: "Manhã" }, { key: "tarde", label: "Tarde" }, { key: "noite", label: "Noite" }] as { key: FixedPeriod["group"]; label: string }[]).map(({ key, label }) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => onPeriodGroupChange(key)}
-                  className={`rounded-lg px-4 py-2 text-xs font-medium transition ${manualPeriodGroup === key ? "bg-indigo-600 text-white" : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition sm:px-4 ${manualPeriodGroup === key ? "bg-indigo-600 text-white" : "border border-slate-300 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"}`}
                 >
                   {label}
                 </button>
@@ -1775,31 +1799,31 @@ function ManualScheduleEditor({
             </div>
           </div>
 
-          <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
+          <div className="hidden h-auto w-px self-stretch bg-slate-200 dark:bg-white/10 md:block" />
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Bloco automático</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bloco automático</label>
             <div className="flex gap-1">
               {([1, 2, 3] as const).map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setAutoBlockSize(n)}
-                  className={`rounded-lg px-4 py-2 text-xs font-medium transition ${autoBlockSize === n ? "bg-emerald-600 text-white" : "border border-white/10 bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition sm:px-4 ${autoBlockSize === n ? "bg-emerald-600 text-white" : "border border-slate-300 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"}`}
                 >
                   {n === 1 ? "1 tempo" : `${n} tempos`}
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-slate-600">Ao escolher uma disciplina preenche os tempos seguintes</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-600">Ao escolher uma disciplina preenche os tempos seguintes</p>
           </div>
 
           {filledCellCount > 0 && (
             <>
-              <div className="hidden h-auto w-px self-stretch bg-white/10 md:block" />
-              <div className="flex items-center self-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2">
-                <CheckCircle2 size={13} className="text-indigo-400" />
-                <span className="text-xs text-indigo-300">
+              <div className="hidden h-auto w-px self-stretch bg-slate-200 dark:bg-white/10 md:block" />
+              <div className="flex items-center self-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-500/20 dark:bg-indigo-500/10">
+                <CheckCircle2 size={13} className="text-indigo-500 dark:text-indigo-400" />
+                <span className="text-xs text-indigo-700 dark:text-indigo-300">
                   {filledCellCount} {filledCellCount === 1 ? "tempo preenchido" : "tempos preenchidos"}
                 </span>
               </div>
@@ -1808,7 +1832,7 @@ function ManualScheduleEditor({
         </div>
       </div>
 
-      <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 text-xs text-amber-300">
+      <div className="mx-4 mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/[0.06] dark:text-amber-300 sm:mx-5">
         <Info size={13} className="mt-0.5 shrink-0" />
         <span>
           Selecciona a disciplina em cada célula. Células vazias são ignoradas.
@@ -1816,22 +1840,22 @@ function ManualScheduleEditor({
         </span>
       </div>
 
-      <div className={`overflow-x-auto p-5 ${SCROLLBAR_X}`}>
+      <div className={`overflow-x-auto p-4 sm:p-5 ${SCROLLBAR_X}`}>
         <table className="w-full border-collapse" style={{ minWidth: `${80 + 6 * 148}px` }}>
           <thead>
             <tr>
-              <th className="w-20 border border-white/10 bg-slate-900/80 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Hora</th>
+              <th className="w-20 border border-slate-200 bg-slate-100 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-500">Hora</th>
               {DAYS_ORDER.map((day) => (
-                <th key={day} className="border border-white/10 bg-slate-900/80 px-2 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-300">{day}</th>
+                <th key={day} className="border border-slate-200 bg-slate-100 px-2 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-700 dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-300">{day}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filteredPeriods.map((period, idx) => (
               <tr key={period.key}>
-                <td className={`border border-white/10 px-2 py-2 align-middle text-center ${idx % 2 === 0 ? "bg-white/[0.02]" : "bg-white/[0.04]"}`}>
-                  <span className="block text-sm font-bold text-slate-200">{period.startTime}</span>
-                  <span className="block text-[11px] text-slate-500">{period.endTime}</span>
+                <td className={`border border-slate-200 px-2 py-2 align-middle text-center dark:border-white/10 ${idx % 2 === 0 ? "bg-slate-50 dark:bg-white/[0.02]" : "bg-white dark:bg-white/[0.04]"}`}>
+                  <span className="block text-sm font-bold text-slate-700 dark:text-slate-200">{period.startTime}</span>
+                  <span className="block text-[11px] text-slate-400 dark:text-slate-500">{period.endTime}</span>
                 </td>
                 {DAYS_ORDER.map((day) => {
                   const cell    = onGetCell(day, period.key);
@@ -1839,14 +1863,14 @@ function ManualScheduleEditor({
                   return (
                     <td
                       key={`${day}-${period.key}`}
-                      className={`border border-white/10 p-1.5 align-top transition-colors ${hasDisc ? "bg-indigo-950/25" : idx % 2 === 0 ? "bg-slate-950/20" : "bg-slate-950/35"}`}
+                      className={`border border-slate-200 p-1.5 align-top transition-colors dark:border-white/10 ${hasDisc ? "bg-indigo-50 dark:bg-indigo-950/25" : idx % 2 === 0 ? "bg-slate-50/60 dark:bg-slate-950/20" : "bg-white dark:bg-slate-950/35"}`}
                     >
                       <div className="space-y-1.5">
                         <SelectWrap>
                           <select
                             value={cell.disciplineId}
                             onChange={(e) => handleDisciplineChange(day, period.key, e.target.value, cell)}
-                            className={`${selectSm} ${hasDisc ? "border-indigo-500/50 bg-indigo-900/70 text-indigo-100" : ""}`}
+                            className={`${selectSm} ${hasDisc ? "border-indigo-300 bg-indigo-100 text-indigo-800 dark:border-indigo-500/50 dark:bg-indigo-900/70 dark:text-indigo-100" : ""}`}
                           >
                             <option value="">— vazio —</option>
                             {disciplines.map((d) => (
@@ -1858,7 +1882,7 @@ function ManualScheduleEditor({
                         {hasDisc && (() => {
                           const disc = disciplines.find((d) => d.id === cell.disciplineId);
                           return disc ? (
-                            <p className="line-clamp-1 px-0.5 text-[9px] leading-tight text-indigo-300/80" title={disc.name}>{disc.name}</p>
+                            <p className="line-clamp-1 px-0.5 text-[9px] leading-tight text-indigo-600/80 dark:text-indigo-300/80" title={disc.name}>{disc.name}</p>
                           ) : null;
                         })()}
 
@@ -1869,7 +1893,7 @@ function ManualScheduleEditor({
                               value={cell.room}
                               onChange={(e) => onUpdateCell(day, period.key, "room", e.target.value)}
                               placeholder="Sala"
-                              className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none transition"
+                              className={inputStyle}
                             />
                             <SelectWrap>
                               <select
@@ -1887,12 +1911,12 @@ function ManualScheduleEditor({
                               value={cell.professor}
                               onChange={(e) => onUpdateCell(day, period.key, "professor", e.target.value)}
                               placeholder="Professor"
-                              className="w-full rounded-md border border-white/15 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none transition"
+                              className={inputStyle}
                             />
                             <button
                               type="button"
                               onClick={() => applyFromCurrentCell(day, period.key)}
-                              className="flex w-full items-center justify-center gap-2 rounded-md border border-indigo-500/30 bg-indigo-600/10 px-2 py-1.5 text-[11px] font-medium text-indigo-300 transition hover:bg-indigo-600/20"
+                              className="flex w-full items-center justify-center gap-2 rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-[11px] font-medium text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-600/10 dark:text-indigo-300 dark:hover:bg-indigo-600/20"
                             >
                               <RefreshCw size={11} />
                               Aplicar {autoBlockSize === 1 ? "esta aula" : `bloco de ${autoBlockSize} tempos`}
@@ -1910,16 +1934,16 @@ function ManualScheduleEditor({
       </div>
 
       {disciplines.length > 0 && (
-        <div className="border-t border-white/10 px-5 pb-4 pt-4">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="border-t border-slate-200 px-4 pb-4 pt-4 dark:border-white/10 sm:px-5">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
             Professor por disciplina{" "}
-            <span className="normal-case font-normal text-slate-600">(aplica-se a todas as aulas dessa disciplina)</span>
+            <span className="font-normal normal-case text-slate-400 dark:text-slate-600">(aplica-se a todas as aulas dessa disciplina)</span>
           </p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {disciplines.map((disc) => (
-              <div key={disc.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+              <div key={disc.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.02]">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[11px] font-semibold text-slate-300" title={disc.name}>
+                  <p className="truncate text-[11px] font-semibold text-slate-700 dark:text-slate-300" title={disc.name}>
                     {getDisciplineShortName(disc.name)}
                   </p>
                   <input
@@ -1927,7 +1951,7 @@ function ManualScheduleEditor({
                     placeholder="Nome do professor"
                     value={profMap[disc.id] ?? ""}
                     onChange={(e) => setProfessor(disc.id, e.target.value)}
-                    className="mt-1 w-full rounded border border-white/10 bg-slate-800 px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 focus:border-indigo-500/50 focus:outline-none"
+                    className="mt-1 w-full rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-800 placeholder-slate-400 focus:border-indigo-400 focus:outline-none dark:border-white/10 dark:bg-slate-800 dark:text-slate-200 dark:placeholder-slate-600 dark:focus:border-indigo-500/50"
                   />
                 </div>
               </div>
@@ -1936,11 +1960,11 @@ function ManualScheduleEditor({
         </div>
       )}
 
-      <div className="flex gap-3 border-t border-white/10 px-5 py-4">
+      <div className="flex gap-3 border-t border-slate-200 px-4 py-4 dark:border-white/10 sm:px-5">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+          className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
         >
           Cancelar
         </button>
@@ -1960,7 +1984,6 @@ function ManualScheduleEditor({
     </div>
   );
 }
-
 /* ================================================================
    DISCIPLINE PANEL
 ================================================================ */
@@ -2016,10 +2039,10 @@ function DisciplinePanel({
   };
 
   const statusColors: Record<DisciplineStatus, string> = {
-    completed: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
-    current:   "bg-blue-500/10 border-blue-500/20 text-blue-300",
-    upcoming:  "bg-slate-500/10 border-slate-500/20 text-slate-400",
-    extra:     "bg-violet-500/10 border-violet-500/20 text-violet-300",
+    completed: "bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-300",
+    current:   "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-300",
+    upcoming:  "bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-400",
+    extra:     "bg-violet-100 border-violet-300 text-violet-700 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-300",
   };
 
   const statusLabel: Record<DisciplineStatus, string> = {
@@ -2030,30 +2053,42 @@ function DisciplinePanel({
   };
 
   // Tonalidade do painel: violeta para extras, índigo para correntes
-  const panelBg     = isExtraPanel ? "border-violet-500/20 bg-violet-950/30" : "border-indigo-500/20 bg-indigo-950/30";
-  const accentBg    = isExtraPanel ? "bg-violet-600/20 text-violet-400" : "bg-indigo-600/20 text-indigo-400";
-  const chipActive  = isExtraPanel ? "border-violet-500/40 bg-violet-600/15 text-violet-200" : "border-indigo-500/40 bg-indigo-600/15 text-indigo-200";
-  const numBadge    = isExtraPanel ? "bg-violet-600/20 text-violet-400" : "bg-indigo-600/20 text-indigo-400";
-  const topicBadge  = isExtraPanel ? "bg-violet-600/15 text-violet-300" : "bg-indigo-600/15 text-indigo-300";
-  const topicHover  = isExtraPanel ? "hover:border-violet-500/30 hover:bg-violet-950/30" : "hover:border-indigo-500/30 hover:bg-indigo-950/30";
-  const topicArrow  = isExtraPanel ? "text-violet-400" : "text-indigo-400";
+  const panelBg     = isExtraPanel
+    ? "border-violet-200 bg-violet-50 dark:border-violet-500/20 dark:bg-violet-950/30"
+    : "border-indigo-200 bg-indigo-50 dark:border-indigo-500/20 dark:bg-indigo-950/30";
+  const accentBg    = isExtraPanel
+    ? "bg-violet-200 text-violet-700 dark:bg-violet-600/20 dark:text-violet-400"
+    : "bg-indigo-200 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-400";
+  const chipActive  = isExtraPanel
+    ? "border-violet-300 bg-violet-200/60 text-violet-800 dark:border-violet-500/40 dark:bg-violet-600/15 dark:text-violet-200"
+    : "border-indigo-300 bg-indigo-200/60 text-indigo-800 dark:border-indigo-500/40 dark:bg-indigo-600/15 dark:text-indigo-200";
+  const numBadge    = isExtraPanel
+    ? "bg-violet-200 text-violet-700 dark:bg-violet-600/20 dark:text-violet-400"
+    : "bg-indigo-200 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-400";
+  const topicBadge  = isExtraPanel
+    ? "bg-violet-200/70 text-violet-700 dark:bg-violet-600/15 dark:text-violet-300"
+    : "bg-indigo-200/70 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300";
+  const topicHover  = isExtraPanel
+    ? "hover:border-violet-300 hover:bg-violet-100 dark:hover:border-violet-500/30 dark:hover:bg-violet-950/30"
+    : "hover:border-indigo-300 hover:bg-indigo-100 dark:hover:border-indigo-500/30 dark:hover:bg-indigo-950/30";
+  const topicArrow  = isExtraPanel ? "text-violet-500 dark:text-violet-400" : "text-indigo-500 dark:text-indigo-400";
   const btnStyle    = isExtraPanel
-    ? "border-violet-500/30 bg-violet-600/10 text-violet-300 hover:bg-violet-600/20"
-    : "border-indigo-500/30 bg-indigo-600/10 text-indigo-300 hover:bg-indigo-600/20";
+    ? "border-violet-300 bg-violet-100 text-violet-700 hover:bg-violet-200 dark:border-violet-500/30 dark:bg-violet-600/10 dark:text-violet-300 dark:hover:bg-violet-600/20"
+    : "border-indigo-300 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:border-indigo-500/30 dark:bg-indigo-600/10 dark:text-indigo-300 dark:hover:bg-indigo-600/20";
 
   return (
-    <div className={`border-t px-5 py-5 ${panelBg}`}>
+    <div className={`border-t px-4 py-4 sm:px-5 sm:py-5 ${panelBg}`}>
       {/* Cabeçalho */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${accentBg}`}>
+          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9 ${accentBg}`}>
             <BookOpen size={16} />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold text-white">{discipline.name}</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white sm:text-base">{discipline.name}</h3>
             </div>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               {year}º Ano · {semester}º Semestre
               {discipline.annual ? " · Anual" : ""}
             </p>
@@ -2067,14 +2102,14 @@ function DisciplinePanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
           >
             <X size={15} />
           </button>
         </div>
       </div>
 
-      <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+      <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
         {isExtraPanel
           ? "Plano de estudo — cadeira extra"
           : isInteractive
@@ -2084,24 +2119,23 @@ function DisciplinePanel({
 
       {/* Estados */}
       {isLoading ? (
-        <div className="flex items-center justify-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-6">
-          <Loader2 size={16} className="animate-spin text-indigo-400" />
-          <p className="text-sm text-slate-400">A carregar plano de estudo…</p>
+        <div className="flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white/60 p-6 dark:border-white/5 dark:bg-white/[0.02]">
+          <Loader2 size={16} className="animate-spin text-indigo-500 dark:text-indigo-400" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">A carregar plano de estudo…</p>
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
-          <p className="text-sm font-semibold text-rose-300">Não foi possível carregar o plano</p>
-          <p className="mt-1 text-xs text-rose-200/80">{error}</p>
+        <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
+          <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">Não foi possível carregar o plano</p>
+          <p className="mt-1 text-xs text-rose-600/80 dark:text-rose-200/80">{error}</p>
         </div>
       ) : chapters.length === 0 ? (
         <div className="space-y-3">
-          <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-center">
-            <Layers size={24} className="mx-auto mb-2 text-slate-600" />
-            <p className="text-sm font-medium text-slate-400">Plano de estudo ainda não disponível</p>
-            <p className="mt-1 text-xs text-slate-600">Os capítulos e temas serão inseridos brevemente.</p>
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 p-5 text-center dark:border-white/10 dark:bg-white/[0.02]">
+            <Layers size={24} className="mx-auto mb-2 text-slate-400 dark:text-slate-600" />
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Plano de estudo ainda não disponível</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-600">Os capítulos e temas serão inseridos brevemente.</p>
           </div>
 
-          {/* Botão sempre visível para extras e correntes */}
           {isInteractive && (
             <button
               type="button"
@@ -2128,15 +2162,15 @@ function DisciplinePanel({
                   className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition ${
                     isActive
                       ? chipActive
-                      : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:bg-white/[0.05] hover:text-slate-200"
+                      : "border-slate-200 bg-white/70 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-white/20 dark:hover:bg-white/[0.05] dark:hover:text-slate-200"
                   }`}
                   title={chapter.title}
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/20 text-[10px] font-bold">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px] font-bold dark:bg-black/20">
                     {idx + 1}
                   </span>
                   <span className="max-w-[11rem] truncate">{chapter.title}</span>
-                  <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] text-slate-300">
+                  <span className="rounded-full bg-black/10 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-black/20 dark:text-slate-300">
                     {chapter.topics.length}
                   </span>
                 </button>
@@ -2146,21 +2180,20 @@ function DisciplinePanel({
 
           {/* Capítulo activo */}
           {activeChapter && (
-            <div className="overflow-hidden rounded-xl border border-white/5 bg-white/[0.03]">
-              <div className="flex items-start justify-between gap-3 border-b border-white/5 px-4 py-3">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white/70 dark:border-white/5 dark:bg-white/[0.03]">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/5">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${numBadge}`}>
                       {chapters.findIndex((c) => c.id === activeChapter.id) + 1}
                     </span>
-                    <h4 className="truncate text-sm font-semibold text-slate-200">{activeChapter.title}</h4>
+                    <h4 className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200">{activeChapter.title}</h4>
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500">
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
                     {activeChapter.status} · {activeChapter.topics.length} tema(s)
                   </p>
                 </div>
 
-                {/* Botão "Abrir disciplina" — visível para correntes E extras */}
                 {isInteractive && (
                   <button
                     type="button"
@@ -2182,7 +2215,7 @@ function DisciplinePanel({
                           key={topic.id}
                           type="button"
                           onClick={openDiscipline}
-                          className={`group flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-white/5 bg-black/10 px-3 py-2.5 text-left text-sm text-slate-300 transition ${topicHover}`}
+                          className={`group flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 transition dark:border-white/5 dark:bg-black/10 dark:text-slate-300 ${topicHover}`}
                         >
                           <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${topicBadge}`}>
                             {topicIdx + 1}
@@ -2193,9 +2226,9 @@ function DisciplinePanel({
                       ) : (
                         <div
                           key={topic.id}
-                          className="flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-white/5 bg-black/10 px-3 py-2.5 text-sm text-slate-400"
+                          className="flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500 dark:border-white/5 dark:bg-black/10 dark:text-slate-400"
                         >
-                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold text-slate-600">
+                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-400 dark:bg-white/5 dark:text-slate-600">
                             {topicIdx + 1}
                           </span>
                           <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{topic.title}</span>
@@ -2204,7 +2237,7 @@ function DisciplinePanel({
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs text-slate-500">
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-4 py-6 text-center text-xs text-slate-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-500">
                     Este capítulo ainda não tem temas registados.
                   </div>
                 )}
@@ -2212,7 +2245,7 @@ function DisciplinePanel({
             </div>
           )}
 
-          {/* Botão de acesso rápido no rodapé — sempre para correntes e extras */}
+          {/* Botão de acesso rápido no rodapé */}
           {isInteractive && (
             <button
               type="button"
@@ -2238,24 +2271,24 @@ function CourseChangeSection({ currentCourseId }: { currentCourseId: CourseId })
   const otherCourses = Object.values(CURRICULUM).filter((c) => c.id !== currentCourseId);
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.08] px-4 py-4 text-sm text-amber-300">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-300">
         <AlertCircle size={16} className="mt-0.5 shrink-0" />
         <div className="space-y-1">
           <p className="font-semibold">Atenção antes de continuar</p>
-          <p className="text-xs leading-relaxed text-amber-400/80">
+          <p className="text-xs leading-relaxed text-amber-700/80 dark:text-amber-400/80">
             A mudança de curso é um processo formal que requer aprovação da Secretaria
             Académica do ISAF. Lê atentamente os requisitos abaixo antes de submeter qualquer pedido.
           </p>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
-        <div className="border-b border-white/10 bg-white/[0.03] px-5 py-4">
-          <h2 className="font-semibold text-slate-100">Requisitos para Mudança de Curso</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Conforme o Regulamento Académico do ISAF</p>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:px-5">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">Requisitos para Mudança de Curso</h2>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">Conforme o Regulamento Académico do ISAF</p>
         </div>
-        <div className="divide-y divide-white/5 px-5">
+        <div className="divide-y divide-slate-100 px-4 dark:divide-white/5 sm:px-5">
           {[
             { icon: FileText,      title: "Requerimento formal",       desc: "Deve ser submetido um requerimento escrito dirigido ao Director Académico, durante o período de matrículas e inscrições." },
             { icon: CheckCircle2,  title: "Aproveitamento mínimo",     desc: "O estudante deve ter aprovação em pelo menos 50% das cadeiras do ano que frequentou." },
@@ -2263,34 +2296,34 @@ function CourseChangeSection({ currentCourseId }: { currentCourseId: CourseId })
             { icon: Calendar,      title: "Prazo de submissão",        desc: "Os pedidos são aceites apenas no início de cada ano lectivo, durante o período de matrículas." },
             { icon: Info,          title: "Documentação necessária",   desc: "Cédula pessoal ou BI, declaração de notas do ano findo, recibo de propinas em dia e declaração de intenção de mudança." },
           ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="flex items-start gap-4 py-4">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600/15 text-indigo-400">
+            <div key={title} className="flex items-start gap-3 py-4 sm:gap-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-600/15 dark:text-indigo-400 sm:h-9 sm:w-9">
                 <Icon size={16} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-200">{title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{desc}</p>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-500">{desc}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
-        <div className="border-b border-white/10 bg-white/[0.03] px-5 py-4">
-          <h2 className="font-semibold text-slate-100">Cursos Disponíveis</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Seleciona o curso de destino para ver mais detalhes</p>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:px-5">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">Cursos Disponíveis</h2>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">Seleciona o curso de destino para ver mais detalhes</p>
         </div>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-slate-100 dark:divide-white/5">
           {otherCourses.map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-4 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/5">
-                  <GraduationCap size={16} className="text-slate-400" />
+            <div key={c.id} className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-5 sm:py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5">
+                  <GraduationCap size={16} className="text-slate-500 dark:text-slate-400" />
                 </div>
-                <p className="text-sm font-medium text-slate-300">{c.name}</p>
+                <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-300">{c.name}</p>
               </div>
-              <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-slate-500">
+              <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-medium text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-500">
                 4 anos
               </span>
             </div>
@@ -2298,33 +2331,33 @@ function CourseChangeSection({ currentCourseId }: { currentCourseId: CourseId })
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/40">
-        <div className="border-b border-white/10 bg-white/[0.03] px-5 py-4">
-          <h2 className="font-semibold text-slate-100">Contactar a Secretaria</h2>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:px-5">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">Contactar a Secretaria</h2>
         </div>
-        <div className="grid gap-3 p-5 sm:grid-cols-3">
+        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
           {[
             { icon: Phone,  label: "Telefone",    value: "+244 222 000 000" },
             { icon: Mail,   label: "Email",       value: "secretaria@isaf.co.ao" },
             { icon: MapPin, label: "Localização", value: "Luanda, Angola" },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
-              <Icon size={15} className="mt-0.5 shrink-0 text-indigo-400" />
+            <div key={label} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/5 dark:bg-white/[0.02]">
+              <Icon size={15} className="mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400" />
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-600">{label}</p>
-                <p className="mt-0.5 text-xs font-medium text-slate-300">{value}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-600">{label}</p>
+                <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">{value}</p>
               </div>
             </div>
           ))}
         </div>
-        <div className="border-t border-white/5 px-5 pb-5">
+        <div className="border-t border-slate-100 px-4 pb-4 dark:border-white/5 sm:px-5 sm:pb-5">
           <button
             type="button"
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-indigo-500"
           >
             <RefreshCw size={15} /> Submeter pedido de mudança
           </button>
-          <p className="mt-2 text-center text-[11px] text-slate-600">
+          <p className="mt-2 text-center text-[11px] text-slate-400 dark:text-slate-600">
             Ao clicar, será redirecionado para o formulário oficial da Secretaria.
           </p>
         </div>

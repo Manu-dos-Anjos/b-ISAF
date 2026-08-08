@@ -24,6 +24,7 @@ type Persisted = {
   time: number;
   volume: number;
   wasPlaying: boolean;
+  playbackRate?: number;
 };
 
 type AudioPlayerApi = {
@@ -32,6 +33,7 @@ type AudioPlayerApi = {
   currentTime: number;
   duration: number;
   volume: number;
+  playbackRate: number;
 
   play: (track: AudioTrack, opts?: { startAt?: number }) => Promise<void>;
   toggle: () => Promise<void>;
@@ -40,11 +42,15 @@ type AudioPlayerApi = {
 
   seek: (time: number) => void;
   setVolume: (v: number) => void;
+  setPlaybackRate: (rate: number) => void;
 };
 
 const AudioPlayerContext = createContext<AudioPlayerApi | null>(null);
 
 const STORAGE_KEY = "b-isaf:audio:player:v1";
+
+const MIN_RATE = 0.7;
+const MAX_RATE = 1.3;
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
@@ -60,6 +66,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [duration, setDuration] = useState(0);
 
   const [volume, _setVolume] = useState(0.9);
+  const [playbackRate, _setPlaybackRate] = useState(1);
   const [hasRestored, setHasRestored] = useState(false);
 
   // cria 1 elemento de áudio global
@@ -91,7 +98,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  // restore: faixa + tempo + volume + “estava a tocar”
+  // restore: faixa + tempo + volume + velocidade + “estava a tocar”
   useEffect(() => {
     if (hasRestored) return;
     const audio = audioRef.current;
@@ -112,9 +119,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       _setVolume(restoredVolume);
       audio.volume = restoredVolume;
 
+      const restoredRate =
+        typeof parsed.playbackRate === "number"
+          ? clamp(parsed.playbackRate, MIN_RATE, MAX_RATE)
+          : 1;
+
+      _setPlaybackRate(restoredRate);
+      audio.playbackRate = restoredRate;
+
       if (parsed.track?.url) {
         setTrack(parsed.track);
         audio.src = parsed.track.url;
+        audio.playbackRate = restoredRate;
 
         const restoredTime =
           typeof parsed.time === "number" ? Math.max(0, parsed.time) : 0;
@@ -124,6 +140,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           try {
             audio.currentTime = restoredTime;
             setCurrentTime(restoredTime);
+            audio.playbackRate = restoredRate;
           } catch {
             // ignore
           }
@@ -142,6 +159,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           setTimeout(async () => {
             try {
               await audio.play();
+              audio.playbackRate = restoredRate;
             } catch {
               // autoplay pode ser bloqueado -> utilizador clica play
               setIsPlaying(false);
@@ -163,6 +181,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       time: currentTime,
       volume,
       wasPlaying: isPlaying,
+      playbackRate,
     };
 
     try {
@@ -170,7 +189,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     } catch {
       // ignore
     }
-  }, [track, currentTime, volume, isPlaying]);
+  }, [track, currentTime, volume, isPlaying, playbackRate]);
 
   // persistir também no refresh/fechar tab (garante último segundo)
   useEffect(() => {
@@ -180,6 +199,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         time: audioRef.current?.currentTime ?? currentTime,
         volume,
         wasPlaying: !audioRef.current?.paused,
+        playbackRate,
       };
 
       try {
@@ -191,12 +211,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [track, currentTime, volume]);
+  }, [track, currentTime, volume, playbackRate]);
 
   const setVolume = (v: number) => {
     const next = clamp(v, 0, 1);
     _setVolume(next);
     if (audioRef.current) audioRef.current.volume = next;
+  };
+
+  const setPlaybackRate = (rate: number) => {
+    const next = clamp(rate, MIN_RATE, MAX_RATE);
+    _setPlaybackRate(next);
+    if (audioRef.current) audioRef.current.playbackRate = next;
   };
 
   const play = async (nextTrack: AudioTrack, opts?: { startAt?: number }) => {
@@ -209,6 +235,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     if (!sameTrack) {
       audio.src = nextTrack.url;
+      audio.playbackRate = playbackRate;
       const startAt = opts?.startAt ?? 0;
 
       // set time quando metadata estiver pronta
@@ -216,6 +243,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         try {
           audio.currentTime = startAt;
           setCurrentTime(startAt);
+          audio.playbackRate = playbackRate;
         } catch {}
       };
 
@@ -225,6 +253,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
     try {
       await audio.play();
+      audio.playbackRate = playbackRate;
     } catch {
       setIsPlaying(false);
     }
@@ -241,6 +270,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (audio.paused) {
       try {
         await audio.play();
+        audio.playbackRate = playbackRate;
       } catch {
         // ignore
       }
@@ -281,14 +311,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       currentTime,
       duration,
       volume,
+      playbackRate,
       play,
       toggle,
       pause,
       stop,
       seek,
       setVolume,
+      setPlaybackRate,
     }),
-    [track, isPlaying, currentTime, duration, volume]
+    [track, isPlaying, currentTime, duration, volume, playbackRate]
   );
 
   return (

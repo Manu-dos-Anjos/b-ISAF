@@ -54,8 +54,10 @@ const SCROLLBAR_X = [
   "[&::-webkit-scrollbar]:h-1",
   "[&::-webkit-scrollbar-track]:bg-transparent",
   "[&::-webkit-scrollbar-thumb]:rounded-full",
-  "[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
-  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
+  "[&::-webkit-scrollbar-thumb]:bg-slate-300/60",
+  "dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/40",
+  "hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/70",
+  "dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
 ].join(" ");
 
 function formatTime(secs: number) {
@@ -67,12 +69,28 @@ function formatTime(secs: number) {
 
 function getScoreTheme(score: number | null) {
   if (score === null)
-    return { label: "Novo", className: "border-white/10 bg-white/5 text-slate-300" };
+    return {
+      label: "Novo",
+      className:
+        "border-slate-300 bg-slate-100 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300",
+    };
   if (score >= 80)
-    return { label: `${score}%`, className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" };
+    return {
+      label: `${score}%`,
+      className:
+        "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
+    };
   if (score >= 50)
-    return { label: `${score}%`, className: "border-blue-500/20 bg-blue-500/10 text-blue-300" };
-  return { label: `${score}%`, className: "border-rose-500/20 bg-rose-500/10 text-rose-300" };
+    return {
+      label: `${score}%`,
+      className:
+        "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300",
+    };
+  return {
+    label: `${score}%`,
+    className:
+      "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300",
+  };
 }
 
 function getPerformanceLabel(score: number | null) {
@@ -101,16 +119,16 @@ class ModalErrorBoundary extends React.Component<EBProps, EBState> {
     if (this.state.hasError) {
       return (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/10">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-300 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/10">
             <span className="text-2xl">⚠️</span>
           </div>
           <div>
-            <p className="text-base font-bold text-white">Ocorreu um erro inesperado</p>
-            <p className="mt-1 max-w-xs text-sm text-slate-400">{this.state.message}</p>
+            <p className="text-base font-bold text-slate-900 dark:text-white">Ocorreu um erro inesperado</p>
+            <p className="mt-1 max-w-xs text-sm text-slate-500 dark:text-slate-400">{this.state.message}</p>
           </div>
           <button
             onClick={this.props.onClose}
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+            className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10"
           >
             Fechar
           </button>
@@ -187,18 +205,16 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
       .sort((a, b) => b.total - a.total || (b.avg ?? -1) - (a.avg ?? -1));
   }, [disciplines, quizItems]);
 
-  const topDiscipline = disciplineStats[0] ?? null;
-
   const isDiscOpen = (discId: string, index: number) => expandedDisc[discId] ?? index === 0;
   const toggleDisc = (id: string, index: number) =>
     setExpandedDisc((prev) => ({ ...prev, [id]: !isDiscOpen(id, index) }));
 
   function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
     return (
-      <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/95 backdrop-blur-md sm:items-center sm:p-4">
-        <div className="relative flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none border border-white/10 bg-slate-950 shadow-2xl sm:h-auto sm:max-h-[95dvh] sm:rounded-3xl">
+      <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 backdrop-blur-md dark:bg-slate-950/95 sm:items-center sm:p-4">
+        <div className="relative flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:h-auto sm:max-h-[95dvh] sm:rounded-3xl">
           <div className="flex justify-center pt-3 sm:hidden">
-            <div className="h-1.5 w-12 rounded-full bg-white/20" />
+            <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
           </div>
           <ModalErrorBoundary onClose={onClose}>{children}</ModalErrorBoundary>
         </div>
@@ -208,84 +224,109 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
 
         {/* ══════════════════════════════════════════
-            CABEÇALHO — mesmo padrão do "Meu Curso"
+            CABEÇALHO
         ══════════════════════════════════════════ */}
-        <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/50 p-5 md:p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950/80 to-slate-950" />
-          <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+        <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-slate-950/50 dark:shadow-none sm:rounded-2xl sm:p-5 md:p-6">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-50 dark:from-indigo-950/60 dark:via-slate-950/80 dark:to-slate-950" />
+
+          {/* Título + média — linha única no mobile */}
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 sm:text-xs">
                 Avaliações
               </p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-white md:text-3xl">
+              <h1 className="mt-0.5 truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl md:text-3xl">
                 Olá, {firstName}
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-400">
+              <p className="mt-1 hidden max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:block">
                 Questionários e avaliações das tuas disciplinas, organizados por
                 capítulo, com histórico, revisão e estatísticas.
               </p>
             </div>
 
-            <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-              <p className="text-[11px] font-medium uppercase tracking-widest text-slate-500">
+            <div className="flex shrink-0 flex-col items-end text-right">
+              <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl">
+                {avgScore !== null ? avgScore : "—"}
+                {avgScore !== null && <span className="text-sm font-medium text-slate-400 sm:text-base">%</span>}
+              </p>
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px]">
                 Média geral
               </p>
-              <p className="text-3xl font-bold text-white">
-                {avgScore !== null ? avgScore : "—"}
-                {avgScore !== null && <span className="text-base font-medium text-slate-400">%</span>}
-              </p>
-              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-                  style={{ width: `${quizItems.length ? (doneCount / quizItems.length) * 100 : 0}%` }}
-                />
-              </div>
             </div>
           </div>
 
-          {/* Stats — mesmo grid de "cards" usado no resto da app */}
-          <div className="relative z-10 mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {/* Barra de progresso — visível no mobile por baixo do título */}
+          <div className="relative z-10 mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10 sm:hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+              style={{ width: `${quizItems.length ? (doneCount / quizItems.length) * 100 : 0}%` }}
+            />
+          </div>
+          <div className="relative z-10 mt-2 hidden justify-end sm:flex">
+            <div className="h-1.5 w-32 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+                style={{ width: `${quizItems.length ? (doneCount / quizItems.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Stats — faixa compacta de pills no mobile, grid de cards a partir de sm */}
+          <div
+            className={`relative z-10 mt-3 flex gap-1.5 overflow-x-auto sm:mt-5 sm:grid sm:grid-cols-4 sm:gap-2 sm:overflow-visible ${SCROLLBAR_X}`}
+          >
             {[
               { label: "Disponíveis", value: quizItems.length, icon: BookOpen },
               { label: "Concluídos", value: doneCount, icon: CheckCircle2 },
               { label: "Pendentes", value: pendingCount, icon: Target },
               { label: "Tentativas", value: avgAttempts, icon: Trophy },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                <div className="flex items-center gap-1.5 text-slate-500">
+              <div
+                key={label}
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5 sm:block sm:rounded-xl sm:px-3 sm:py-3"
+              >
+                <Icon size={12} className="text-slate-400 dark:text-slate-500 sm:hidden" />
+                <span className="text-xs font-bold tabular-nums text-slate-900 dark:text-white sm:hidden">
+                  {value}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-500 sm:hidden">{label}</span>
+
+                <div className="hidden items-center gap-1.5 text-slate-500 dark:text-slate-500 sm:flex">
                   <Icon size={12} />
                   <p className="text-[10px] font-medium uppercase tracking-widest">{label}</p>
                 </div>
-                <p className="mt-1.5 text-xl font-bold tabular-nums text-white">{value}</p>
+                <p className="mt-1.5 hidden text-xl font-bold tabular-nums text-slate-900 dark:text-white sm:block">
+                  {value}
+                </p>
               </div>
             ))}
           </div>
 
-          {/* Barra de pesquisa + filtro de estado — mesmo estilo de "tabs" */}
-          <div className="relative z-10 mt-5 space-y-2">
+          {/* Pesquisa + filtros */}
+          <div className="relative z-10 mt-3 space-y-2 sm:mt-5">
             <div className="relative">
-              <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Pesquisar questionários, capítulos ou disciplinas..."
-                className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20"
+                className="min-h-9 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600 dark:focus:border-indigo-500/40 dark:focus:ring-indigo-500/20 sm:min-h-11 sm:rounded-xl sm:py-3 sm:pl-10 sm:pr-4"
               />
             </div>
 
-            <div className="flex gap-1 rounded-xl bg-white/5 p-1">
+            <div className={`flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 dark:bg-white/5 sm:rounded-xl ${SCROLLBAR_X}`}>
               {([{ key: "all", label: "Todos" }, { key: "pending", label: "Por fazer" }, { key: "done", label: "Concluídos" }] as const).map((item) => (
                 <button
                   key={item.key}
                   type="button"
                   onClick={() => setFilterStatus(item.key)}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                  className={`flex flex-1 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition sm:rounded-lg sm:px-3 sm:py-2 sm:text-xs ${
                     filterStatus === item.key
                       ? "bg-indigo-600 text-white"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                      : "text-slate-500 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
                   }`}
                 >
                   {item.label}
@@ -293,8 +334,8 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
               ))}
             </div>
 
-            <div className={`flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible ${SCROLLBAR_X}`}>
-              <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:inline-flex">
+            <div className={`flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:gap-2 sm:overflow-visible ${SCROLLBAR_X}`}>
+              <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:inline-flex">
                 <Filter size={12} />
                 Disciplina
               </span>
@@ -302,13 +343,13 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
               <button
                 type="button"
                 onClick={() => setFilterDisc("all")}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 sm:py-1.5 sm:text-xs ${
                   filterDisc === "all"
-                    ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
-                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                    ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-200"
+                    : "border-slate-300 bg-white text-slate-500 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:text-white"
                 }`}
               >
-                Todas as disciplinas
+                Todas
               </button>
 
               {disciplineStats.map((d) => (
@@ -316,10 +357,10 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                   key={d.id}
                   type="button"
                   onClick={() => setFilterDisc(d.id)}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 sm:py-1.5 sm:text-xs ${
                     filterDisc === d.id
-                      ? "border-indigo-500/30 bg-indigo-500/15 text-indigo-200"
-                      : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-200"
+                      : "border-slate-300 bg-white text-slate-500 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:text-white"
                   }`}
                 >
                   {d.name}
@@ -332,20 +373,22 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
         {/* ══════════════════════════════════════════
             LISTA AGRUPADA
         ══════════════════════════════════════════ */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {groupedByDiscipline.length === 0 ? (
-            <div className="flex min-h-[38vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-white/[0.03] p-8 text-center sm:min-h-[42vh] sm:p-10">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.04]">
-                <BookOpen size={28} className="text-slate-500" />
+            <div className="flex min-h-[32vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-white/10 dark:bg-white/[0.03] sm:min-h-[38vh] sm:p-8 md:min-h-[42vh] md:p-10">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04] sm:h-16 sm:w-16">
+                <BookOpen size={26} className="text-slate-400 dark:text-slate-500" />
               </div>
-              <h3 className="text-lg font-bold text-white">Nenhum questionário encontrado</h3>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">
+                Nenhum questionário encontrado
+              </h3>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-500">
                 Ainda não há avaliações disponíveis para os filtros que escolheste.
                 Tenta mudar a pesquisa ou selecionar outra disciplina.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {groupedByDiscipline.map((group, index) => {
                 const discId       = group.discipline.id;
                 const isOpen       = isDiscOpen(discId, index);
@@ -357,54 +400,60 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                 return (
                   <div
                     key={discId}
-                    className={`overflow-hidden rounded-2xl border transition-all ${
+                    className={`overflow-hidden rounded-xl border transition-all sm:rounded-2xl ${
                       isCompleted
-                        ? "border-emerald-500/20"
+                        ? "border-emerald-300 dark:border-emerald-500/20"
                         : isOpen
-                        ? "border-indigo-500/40 shadow-lg shadow-indigo-500/10"
-                        : "border-white/10"
+                        ? "border-indigo-300 shadow-md shadow-indigo-100 dark:border-indigo-500/40 dark:shadow-lg dark:shadow-indigo-500/10"
+                        : "border-slate-200 dark:border-white/10"
                     }`}
                   >
                     <button
                       onClick={() => toggleDisc(discId, index)}
-                      className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition ${
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition sm:gap-4 sm:px-5 sm:py-4 ${
                         isCompleted
-                          ? "bg-emerald-950/20 hover:bg-emerald-950/30"
+                          ? "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30"
                           : isOpen
-                          ? "bg-indigo-950/60 hover:bg-indigo-950/70"
-                          : "bg-slate-950/40 hover:bg-slate-950/50"
+                          ? "bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-950/70"
+                          : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/40 dark:hover:bg-slate-950/50"
                       }`}
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
-                          isCompleted ? "bg-emerald-600/30 text-emerald-400" : isOpen ? "bg-indigo-600 text-white" : "bg-white/5 text-slate-400"
+                      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 ${
+                          isCompleted
+                            ? "bg-emerald-200 text-emerald-700 dark:bg-emerald-600/30 dark:text-emerald-400"
+                            : isOpen
+                            ? "bg-indigo-600 text-white"
+                            : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-slate-400"
                         }`}>
-                          <BookOpen size={16} />
+                          <BookOpen size={15} />
                         </div>
                         <div className="min-w-0">
-                          <p className={`truncate font-semibold ${isOpen || isCompleted ? "text-white" : "text-slate-300"}`}>
+                          <p className={`flex flex-wrap items-center gap-1.5 truncate text-sm font-semibold sm:text-base ${
+                            isOpen || isCompleted ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300"
+                          }`}>
                             {group.discipline.name}
                             {isCompleted && (
-                              <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
                                 Concluído
                               </span>
                             )}
                           </p>
-                          <p className="mt-0.5 text-xs text-slate-500">
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
                             {totalQuizzes} questionário(s) · {doneQuizzes} concluído(s)
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex shrink-0 items-center gap-3">
+                      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                         <div className="hidden items-center gap-2 sm:flex">
-                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
+                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
                               style={{ width: `${totalQuizzes ? (doneQuizzes / totalQuizzes) * 100 : 0}%` }}
                             />
                           </div>
-                          <span className="tabular-nums text-xs text-slate-400">
+                          <span className="tabular-nums text-xs text-slate-500 dark:text-slate-400">
                             {totalQuizzes ? Math.round((doneQuizzes / totalQuizzes) * 100) : 0}%
                           </span>
                         </div>
@@ -416,61 +465,63 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                     </button>
 
                     {isOpen && (
-                      <div className="divide-y divide-white/5 bg-slate-950/30">
+                      <div className="divide-y divide-slate-100 bg-slate-50/60 dark:divide-white/5 dark:bg-slate-950/30">
                         {Array.from(group.chapters.entries()).map(([chapterTitle, quizzes]) => (
-                          <div key={chapterTitle} className="p-4">
-                            <div className="mb-3 flex items-center gap-2 border-b border-white/5 pb-2">
+                          <div key={chapterTitle} className="p-3 sm:p-4">
+                            <div className="mb-2.5 flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-white/5 sm:mb-3">
                               <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
                                 {chapterTitle}
                               </p>
                             </div>
 
-                            <div className="space-y-1.5">
+                            <div className="space-y-1 sm:space-y-1.5">
                               {quizzes.map((quiz) => {
                                 const scoreTheme = getScoreTheme(quiz.bestScore);
                                 const isDone     = quiz.attempts > 0;
                                 return (
                                   <div
                                     key={quiz.contentId}
-                                    className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
-                                      isDone ? "hover:bg-indigo-950/40" : "hover:bg-white/5"
+                                    className={`group flex flex-col gap-2.5 rounded-xl px-2.5 py-2.5 transition-all sm:flex-row sm:items-center sm:gap-3 sm:px-3 ${
+                                      isDone ? "hover:bg-indigo-50 dark:hover:bg-indigo-950/40" : "hover:bg-slate-100 dark:hover:bg-white/5"
                                     }`}
                                   >
-                                    <div className="shrink-0">
-                                      {isDone
-                                        ? <CheckCircle2 size={14} className="text-emerald-400" />
-                                        : <Award size={14} className="text-amber-400" />
-                                      }
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="truncate text-sm font-medium text-slate-200">
-                                          {quiz.title}
-                                        </span>
-                                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums ${scoreTheme.className}`}>
-                                          {scoreTheme.label}
-                                        </span>
+                                    <div className="flex items-start gap-2.5 sm:contents">
+                                      <div className="mt-0.5 shrink-0 sm:mt-0">
+                                        {isDone
+                                          ? <CheckCircle2 size={14} className="text-emerald-500 dark:text-emerald-400" />
+                                          : <Award size={14} className="text-amber-500 dark:text-amber-400" />
+                                        }
                                       </div>
-                                      <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
-                                        {quiz.timeLimitSecs !== null && (
-                                          <span className="flex items-center gap-1">
-                                            <Clock size={11} />
-                                            {formatTime(quiz.timeLimitSecs)}
+
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                                            {quiz.title}
                                           </span>
-                                        )}
-                                        <span className="flex items-center gap-1">
-                                          <RotateCcw size={11} />
-                                          {quiz.attempts} tentativa{quiz.attempts === 1 ? "" : "s"}
-                                        </span>
-                                        <span className={isDone ? "text-emerald-400" : "text-amber-400"}>
-                                          {getPerformanceLabel(quiz.bestScore)}
-                                        </span>
+                                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums ${scoreTheme.className}`}>
+                                            {scoreTheme.label}
+                                          </span>
+                                        </div>
+                                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 dark:text-slate-500">
+                                          {quiz.timeLimitSecs !== null && (
+                                            <span className="flex items-center gap-1">
+                                              <Clock size={11} />
+                                              {formatTime(quiz.timeLimitSecs)}
+                                            </span>
+                                          )}
+                                          <span className="flex items-center gap-1">
+                                            <RotateCcw size={11} />
+                                            {quiz.attempts} tentativa{quiz.attempts === 1 ? "" : "s"}
+                                          </span>
+                                          <span className={isDone ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
+                                            {getPerformanceLabel(quiz.bestScore)}
+                                          </span>
+                                        </div>
                                       </div>
                                     </div>
 
-                                    <div className="flex shrink-0 items-center gap-1.5">
+                                    <div className="flex shrink-0 items-center gap-1.5 pl-[26px] sm:pl-0">
                                       <button
                                         onClick={() => setModal({ type: "player", quiz })}
                                         className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 active:scale-[0.98]"
@@ -483,14 +534,14 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                                           <button
                                             onClick={() => setModal({ type: "review", quiz })}
                                             title="Rever"
-                                            className="rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+                                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
                                           >
                                             <CheckCircle2 size={14} />
                                           </button>
                                           <button
                                             onClick={() => setModal({ type: "stats", quiz })}
                                             title="Estatísticas"
-                                            className="rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+                                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
                                           >
                                             <BarChart3 size={14} />
                                           </button>

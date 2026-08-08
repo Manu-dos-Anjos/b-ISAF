@@ -55,7 +55,7 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
       {/* ═══════════════════════════════════
           DESKTOP SIDEBAR
           ═══════════════════════════════════ */}
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[72px] flex-col bg-[#13152A] md:flex">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[72px] flex-col border-r border-slate-300 bg-slate-200 dark:border-white/8 dark:bg-[#13152A] md:flex">
 
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center justify-center">
@@ -72,58 +72,58 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
 
             return (
               <button
-  key={item.id}
-  onClick={() => handleNavigate(item.path)}
-  aria-label={item.label}
-  aria-current={active ? "page" : undefined}
-  className="group flex w-full flex-col items-center justify-center py-[6px] outline-none"
->
-  {/* Linha do ícone + indicador */}
-  <div className="relative flex w-full items-center justify-center">
-    
-    {/* Indicador lateral — alinhado com o container do ícone */}
-    <span
-      className={`
-        absolute left-0 w-[3px] rounded-r-full transition-all duration-200
-        ${active
-          ? "h-11 bg-violet-400"
-          : "h-0 group-hover:h-6 group-hover:bg-white/25"}
-      `}
-    />
+                key={item.id}
+                onClick={() => handleNavigate(item.path)}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
+                className="group flex w-full flex-col items-center justify-center py-[6px] outline-none"
+              >
+                {/* Linha do ícone + indicador */}
+                <div className="relative flex w-full items-center justify-center">
 
-    {/* Ícone — container maior */}
-<span
-  className={`
-    flex h-11 w-11 items-center justify-center rounded-xl
-    transition-all duration-150
-    ${active
-      ? "bg-violet-500/20 text-violet-300"
-      : "text-white/50 group-hover:bg-white/8 group-hover:text-white/90"}
-  `}
->
-  <Icon size={24} strokeWidth={active ? 2.2 : 1.9} />
-</span>
-  </div>
+                  {/* Indicador lateral — alinhado com o container do ícone */}
+                  <span
+                    className={`
+                      absolute left-0 w-[3px] rounded-r-full transition-all duration-200
+                      ${active
+                        ? "h-11 bg-violet-500 dark:bg-violet-400"
+                        : "h-0 group-hover:h-6 group-hover:bg-slate-400/50 dark:group-hover:bg-white/25"}
+                    `}
+                  />
 
-  {/* Label — fora da div do ícone */}
-  <span
-  className={`
-    mt-[4px] w-full text-center text-[10px] font-semibold
-    leading-none tracking-wide transition-colors duration-150
-    ${active
-      ? "text-violet-300"
-      : "text-white/55 group-hover:text-white"}
-  `}
->
-  {item.label}
-</span>
-</button>
+                  {/* Ícone — container maior */}
+                  <span
+                    className={`
+                      flex h-11 w-11 items-center justify-center rounded-xl
+                      transition-all duration-150
+                      ${active
+                        ? "bg-violet-500/15 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300"
+                        : "text-slate-700 group-hover:bg-slate-300/70 group-hover:text-slate-900 dark:text-white/75 dark:group-hover:bg-white/10 dark:group-hover:text-white"}
+                    `}
+                  >
+                    <Icon size={24} strokeWidth={active ? 2.3 : 2.1} />
+                  </span>
+                </div>
+
+                {/* Label — fora da div do ícone */}
+                <span
+                  className={`
+                    mt-[4px] w-full text-center text-[10px] font-semibold
+                    leading-none tracking-wide transition-colors duration-150
+                    ${active
+                      ? "text-violet-600 dark:text-violet-300"
+                      : "text-slate-600 group-hover:text-slate-900 dark:text-white/70 dark:group-hover:text-white"}
+                  `}
+                >
+                  {item.label}
+                </span>
+              </button>
             );
           })}
         </nav>
 
         {/* Rodapé */}
-        <div className="flex shrink-0 flex-col items-center border-t border-white/8 py-3">
+        <div className="flex shrink-0 flex-col items-center border-t border-slate-300 py-3 dark:border-white/8">
           <LastAudioButton />
         </div>
       </aside>
@@ -134,23 +134,23 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 flex w-72 flex-col
-          bg-[#13152A] shadow-2xl
+          bg-white shadow-2xl dark:bg-[#13152A]
           transition-transform duration-300 ease-in-out md:hidden
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-white/10">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600">
               <Image src="/logo_dark.svg" alt="b-ISAF" width={20} height={20} />
             </div>
-            <span className="text-base font-bold tracking-wide text-white">b-ISAF</span>
+            <span className="text-base font-bold tracking-wide text-slate-900 dark:text-white">b-ISAF</span>
           </div>
           <button
             onClick={() => setMobileOpen?.(false)}
             aria-label="Fechar menu"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/50 transition hover:bg-white/10 hover:text-white"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <X size={18} />
           </button>
@@ -172,8 +172,8 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                   rounded-xl px-3 py-[10px] text-left
                   transition-all duration-150
                   ${active
-                    ? "bg-violet-500/15 text-white"
-                    : "text-white/55 hover:bg-white/6 hover:text-white"}
+                    ? "bg-violet-100 text-slate-900 dark:bg-violet-500/15 dark:text-white"
+                    : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/6 dark:hover:text-white"}
                 `}
               >
                 {/* Indicador lateral */}
@@ -181,7 +181,7 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                   className={`
                     absolute left-0 top-1/2 -translate-y-1/2
                     w-[3px] rounded-r-full transition-all duration-200
-                    ${active ? "h-7 bg-violet-400" : "h-0"}
+                    ${active ? "h-7 bg-violet-500 dark:bg-violet-400" : "h-0"}
                   `}
                 />
 
@@ -191,11 +191,11 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                     flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
                     transition-all duration-150
                     ${active
-                      ? "bg-violet-500/20 text-violet-300"
-                      : "text-white/50 group-hover:text-white/90"}
+                      ? "bg-violet-500/15 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300"
+                      : "text-slate-700 group-hover:text-slate-900 dark:text-white/70 dark:group-hover:text-white"}
                   `}
                 >
-                  <Icon size={19} strokeWidth={active ? 2.2 : 1.9} />
+                  <Icon size={19} strokeWidth={active ? 2.3 : 2.1} />
                 </span>
 
                 <span className="text-sm font-medium">{item.label}</span>
@@ -205,7 +205,7 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
         </nav>
 
         {/* Rodapé */}
-        <div className="border-t border-white/10 p-3">
+        <div className="border-t border-slate-200 p-3 dark:border-white/10">
           <LastAudioButton mobile />
         </div>
       </aside>
@@ -245,7 +245,7 @@ function LastAudioButton({ mobile = false }: { mobile?: boolean }) {
           transition-all duration-150
           ${hasLast
             ? "bg-violet-600 text-white hover:bg-violet-700 active:scale-95"
-            : "cursor-not-allowed bg-white/5 text-white/30"}
+            : "cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-white/30"}
         `}
       >
         <Headphones size={17} />
@@ -268,17 +268,19 @@ function LastAudioButton({ mobile = false }: { mobile?: boolean }) {
           flex h-9 w-9 items-center justify-center rounded-xl
           transition-all duration-150
           ${hasLast
-            ? "bg-violet-500/20 text-violet-300 group-hover:bg-violet-500/35 group-hover:text-violet-200"
-            : "bg-white/5 text-white/25"}
+            ? "bg-violet-500/15 text-violet-600 group-hover:bg-violet-500/25 group-hover:text-violet-700 dark:bg-violet-500/20 dark:text-violet-300 dark:group-hover:bg-violet-500/35 dark:group-hover:text-violet-200"
+            : "bg-slate-300/50 text-slate-400 dark:bg-white/5 dark:text-white/25"}
         `}
       >
-        <Headphones size={19} />
+        <Headphones size={19} strokeWidth={2.1} />
       </span>
       <span
         className={`
           mt-[3px] text-[9.5px] font-medium leading-none tracking-wide
           transition-colors duration-150
-          ${hasLast ? "text-white/35 group-hover:text-white/75" : "text-white/20"}
+          ${hasLast
+            ? "text-slate-600 group-hover:text-slate-900 dark:text-white/50 dark:group-hover:text-white/85"
+            : "text-slate-400 dark:text-white/20"}
         `}
       >
         Áudio

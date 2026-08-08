@@ -27,10 +27,13 @@ import {
   AlertCircle,
   ChevronRight,
   RefreshCw,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import React from "react";
+import { useTheme } from "@/app/lib/hooks/useTheme";
 
 /* ================================================================
    TIPOS PÚBLICOS
@@ -101,9 +104,9 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const ROLE_BADGE: Record<UserRole, string> = {
-  admin:   "border-rose-500/20 bg-rose-500/10 text-rose-300",
-  teacher: "border-violet-500/20 bg-violet-500/10 text-violet-300",
-  student: "border-blue-500/20 bg-blue-500/10 text-blue-300",
+  admin:   "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300",
+  teacher: "border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300",
+  student: "border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-300",
 };
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -151,7 +154,7 @@ function Avatar({
   }[size];
 
   return (
-    <div className={`relative overflow-hidden rounded-full border border-white/10 bg-slate-800 ${dims} ${className}`}>
+    <div className={`relative overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-white/10 dark:bg-slate-800 ${dims} ${className}`}>
       {src ? (
         <Image src={src} alt={name ?? "avatar"} fill className="object-cover" unoptimized />
       ) : (
@@ -167,7 +170,7 @@ function Avatar({
    SKELETON
 ================================================================ */
 function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-white/10 ${className}`} />;
+  return <div className={`animate-pulse rounded bg-slate-200 dark:bg-white/10 ${className}`} />;
 }
 
 /* ================================================================
@@ -193,19 +196,19 @@ const ProfileView = memo(function ProfileView({
   return (
     <div>
       {/* Topo com avatar + info */}
-      <div className="border-b border-white/10 px-5 py-4">
+      <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
         <div className="flex items-start gap-4">
           <div className="relative shrink-0">
             <Avatar src={user.avatarUrl} name={user.fullName} size="lg" className="rounded-2xl" />
-            <span className={`absolute -bottom-1 -right-1 rounded-full border-2 border-slate-900 px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${ROLE_BADGE[user.role]}`}>
+            <span className={`absolute -bottom-1 -right-1 rounded-full border-2 border-white px-1.5 py-0.5 text-[9px] font-bold tracking-wide dark:border-slate-900 ${ROLE_BADGE[user.role]}`}>
               {ROLE_LABELS[user.role].toUpperCase()}
             </span>
           </div>
 
           <div className="min-w-0 flex-1 pt-0.5">
-            <h3 className="truncate text-base font-semibold text-slate-100">{user.fullName}</h3>
+            <h3 className="truncate text-base font-semibold text-slate-900 dark:text-slate-100">{user.fullName}</h3>
             {user.bio && (
-              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-400">{user.bio}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{user.bio}</p>
             )}
             <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
               <Mail size={11} className="shrink-0" />
@@ -217,7 +220,7 @@ const ProfileView = memo(function ProfileView({
 
       {/* Dados académicos */}
       <div className="px-5 py-4">
-        <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+        <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
           Dados Académicos
         </p>
         <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -227,20 +230,20 @@ const ProfileView = memo(function ProfileView({
             { label: "Semestre", value: `${user.semester}º semestre` },
             { label: "Nº aluno", value: user.studentNumber ?? "—" },
           ].map(({ label, value }) => (
-            <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+            <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
               <span className="block text-slate-500">{label}</span>
-              <span className="mt-0.5 block truncate font-medium text-slate-100">{value}</span>
+              <span className="mt-0.5 block truncate font-medium text-slate-800 dark:text-slate-100">{value}</span>
             </div>
           ))}
         </div>
 
-        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] text-amber-300">
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-300">
           <Shield size={12} className="mt-0.5 shrink-0" />
           <span>Dados académicos são geridos pela secretaria e não podem ser alterados aqui.</span>
         </div>
 
         {profileSuccess && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-[11px] text-emerald-300">
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-[11px] text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
             <Check size={12} className="shrink-0" />
             {profileSuccess}
           </div>
@@ -262,7 +265,7 @@ const ProfileView = memo(function ProfileView({
               onClick={onLogout}
               disabled={loggingOut}
               aria-label="Terminar sessão"
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
             >
               {loggingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
             </button>
@@ -316,7 +319,7 @@ const ProfileEdit = memo(function ProfileEdit({
     <div className="space-y-4 px-5 py-4">
       {/* Avatar upload */}
       <div>
-        <p className="mb-2 text-xs font-medium text-slate-400">Foto de perfil</p>
+        <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">Foto de perfil</p>
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
             <Avatar src={currentAvatarSrc} name={user.fullName} size="lg" className="rounded-2xl" />
@@ -338,7 +341,7 @@ const ProfileEdit = memo(function ProfileEdit({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={avatarUploading}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             >
               <Camera size={13} />
               {avatarFile ? "Trocar imagem" : "Carregar foto"}
@@ -348,12 +351,12 @@ const ProfileEdit = memo(function ProfileEdit({
               <p className="mt-1.5 truncate text-[11px] text-slate-500">{avatarFile.name}</p>
             )}
 
-            <p className="mt-1 text-[11px] text-slate-600">
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-600">
               JPEG, PNG, WebP ou GIF · máx. {MAX_FILE_SIZE_MB} MB
             </p>
 
             {avatarError && (
-              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-rose-400">
+              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400">
                 <AlertCircle size={10} />
                 {avatarError}
               </p>
@@ -373,8 +376,8 @@ const ProfileEdit = memo(function ProfileEdit({
 
       {/* Nome */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-slate-400">
-          Nome de exibição <span className="text-rose-400">*</span>
+        <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+          Nome de exibição <span className="text-rose-500 dark:text-rose-400">*</span>
         </label>
         <input
           type="text"
@@ -382,15 +385,15 @@ const ProfileEdit = memo(function ProfileEdit({
           onChange={(e) => onDraftChange({ ...draft, fullName: e.target.value })}
           maxLength={60}
           placeholder="O teu nome completo"
-          className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
+          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
         />
-        <p className="mt-1 text-right text-[10px] text-slate-600">{draft.fullName.length}/60</p>
+        <p className="mt-1 text-right text-[10px] text-slate-500 dark:text-slate-600">{draft.fullName.length}/60</p>
       </div>
 
       {/* Bio */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-slate-400">
-          Bio <span className="text-slate-600">(opcional)</span>
+        <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+          Bio <span className="text-slate-400 dark:text-slate-600">(opcional)</span>
         </label>
         <textarea
           value={draft.bio}
@@ -398,28 +401,28 @@ const ProfileEdit = memo(function ProfileEdit({
           rows={3}
           maxLength={160}
           placeholder="Uma breve apresentação..."
-          className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20"
+          className="w-full resize-none rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600"
         />
-        <p className={`mt-0.5 text-right text-[10px] transition ${bioLength > 140 ? "text-amber-400" : "text-slate-600"}`}>
+        <p className={`mt-0.5 text-right text-[10px] transition ${bioLength > 140 ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-slate-600"}`}>
           {bioLength}/160
         </p>
       </div>
 
       {/* Campos bloqueados */}
       <div>
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-600">
           Campos bloqueados
         </p>
-        <div className="grid grid-cols-2 gap-2 text-[11px] opacity-60">
+        <div className="grid grid-cols-2 gap-2 text-[11px] opacity-70 dark:opacity-60">
           {[
             { label: "Curso",    value: user.course },
             { label: "Ano",      value: `${user.academicYear}º ano` },
             { label: "Semestre", value: `${user.semester}º semestre` },
             { label: "Perfil",   value: ROLE_LABELS[user.role] },
           ].map(({ label, value }) => (
-            <div key={label} className="cursor-not-allowed rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
-              <span className="block text-slate-600">{label}</span>
-              <span className="mt-0.5 block truncate font-medium text-slate-400">{value}</span>
+            <div key={label} className="cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
+              <span className="block text-slate-500 dark:text-slate-600">{label}</span>
+              <span className="mt-0.5 block truncate font-medium text-slate-600 dark:text-slate-400">{value}</span>
             </div>
           ))}
         </div>
@@ -427,7 +430,7 @@ const ProfileEdit = memo(function ProfileEdit({
 
       {/* Erro */}
       {profileError && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-[11px] text-rose-300">
+        <div className="flex items-start gap-2 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-[11px] text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
           <AlertCircle size={12} className="mt-0.5 shrink-0" />
           {profileError}
         </div>
@@ -435,7 +438,7 @@ const ProfileEdit = memo(function ProfileEdit({
 
       {/* Aviso dev */}
       {!hasProfileSave && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] text-amber-400">
+        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-400">
           <AlertCircle size={12} className="mt-0.5 shrink-0" />
           <span>
             <strong>Dev:</strong> passa <code className="font-mono">onProfileSave</code> e{" "}
@@ -450,7 +453,7 @@ const ProfileEdit = memo(function ProfileEdit({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+          className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
         >
           Cancelar
         </button>
@@ -500,11 +503,11 @@ const ProfileSkeleton = memo(function ProfileSkeleton() {
 const ProfileEmpty = memo(function ProfileEmpty() {
   return (
     <div className="p-5">
-      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800">
-          <Users size={20} className="text-slate-400" />
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center dark:border-white/10 dark:bg-slate-950/40">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800">
+          <Users size={20} className="text-slate-500 dark:text-slate-400" />
         </div>
-        <p className="text-sm font-medium text-slate-300">Nenhum utilizador autenticado</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Nenhum utilizador autenticado</p>
         <p className="mt-1 text-xs text-slate-500">Faça login para aceder ao seu perfil.</p>
       </div>
     </div>
@@ -556,6 +559,9 @@ const Header = memo(function Header({
 
   /* ── logout ── */
   const [loggingOut, setLoggingOut] = useState(false);
+
+  /* ── tema ── */
+  const { theme, toggleTheme, themeReady } = useTheme();
 
   /* ── refs para fechar ao clicar fora ── */
   const filterRef  = useRef<HTMLDivElement>(null);
@@ -727,7 +733,7 @@ const Header = memo(function Header({
   ================================================================ */
   return (
     <>
-      <header className={`fixed top-0 z-40 h-16 border-b border-gray-200 bg-white/80 backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-slate-950/80 right-0 left-0 ${expanded ? "md:left-56" : "md:left-16"}`}>
+     <header className={`fixed top-0 z-40 h-16 border-b border-slate-200/70 bg-slate-100/80 backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-slate-950/80 right-0 left-0 ${expanded ? "md:left-56" : "md:left-16"}`}>
         <div className="mx-auto flex h-full max-w-screen-2xl items-center justify-between gap-3 px-4 md:px-6">
 
           {/* ── Esquerda ── */}
@@ -735,12 +741,12 @@ const Header = memo(function Header({
             <button
               type="button"
               onClick={() => setMobileOpen?.(!mobileOpen)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-slate-300/60 dark:hover:bg-slate-800 md:hidden"
               aria-label="Abrir menu"
             >
               <Menu size={22} className="text-slate-700 dark:text-slate-200" />
             </button>
-            <span className="hidden text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 md:block">
+            <span className="hidden text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 md:block">
               Biblioteca Virtual - ISAF
             </span>
           </div>
@@ -754,24 +760,24 @@ const Header = memo(function Header({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Pesquisar disciplinas, temas, slides…"
-                className="h-10 w-full rounded-full border border-slate-200 bg-slate-50/50 pl-10 pr-12 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
+                className="h-10 w-full rounded-full border border-slate-300 bg-white pl-10 pr-12 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
               />
               <button
                 type="button"
                 onClick={() => { setFilterOpen(!filterOpen); setNotifOpen(false); setProfileOpen(false); }}
                 className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full transition ${
-                  filterOpen ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  filterOpen ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 }`}
                 aria-label="Filtros"
               >
                 <SlidersHorizontal size={14} />
               </button>
 
-              {/* Dropdown filtros */}
-              <div className={`absolute left-0 right-0 top-full mt-2 origin-top transition-all md:left-auto md:right-0 md:w-80 ${
+              {/* Dropdown filtros — sheet fixo no mobile, dropdown ancorado a partir de sm: */}
+              <div className={`fixed inset-x-4 top-[4.5rem] z-50 origin-top transition-all sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:z-auto sm:mt-2 sm:w-80 sm:origin-top-right ${
                 filterOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
               }`}>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
+                <div className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-2xl border border-slate-300 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-slate-700 dark:text-slate-300">Filtros Rápidos</h3>
@@ -815,7 +821,7 @@ const Header = memo(function Header({
               <button
                 type="button"
                 onClick={() => { setNotifOpen(!notifOpen); setFilterOpen(false); setProfileOpen(false); }}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:hover:bg-slate-800"
                 aria-label="Notificações"
               >
                 <Bell size={18} className="text-slate-600 dark:text-slate-300" />
@@ -826,12 +832,12 @@ const Header = memo(function Header({
                 )}
               </button>
 
-              <div className={`absolute right-0 top-full mt-2 w-80 origin-top-right transition-all sm:w-96 ${
+              <div className={`fixed inset-x-4 top-[4.5rem] z-50 origin-top transition-all sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:z-auto sm:mt-2 sm:w-96 sm:origin-top-right ${
                 notifOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
               }`}>
-                <div className="max-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                <div className="max-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
                   {/* Header notif */}
-                  <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-white/10">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-white/10">
                     <h3 className="font-semibold text-slate-800 dark:text-slate-100">Notificações</h3>
                     <div className="flex items-center gap-2">
                       {hasNotifs && (
@@ -885,7 +891,7 @@ const Header = memo(function Header({
                       return (
                         <div
                           key={n.id}
-                          className={`flex gap-4 border-b border-gray-100 px-5 py-4 last:border-none transition dark:border-white/10 ${
+                          className={`flex gap-4 border-b border-slate-100 px-5 py-4 last:border-none transition dark:border-white/10 ${
                             isUnread(n) ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
                           } hover:bg-slate-50 dark:hover:bg-slate-800/60`}
                         >
@@ -905,7 +911,7 @@ const Header = memo(function Header({
                   {!notifLoading && !notifError && notifications.length > 0 && (
                     <button
                       type="button"
-                      className="w-full border-t border-gray-100 px-5 py-3 text-center text-sm font-medium text-blue-600 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800/50"
+                      className="w-full border-t border-slate-100 px-5 py-3 text-center text-sm font-medium text-blue-600 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-slate-800/50"
                     >
                       Ver todas as notificações
                     </button>
@@ -914,46 +920,62 @@ const Header = memo(function Header({
               </div>
             </div>
 
-            {/* Perfil */}
+            {/* Campo do utilizador: avatar/perfil + tema, numa única pílula */}
             <div className="relative" ref={profileRef}>
-              <button
-                type="button"
-                onClick={() => { setProfileOpen(!profileOpen); setFilterOpen(false); setNotifOpen(false); }}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-                aria-haspopup="menu"
-                aria-expanded={profileOpen}
-                aria-label="Conta"
-              >
-                {userLoading
-                  ? <Skeleton className="h-8 w-8 rounded-full" />
-                  : <Avatar src={user?.avatarUrl} name={user?.fullName} size="sm" className="rounded-full" />}
+              <div className="flex h-10 items-center gap-0.5 rounded-full border border-slate-300 bg-white pl-1 pr-1.5 transition-colors dark:border-slate-700 dark:bg-slate-900">
+                {/* Toggle de tema — dentro do campo do utilizador */}
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  aria-label={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+                  title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                >
+                  {themeReady && theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
 
-                <div className="hidden min-w-0 max-w-[120px] text-left md:block">
-                  {userLoading ? (
-                    <div className="space-y-1.5">
-                      <Skeleton className="h-3 w-20" />
-                      <Skeleton className="h-2.5 w-28" />
-                    </div>
-                  ) : (
-                    <>
-                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
-                        {user?.fullName ?? "Utilizador"}
-                      </p>
-                      <p className="truncate text-[11px] text-slate-500">
-                        {user ? `${user.course} · ${user.academicYear}º ano` : "Perfil"}
-                      </p>
-                    </>
-                  )}
-                </div>
+                <span className="h-5 w-px shrink-0 bg-slate-300 dark:bg-slate-700" aria-hidden="true" />
 
-                <ChevronDown size={13} className={`shrink-0 text-slate-400 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
-              </button>
+                {/* Trigger do perfil */}
+                <button
+                  type="button"
+                  onClick={() => { setProfileOpen(!profileOpen); setFilterOpen(false); setNotifOpen(false); }}
+                  className="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                  aria-haspopup="menu"
+                  aria-expanded={profileOpen}
+                  aria-label="Conta"
+                >
+                  {userLoading
+                    ? <Skeleton className="h-8 w-8 rounded-full" />
+                    : <Avatar src={user?.avatarUrl} name={user?.fullName} size="sm" className="rounded-full" />}
 
-              {/* Dropdown perfil */}
-              <div className={`absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] origin-top-right transition-all sm:w-[26rem] ${
+                  <div className="hidden min-w-0 max-w-[120px] text-left md:block">
+                    {userLoading ? (
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-3 w-20" />
+                        <Skeleton className="h-2.5 w-28" />
+                      </div>
+                    ) : (
+                      <>
+                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                          {user?.fullName ?? "Utilizador"}
+                        </p>
+                        <p className="truncate text-[11px] text-slate-600 dark:text-slate-500">
+                          {user ? `${user.course} · ${user.academicYear}º ano` : "Perfil"}
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  <ChevronDown size={13} className={`shrink-0 text-slate-500 transition-transform dark:text-slate-400 ${profileOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+
+              {/* Dropdown perfil — sheet fixo no mobile, dropdown ancorado a partir de sm: */}
+              <div className={`fixed inset-x-4 top-[4.5rem] z-50 origin-top transition-all sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:z-auto sm:mt-2 sm:w-[26rem] sm:origin-top-right ${
                 profileOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
               }`}>
-                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
+                <div className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
                   {userLoading ? (
                     <ProfileSkeleton />
                   ) : !user ? (
@@ -995,7 +1017,7 @@ const Header = memo(function Header({
       {/* Backdrop mobile */}
       <div
         onClick={() => { setFilterOpen(false); setNotifOpen(false); setProfileOpen(false); }}
-        className={`fixed inset-0 z-30 bg-black/20 backdrop-blur-sm md:hidden ${
+        className={`fixed inset-0 z-30 bg-black/20 backdrop-blur-sm sm:hidden ${
           filterOpen || notifOpen || profileOpen ? "block" : "hidden"
         }`}
       />

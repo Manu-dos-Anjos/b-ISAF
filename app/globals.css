@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Ativa o dark mode controlado por classe (.dark no <html>) em vez de
+   depender só do prefers-color-scheme do sistema. Sem isto, nenhum
+   toggle de tema manual tem efeito nas classes `dark:` do Tailwind v4. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* =========================================================
    Base global
    ========================================================= */

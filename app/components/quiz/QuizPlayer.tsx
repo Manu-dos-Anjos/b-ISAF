@@ -382,13 +382,13 @@ if (detailsError) {
      OVERLAY WRAPPER
      ================================================================ */
   const overlay = (content: React.ReactNode) => (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/90 backdrop-blur-md sm:items-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 backdrop-blur-md dark:bg-slate-950/90 p-0 sm:items-center sm:p-4">
       <div
-        className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-slate-950 shadow-2xl sm:rounded-3xl"
+        className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:rounded-3xl"
         style={{ maxHeight: "95dvh" }}
       >
         <div className="flex justify-center pt-3 sm:hidden">
-          <div className="h-1.5 w-12 rounded-full bg-white/20" />
+          <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
         </div>
         {content}
       </div>
@@ -401,34 +401,34 @@ if (detailsError) {
 
   /* Loading */
   if (loading) return overlay(
-    <div className="flex flex-col items-center gap-4 py-20">
-      <Loader2 size={28} className="animate-spin text-blue-400" />
-      <p className="text-sm text-slate-400">A carregar questionário…</p>
+    <div className="flex flex-col items-center gap-4 py-16 sm:py-20">
+      <Loader2 size={28} className="animate-spin text-blue-500 dark:text-blue-400" />
+      <p className="text-sm text-slate-500 dark:text-slate-400">A carregar questionário…</p>
     </div>
   )
 
   /* Retomar sessão */
   if (phase === "resume_prompt") return overlay(
-    <div className="p-6 space-y-5">
+    <div className="space-y-4 p-5 sm:space-y-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs text-slate-500">{disciplineName} · {chapterTitle}</p>
-          <h2 className="mt-1 text-lg font-bold text-white">{title}</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-500">{disciplineName} · {chapterTitle}</p>
+          <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
         </div>
         <button
           onClick={onClose}
-          className="rounded-xl p-2 text-slate-500 hover:text-white hover:bg-white/10 transition"
+          className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
         >
           <X size={18} />
         </button>
       </div>
 
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4 space-y-2">
+      <div className="space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/[0.08]">
         <div className="flex items-center gap-2">
-          <AlertTriangle size={16} className="text-amber-400 shrink-0" />
-          <p className="text-sm font-semibold text-amber-300">Sessão guardada encontrada</p>
+          <AlertTriangle size={16} className="shrink-0 text-amber-500 dark:text-amber-400" />
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Sessão guardada encontrada</p>
         </div>
-        <p className="text-xs text-amber-400/70">
+        <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
           Tens um questionário por terminar. Queres retomar de onde ficaste?
         </p>
       </div>
@@ -436,7 +436,7 @@ if (detailsError) {
       <div className="flex gap-3">
         <button
           onClick={async () => { await clearSession(); setPhase("playing") }}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
         >
           <RotateCcw size={14} /> Começar de novo
         </button>
@@ -452,9 +452,9 @@ if (detailsError) {
 
   /* A submeter */
   if (phase === "submitting") return overlay(
-    <div className="flex flex-col items-center gap-4 py-20">
-      <Loader2 size={28} className="animate-spin text-blue-400" />
-      <p className="text-sm text-slate-400">A calcular resultado…</p>
+    <div className="flex flex-col items-center gap-4 py-16 sm:py-20">
+      <Loader2 size={28} className="animate-spin text-blue-500 dark:text-blue-400" />
+      <p className="text-sm text-slate-500 dark:text-slate-400">A calcular resultado…</p>
     </div>
   )
 
@@ -463,38 +463,38 @@ if (detailsError) {
     const pass = resultScore.pct >= 50
     return overlay(
       <div className="flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <p className="text-sm font-bold text-white">Resultado</p>
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10 sm:px-5 sm:py-4">
+          <p className="text-sm font-bold text-slate-900 dark:text-white">Resultado</p>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-500 hover:text-white hover:bg-white/10 transition"
+            className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
           {/* Score */}
-          <div className={`rounded-2xl border p-6 text-center ${
+          <div className={`rounded-2xl border p-5 text-center sm:p-6 ${
             pass
-              ? "border-emerald-500/20 bg-emerald-500/5"
-              : "border-rose-500/20 bg-rose-500/5"
+              ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5"
+              : "border-rose-300 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/5"
           }`}>
-            <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full mb-3 ${
-              pass ? "bg-emerald-500/15" : "bg-rose-500/15"
+            <div className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full sm:h-16 sm:w-16 ${
+              pass ? "bg-emerald-100 dark:bg-emerald-500/15" : "bg-rose-100 dark:bg-rose-500/15"
             }`}>
-              <Trophy size={28} className={pass ? "text-emerald-400" : "text-rose-400"} />
+              <Trophy size={26} className={pass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"} />
             </div>
-            <p className={`text-5xl font-black tabular-nums ${
-              pass ? "text-emerald-400" : "text-rose-400"
+            <p className={`text-4xl font-black tabular-nums sm:text-5xl ${
+              pass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
             }`}>
               {resultScore.pct}%
             </p>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {resultScore.correct} de {resultScore.total} respostas correctas
             </p>
             <p className={`mt-2 text-xs font-semibold ${
-              pass ? "text-emerald-300" : "text-rose-300"
+              pass ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
             }`}>
               {resultScore.pct >= 90
                 ? "Excelente! 🏆"
@@ -507,13 +507,13 @@ if (detailsError) {
           </div>
 
           {/* Revisão rápida */}
-          <div className="rounded-2xl border border-white/10 bg-slate-900 overflow-hidden">
-            <div className="border-b border-white/10 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900">
+            <div className="border-b border-slate-200 px-4 py-3 dark:border-white/10">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
                 Revisão das respostas
               </p>
             </div>
-            <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
+            <div className="max-h-64 divide-y divide-slate-200 overflow-y-auto dark:divide-white/5">
               {questions.map((q, idx) => {
                 const sel        = session?.answers[q.id] ?? null
                 const correctOpt = q.answers.find((a) => a.is_correct)
@@ -524,8 +524,8 @@ if (detailsError) {
                     <div className="flex items-start gap-3">
                       <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                         isCorrect
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-rose-500/15 text-rose-400"
+                          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"
+                          : "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
                       }`}>
                         {isCorrect
                           ? <CheckCircle2 size={12} />
@@ -533,17 +533,17 @@ if (detailsError) {
                         }
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-slate-300 leading-relaxed">
+                        <p className="text-xs font-medium leading-relaxed text-slate-700 dark:text-slate-300">
                           {idx + 1}. {q.question_text}
                         </p>
                         {!isCorrect && (
                           <>
                             {selOption && (
-                              <p className="mt-1 text-[11px] text-rose-400">
+                              <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
                                 A tua resposta: {selOption.answer_text}
                               </p>
                             )}
-                            <p className="mt-0.5 text-[11px] text-emerald-400">
+                            <p className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400">
                               Resposta correcta: {correctOpt?.answer_text ?? "—"}
                             </p>
                           </>
@@ -560,7 +560,7 @@ if (detailsError) {
           <div className="flex gap-3">
             <button
               onClick={restart}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             >
               <RotateCcw size={14} /> Repetir
             </button>
@@ -579,45 +579,45 @@ if (detailsError) {
   /* Estatísticas */
   if (phase === "stats") return overlay(
     <div className="flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10 sm:px-5 sm:py-4">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPhase("results")}
-            className="rounded-xl p-1.5 text-slate-500 hover:text-white transition"
+            className="rounded-xl p-1.5 text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-white"
           >
             <ChevronLeft size={16} />
           </button>
-          <p className="text-sm font-bold text-white">Estatísticas da turma</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-white">Estatísticas da turma</p>
         </div>
         <button
           onClick={onClose}
-          className="rounded-xl p-2 text-slate-500 hover:text-white hover:bg-white/10 transition"
+          className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
         >
           <X size={16} />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
         {statsLoading ? (
           <div className="flex items-center justify-center gap-2 py-12">
-            <Loader2 size={20} className="animate-spin text-blue-400" />
-            <p className="text-sm text-slate-400">A carregar estatísticas…</p>
+            <Loader2 size={20} className="animate-spin text-blue-500 dark:text-blue-400" />
+            <p className="text-sm text-slate-500 dark:text-slate-400">A carregar estatísticas…</p>
           </div>
         ) : !stats ? (
-          <p className="py-10 text-center text-sm text-slate-500">
+          <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-500">
             Sem dados suficientes ainda.
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {[
-                { label: "Tentativas",  value: stats.totalAttempts,                                    color: "text-blue-400"    },
-                { label: "Média",       value: `${stats.avgScore}%`,                                   color: "text-emerald-400" },
-                { label: "Tempo médio", value: stats.avgTimeSecs ? formatTime(stats.avgTimeSecs) : "—", color: "text-violet-400" },
+                { label: "Tentativas",  value: stats.totalAttempts,                                    color: "text-blue-600 dark:text-blue-400"    },
+                { label: "Média",       value: `${stats.avgScore}%`,                                   color: "text-emerald-600 dark:text-emerald-400" },
+                { label: "Tempo médio", value: stats.avgTimeSecs ? formatTime(stats.avgTimeSecs) : "—", color: "text-violet-600 dark:text-violet-400" },
               ].map(({ label, value, color }) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-3 text-center">
-                  <p className={`text-lg font-black ${color}`}>{value}</p>
-                  <p className="text-[10px] text-slate-500">{label}</p>
+                <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 text-center dark:border-white/10 dark:bg-white/5 sm:p-3">
+                  <p className={`text-base font-black sm:text-lg ${color}`}>{value}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-500">{label}</p>
                 </div>
               ))}
             </div>
@@ -626,14 +626,14 @@ if (detailsError) {
               {stats.questionStats.map((qs, idx) => (
                 <div
                   key={qs.questionId}
-                  className="rounded-2xl border border-white/10 bg-slate-900 p-4 space-y-2.5"
+                  className="space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900"
                 >
-                  <p className="text-xs font-semibold text-slate-300 leading-relaxed">
+                  <p className="text-xs font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
                     {idx + 1}. {qs.questionText}
                   </p>
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
                         <div
                           className={`h-full rounded-full transition-all ${
                             qs.correctRate >= 60
@@ -648,24 +648,24 @@ if (detailsError) {
                     </div>
                     <span className={`shrink-0 text-sm font-bold tabular-nums ${
                       qs.correctRate >= 60
-                        ? "text-emerald-400"
+                        ? "text-emerald-600 dark:text-emerald-400"
                         : qs.correctRate >= 40
-                        ? "text-amber-400"
-                        : "text-rose-400"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-rose-600 dark:text-rose-400"
                     }`}>
                       {qs.correctRate}%
                     </span>
                   </div>
                   {qs.correctRate < 50 && (
-                    <p className="text-[11px] text-amber-400/80 flex items-center gap-1">
+                    <p className="flex items-center gap-1 text-[11px] text-amber-600/90 dark:text-amber-400/80">
                       <AlertTriangle size={10} />
                       Muitos alunos erraram esta pergunta.
                     </p>
                   )}
                   {qs.topWrongAnswer && (
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-500">
                       Resposta errada mais escolhida:{" "}
-                      <span className="text-rose-400">{qs.topWrongAnswer}</span>
+                      <span className="text-rose-600 dark:text-rose-400">{qs.topWrongAnswer}</span>
                     </p>
                   )}
                 </div>
@@ -679,11 +679,11 @@ if (detailsError) {
 
   /* Sem perguntas */
   if (!currentQ) return overlay(
-    <div className="flex flex-col items-center gap-3 py-16 text-center px-6">
-      <p className="font-semibold text-slate-300">Sem perguntas disponíveis.</p>
+    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <p className="font-semibold text-slate-700 dark:text-slate-300">Sem perguntas disponíveis.</p>
       <button
         onClick={onClose}
-        className="text-sm text-blue-400 hover:underline"
+        className="text-sm text-blue-600 hover:underline dark:text-blue-400"
       >
         Fechar
       </button>
@@ -697,35 +697,35 @@ if (detailsError) {
     <div className="flex flex-col overflow-hidden" style={{ maxHeight: "95dvh" }}>
 
       {/* Top bar */}
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onClose}
-            className="shrink-0 rounded-xl p-1.5 text-slate-500 hover:text-white hover:bg-white/10 transition"
+            className="shrink-0 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <X size={16} />
           </button>
           <div className="min-w-0">
-            <p className="truncate text-xs text-slate-500">
+            <p className="truncate text-xs text-slate-500 dark:text-slate-500">
               {disciplineName} · {chapterTitle}
             </p>
-            <p className="truncate text-xs font-semibold text-slate-300">{title}</p>
+            <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">{title}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           {timeLeft !== null && (
             <div className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold tabular-nums ${
               timeLeft < 60
-                ? "bg-rose-500/20 text-rose-400"
-                : "bg-white/10 text-slate-300"
+                ? "bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
+                : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300"
             }`}>
               <Clock size={11} />
               {formatTime(timeLeft)}
             </div>
           )}
 
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
             {currentIndex + 1}/{questions.length}
           </span>
 
@@ -733,8 +733,8 @@ if (detailsError) {
             onClick={isSpeaking ? stopSpeech : speakCurrentQuestion}
             className={`rounded-xl p-2 transition ${
               isSpeaking
-                ? "bg-blue-500/20 text-blue-400"
-                : "text-slate-500 hover:text-white hover:bg-white/10"
+                ? "bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
+                : "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
             }`}
             title={isSpeaking ? "Parar narração" : "Ler em voz alta"}
           >
@@ -744,7 +744,7 @@ if (detailsError) {
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 shrink-0 bg-white/5">
+      <div className="h-1 shrink-0 bg-slate-200 dark:bg-white/5">
         <div
           className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300"
           style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
@@ -753,33 +753,33 @@ if (detailsError) {
 
       {/* Pergunta */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-5 space-y-5">
-          <h2 className="text-base font-semibold leading-relaxed text-white sm:text-lg">
+        <div className="space-y-4 p-4 sm:space-y-5 sm:p-5">
+          <h2 className="text-base font-semibold leading-relaxed text-slate-900 dark:text-white sm:text-lg">
             {currentQ.question_text}
           </h2>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2 sm:space-y-2.5">
             {currentQ.answers.map((ans, idx) => {
               const isSelected = selectedId === ans.id
               return (
                 <button
                   key={ans.id}
                   onClick={() => saveAnswer(currentQ.id, ans.id)}
-                  className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left text-sm transition-all ${
+                  className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm transition-all sm:px-4 sm:py-3.5 ${
                     isSelected
-                      ? "border-blue-500/60 bg-blue-500/15 text-white ring-1 ring-blue-500/30"
-                      : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
+                      ? "border-blue-400 bg-blue-50 text-slate-900 ring-1 ring-blue-200 dark:border-blue-500/60 dark:bg-blue-500/15 dark:text-white dark:ring-blue-500/30"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-white/20 dark:hover:bg-white/[0.06]"
                   }`}
                 >
                   <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border text-[11px] font-bold transition ${
                     isSelected
-                      ? "border-blue-500/60 bg-blue-600 text-white"
-                      : "border-white/15 text-slate-500"
+                      ? "border-blue-400 bg-blue-600 text-white dark:border-blue-500/60"
+                      : "border-slate-300 text-slate-400 dark:border-white/15 dark:text-slate-500"
                   }`}>
                     {String.fromCharCode(65 + idx)}
                   </span>
                   <span className="flex-1 leading-snug">{ans.answer_text}</span>
-                  {isSelected && <Check size={15} className="shrink-0 text-blue-400" />}
+                  {isSelected && <Check size={15} className="shrink-0 text-blue-600 dark:text-blue-400" />}
                 </button>
               )
             })}
@@ -788,12 +788,12 @@ if (detailsError) {
       </div>
 
       {/* Navegação */}
-      <div className="shrink-0 border-t border-white/10 bg-slate-950/95 px-4 py-3 backdrop-blur-sm">
+      <div className="shrink-0 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/95">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setQuestion(currentIndex - 1)}
             disabled={currentIndex === 0}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-600 transition hover:bg-slate-100 disabled:opacity-30 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
           >
             <ChevronLeft size={16} />
           </button>
@@ -818,7 +818,7 @@ if (detailsError) {
           {!isLast && (
             <button
               onClick={() => void submitQuiz()}
-              className="flex h-11 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/20"
+              className="flex h-11 shrink-0 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
               title="Terminar agora"
             >
               <Check size={14} />
@@ -837,7 +837,7 @@ if (detailsError) {
                   ? "w-5 bg-blue-500"
                   : session?.answers[q.id]
                   ? "w-1.5 bg-emerald-500/60"
-                  : "w-1.5 bg-white/15"
+                  : "w-1.5 bg-slate-300 dark:bg-white/15"
               }`}
             />
           ))}

@@ -159,7 +159,7 @@ const PASSWORD_REQS: { key: keyof PasswordRules; label: string }[] = [
 ================================================================ */
 
 const inputCls =
-  "w-full rounded-xl border border-white/10 bg-white/5 text-sm text-white outline-none placeholder:text-slate-600 transition focus:border-blue-500/60 focus:bg-white/[0.07] focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60";
+  "w-full rounded-xl border border-slate-300 bg-white text-sm text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600 dark:focus:border-blue-500/60 dark:focus:bg-white/[0.07]";
 
 /* ================================================================
    SUB-COMPONENTES ESTÁTICOS
@@ -294,14 +294,18 @@ function MobileStats() {
       {STATS.map(({ icon: Icon, value, label }) => (
         <div
           key={label}
-          className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3"
+          className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10 text-blue-300">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
             <Icon size={14} />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold leading-none text-white">{value}</p>
-            <p className="mt-0.5 truncate text-[10px] text-slate-500">{label}</p>
+            <p className="text-sm font-bold leading-none text-slate-900 dark:text-white">
+              {value}
+            </p>
+            <p className="mt-0.5 truncate text-[10px] text-slate-500 dark:text-slate-500">
+              {label}
+            </p>
           </div>
         </div>
       ))}
@@ -321,13 +325,13 @@ function Feedback({
   return (
     <div className="mb-4 space-y-2">
       {error && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+        <div className="flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
           <AlertCircle size={15} className="mt-0.5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
       {success && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+        <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
           {success}
         </div>
       )}
@@ -337,7 +341,7 @@ function Feedback({
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
       {children}
     </label>
   );
@@ -349,26 +353,26 @@ function PasswordChecklist({ password }: { password: string }) {
   const rules = validatePassword(password);
 
   return (
-    <div className="mt-2.5 space-y-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
+    <div className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]">
       {PASSWORD_REQS.map(({ key, label }) => {
         const ok = rules[key];
         return (
           <div key={key} className="flex items-center gap-2">
             <div
               className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-all ${
-                ok ? "bg-emerald-500/20" : "bg-white/5"
+                ok ? "bg-emerald-100 dark:bg-emerald-500/20" : "bg-slate-200 dark:bg-white/5"
               }`}
             >
               <Check
                 size={10}
                 className={`transition-colors ${
-                  ok ? "text-emerald-400" : "text-slate-600"
+                  ok ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-600"
                 }`}
               />
             </div>
             <span
               className={`text-[11px] transition-colors ${
-                ok ? "text-emerald-400" : "text-slate-500"
+                ok ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500 dark:text-slate-500"
               }`}
             >
               {label}
@@ -616,17 +620,17 @@ function LoginPageContent() {
     return (
       <div className="w-full max-w-md">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold tracking-tight text-white">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             {mode === "reset" ? "Recuperar password" : "Bem-vindo!"}
           </h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             {mode === "reset"
               ? "Indica o teu email para receberes o link de recuperação."
               : "Introduz o teu número de estudante e a password para aceder à plataforma."}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/40 backdrop-blur-sm sm:p-7">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-7 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-sm">
           <Feedback error={error} success={success} />
 
           <form onSubmit={mode === "reset" ? handleReset : handleLogin} className="space-y-5">
@@ -636,7 +640,7 @@ function LoginPageContent() {
                 <div className="relative">
                   <User
                     size={15}
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
                     type="text"
@@ -650,7 +654,7 @@ function LoginPageContent() {
                     className={`${inputCls} h-12 pl-10 pr-4`}
                   />
                 </div>
-                <p className="mt-1.5 text-[11px] text-slate-500">
+                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-500">
                   O sistema adiciona automaticamente{" "}
                   <span className="font-mono">@{ISAF_DOMAIN}</span>
                 </p>
@@ -661,7 +665,7 @@ function LoginPageContent() {
                 <div className="relative">
                   <Mail
                     size={15}
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
                     type="email"
@@ -684,7 +688,7 @@ function LoginPageContent() {
                   <button
                     type="button"
                     onClick={() => switchMode("reset")}
-                    className="text-[11px] text-slate-500 transition hover:text-blue-400"
+                    className="text-[11px] text-slate-500 transition hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400"
                   >
                     Esqueceste a password?
                   </button>
@@ -692,7 +696,7 @@ function LoginPageContent() {
                 <div className="relative">
                   <Lock
                     size={15}
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
                     type={showLoginPass ? "text" : "password"}
@@ -708,7 +712,7 @@ function LoginPageContent() {
                     type="button"
                     onClick={() => setShowLoginPass((v) => !v)}
                     aria-label={showLoginPass ? "Ocultar password" : "Mostrar password"}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-300"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                   >
                     {showLoginPass ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -719,7 +723,7 @@ function LoginPageContent() {
             <button
               type="submit"
               disabled={loading}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-blue-900/30"
             >
               {loading ? (
                 <>
@@ -735,19 +739,19 @@ function LoginPageContent() {
           </form>
 
           <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-[11px] text-slate-600">ou</span>
-            <div className="h-px flex-1 bg-white/10" />
+            <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+            <span className="text-[11px] text-slate-400 dark:text-slate-600">ou</span>
+            <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
           </div>
 
           <button
             type="button"
             onClick={() => switchMode("register")}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
           >
-            <User size={16} className="text-blue-400" />
+            <User size={16} className="text-blue-600 dark:text-blue-400" />
             Criar conta
-            <ArrowRight size={15} className="ml-auto text-slate-500" />
+            <ArrowRight size={15} className="ml-auto text-slate-400 dark:text-slate-500" />
           </button>
         </div>
 
@@ -756,14 +760,14 @@ function LoginPageContent() {
             <button
               type="button"
               onClick={() => switchMode("login")}
-              className="text-sm text-slate-500 transition hover:text-slate-300"
+              className="text-sm text-slate-500 transition hover:text-slate-800 dark:hover:text-slate-300"
             >
               ← Voltar ao login
             </button>
           </div>
         )}
 
-        <p className="mt-8 text-center text-xs text-slate-600">
+        <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-600">
           Instituto Superior de Administração e Finanças · Angola
         </p>
       </div>
@@ -780,13 +784,15 @@ function LoginPageContent() {
           <button
             type="button"
             onClick={() => switchMode("login")}
-            className="mb-3 flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-300"
+            className="mb-3 flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-800 dark:hover:text-slate-300"
           >
             <ChevronLeft size={14} />
             Voltar ao login
           </button>
-          <h2 className="text-2xl font-bold tracking-tight text-white">Criar conta</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Criar conta
+          </h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Preenche os teus dados para aceder à plataforma.
           </p>
         </div>
@@ -800,14 +806,16 @@ function LoginPageContent() {
                     ? "bg-emerald-500 text-white"
                     : s === regStep
                     ? "bg-blue-600 text-white ring-2 ring-blue-500/30"
-                    : "bg-white/10 text-slate-500"
+                    : "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-500"
                 }`}
               >
                 {s < regStep ? <Check size={13} /> : s}
               </div>
               <p
                 className={`text-[10px] font-medium ${
-                  s === regStep ? "text-blue-400" : "text-slate-600"
+                  s === regStep
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-slate-400 dark:text-slate-600"
                 }`}
               >
                 {STEP_LABELS[s]}
@@ -816,7 +824,7 @@ function LoginPageContent() {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-black/40 backdrop-blur-sm sm:p-7">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-7 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-sm">
           <Feedback error={error} success={success} />
 
           <form
@@ -837,7 +845,7 @@ function LoginPageContent() {
                   <div className="relative">
                     <Mail
                       size={15}
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       type="email"
@@ -852,14 +860,14 @@ function LoginPageContent() {
                   </div>
 
                   {regForm.email && !isIsafEmail(regForm.email) && (
-                    <p className="mt-1.5 text-[11px] text-rose-400">
+                    <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">
                       O email deve terminar em{" "}
                       <span className="font-mono">@{ISAF_DOMAIN}</span>
                     </p>
                   )}
 
                   {regForm.email && isIsafEmail(regForm.email) && (
-                    <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-400">
+                    <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
                       <Check size={11} />
                       Email institucional válido.
                     </p>
@@ -871,7 +879,7 @@ function LoginPageContent() {
                   <div className="relative">
                     <Lock
                       size={15}
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       type={showPass ? "text" : "password"}
@@ -886,7 +894,7 @@ function LoginPageContent() {
                       type="button"
                       onClick={() => setShowPass((v) => !v)}
                       aria-label={showPass ? "Ocultar" : "Mostrar"}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-300"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                     >
                       {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -900,7 +908,7 @@ function LoginPageContent() {
                   <div className="relative">
                     <Lock
                       size={15}
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       type={showPass ? "text" : "password"}
@@ -915,7 +923,7 @@ function LoginPageContent() {
 
                   {regForm.confirmPassword &&
                     regForm.password !== regForm.confirmPassword && (
-                      <p className="mt-1.5 text-[11px] text-rose-400">
+                      <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">
                         As passwords não coincidem.
                       </p>
                     )}
@@ -923,7 +931,7 @@ function LoginPageContent() {
                   {regForm.confirmPassword &&
                     regForm.password === regForm.confirmPassword &&
                     isPasswordValid(regForm.password) && (
-                      <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-400">
+                      <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
                         <Check size={11} />
                         Passwords coincidem.
                       </p>
@@ -939,7 +947,7 @@ function LoginPageContent() {
                   <div className="relative">
                     <User
                       size={15}
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       type="text"
@@ -957,20 +965,20 @@ function LoginPageContent() {
                 <div>
                   <FieldLabel>Número de estudante</FieldLabel>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                       #
                     </span>
                     <input
                       type="text"
                       value={derivedStudentNumber}
                       readOnly
-                      className="h-11 w-full cursor-not-allowed rounded-xl border border-emerald-500/30 bg-emerald-500/5 pl-8 pr-10 text-sm text-white outline-none"
+                      className="h-11 w-full cursor-not-allowed rounded-xl border border-emerald-300 bg-emerald-50 pl-8 pr-10 text-sm text-slate-900 outline-none dark:border-emerald-500/30 dark:bg-emerald-500/5 dark:text-white"
                     />
-                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20">
-                      <Check size={11} className="text-emerald-400" />
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
+                      <Check size={11} className="text-emerald-600 dark:text-emerald-400" />
                     </div>
                   </div>
-                  <p className="mt-1.5 text-[11px] text-emerald-400/70">
+                  <p className="mt-1.5 text-[11px] text-emerald-600 dark:text-emerald-400/70">
                     Extraído automaticamente do email.
                   </p>
                 </div>
@@ -989,28 +997,30 @@ function LoginPageContent() {
                         onClick={() => updateReg("courseKey", c.id)}
                         className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
                           regForm.courseKey === c.id
-                            ? "border-blue-500/50 bg-blue-500/10 ring-1 ring-blue-500/30"
-                            : "border-white/10 bg-white/5 hover:bg-white/[0.08]"
+                            ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-500/50 dark:bg-blue-500/10 dark:ring-blue-500/30"
+                            : "border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/[0.08]"
                         }`}
                       >
                         <div
                           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
                             regForm.courseKey === c.id
                               ? "bg-blue-600 text-white"
-                              : "bg-white/10 text-slate-400"
+                              : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400"
                           }`}
                         >
                           {c.code}
                         </div>
                         <p
                           className={`flex-1 text-sm font-medium leading-snug ${
-                            regForm.courseKey === c.id ? "text-white" : "text-slate-300"
+                            regForm.courseKey === c.id
+                              ? "text-slate-900 dark:text-white"
+                              : "text-slate-700 dark:text-slate-300"
                           }`}
                         >
                           {c.name}
                         </p>
                         {regForm.courseKey === c.id && (
-                          <Check size={15} className="shrink-0 text-blue-400" />
+                          <Check size={15} className="shrink-0 text-blue-600 dark:text-blue-400" />
                         )}
                       </button>
                     ))}
@@ -1028,8 +1038,8 @@ function LoginPageContent() {
                           onClick={() => updateReg("currentYear", y)}
                           className={`flex h-11 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition-all ${
                             regForm.currentYear === y
-                              ? "border-blue-500/50 bg-blue-600 text-white"
-                              : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/[0.08]"
+                              ? "border-blue-500 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/[0.08]"
                           }`}
                         >
                           {y}º
@@ -1048,8 +1058,8 @@ function LoginPageContent() {
                           onClick={() => updateReg("currentSemester", s)}
                           className={`flex h-11 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition-all ${
                             regForm.currentSemester === s
-                              ? "border-blue-500/50 bg-blue-600 text-white"
-                              : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/[0.08]"
+                              ? "border-blue-500 bg-blue-600 text-white"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/[0.08]"
                           }`}
                         >
                           {s}º
@@ -1059,7 +1069,7 @@ function LoginPageContent() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] text-amber-400">
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-400">
                   <GraduationCap size={13} className="mt-0.5 shrink-0" />
                   <span>
                     Podes actualizar o ano e semestre a qualquer momento no teu perfil.
@@ -1074,7 +1084,7 @@ function LoginPageContent() {
                   type="button"
                   onClick={prevStep}
                   disabled={loading}
-                  className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+                  className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                 >
                   <ChevronLeft size={15} />
                   Voltar
@@ -1084,7 +1094,7 @@ function LoginPageContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-blue-900/30"
               >
                 {loading ? (
                   <>
@@ -1107,7 +1117,7 @@ function LoginPageContent() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-600">
+        <p className="mt-6 text-center text-xs text-slate-500 dark:text-slate-600">
           Instituto Superior de Administração e Finanças · Angola
         </p>
       </div>
@@ -1118,7 +1128,7 @@ function LoginPageContent() {
      RENDER PRINCIPAL
   ================================================================ */
   return (
-    <div className="relative flex min-h-screen flex-col bg-slate-950 lg:flex-row">
+    <div className="relative flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950 lg:flex-row">
       <MobileBanner />
       <LeftPanel />
 
@@ -1132,7 +1142,13 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">A carregar…</div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600 dark:bg-slate-950 dark:text-white">
+          A carregar…
+        </div>
+      }
+    >
       <LoginPageContent />
     </Suspense>
   );

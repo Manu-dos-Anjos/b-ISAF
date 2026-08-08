@@ -59,7 +59,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     /* fundo geral da app */
-    <div className="min-h-screen bg-[#050816] text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-[#050816] dark:text-white">
 
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
