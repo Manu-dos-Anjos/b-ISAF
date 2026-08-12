@@ -6,6 +6,10 @@ import Header, { type UserProfile } from "@/app/components/header/Header";
 import Breadcrumbs from "@/app/components/header/Breadcrumbs";
 import { UserProvider, useUser } from "@/app/lib/context/UserContext";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
+import {
+  flushAllPendingSubmissions,
+  hasPendingSubmissions,
+} from "@/app/lib/quizPendingSync";
 
 function toHeaderUser(
   user: ReturnType<typeof useUser>["user"]
@@ -38,6 +42,27 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const headerUser = useMemo(() => toHeaderUser(user), [user]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  /* ── Reenvio de resultados de quiz pendentes (offline → online) ── */
+  useEffect(() => {
+    if (!user) return; // só faz sentido com sessão autenticada
+
+    void flushAllPendingSubmissions(supabase);
+
+    const onOnline = () => void flushAllPendingSubmissions(supabase);
+    window.addEventListener("online", onOnline);
+
+    // rede-flapping / mobile: 'online' nem sempre dispara de forma fiável,
+    // por isso há também uma verificação periódica leve
+    const interval = setInterval(() => {
+      if (hasPendingSubmissions()) void flushAllPendingSubmissions(supabase);
+    }, 60_000);
+
+    return () => {
+      window.removeEventListener("online", onOnline);
+      clearInterval(interval);
+    };
+  }, [supabase, user]);
 
   const handleAvatarUpload = async (file: File): Promise<string> => {
     const { data: { user: authUser } } = await supabase.auth.getUser();

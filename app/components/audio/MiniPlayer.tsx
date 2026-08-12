@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
+  Bookmark,
   ChevronDown,
   ChevronUp,
   EyeOff,
@@ -17,6 +18,8 @@ import {
   X,
 } from "lucide-react";
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
+import { useSupabase } from "@/app/lib/context/SupabaseContext";
+import { saveItem, removeSavedItem } from "@/app/actions/saved";
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
@@ -138,6 +141,8 @@ export default function MiniPlayer() {
     seek,
   } = useAudioPlayer();
 
+  const { supabase } = useSupabase();
+
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragRef  = useRef<DragState | null>(null);
 
@@ -151,6 +156,11 @@ export default function MiniPlayer() {
 
   const [isMuted,    setIsMuted]    = useState(false);
   const [prevVolume, setPrevVolume] = useState(1);
+
+  /* ── Guardar (bookmark) ── */
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSavingToggle, setIsSavingToggle] = useState(false);
 
   const safeDuration = Math.max(0, duration || 0);
   const safeCurrent  = clamp(currentTime || 0, 0, safeDuration || 0);
@@ -176,6 +186,53 @@ export default function MiniPlayer() {
       setPrevVolume(volume);
       setVolume(0);
       setIsMuted(true);
+    }
+  };
+
+  /* ── Obter utilizador autenticado ── */
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!cancelled) setStudentId(data.user?.id ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [supabase]);
+
+  /* ── Verificar se a faixa actual já está guardada ── */
+  useEffect(() => {
+    if (!track || !studentId) { setIsSaved(false); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("saved_items")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("content_id", track.id)
+        .maybeSingle();
+      if (!cancelled) setIsSaved(!!data?.id);
+    })();
+    return () => { cancelled = true; };
+  }, [track?.id, studentId, supabase]);
+
+  const toggleSave = async () => {
+    if (!studentId || !track) return;
+    setIsSavingToggle(true);
+    try {
+      if (isSaved) {
+        const { data } = await (supabase as any)
+          .from("saved_items")
+          .select("id")
+          .eq("student_id", studentId)
+          .eq("content_id", track.id)
+          .maybeSingle();
+        if (data?.id) await removeSavedItem(data.id);
+        setIsSaved(false);
+      } else {
+        await saveItem(studentId, track.id);
+        setIsSaved(true);
+      }
+    } finally {
+      setIsSavingToggle(false);
     }
   };
 
@@ -415,6 +472,26 @@ export default function MiniPlayer() {
             )}
           </p>
         )}
+
+        {/* Guardar */}
+        <button
+          type="button"
+          onClick={() => void toggleSave()}
+          disabled={isSavingToggle || !studentId}
+          className={`rounded-xl p-2 transition disabled:opacity-40 ${
+            isSaved
+              ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
+              : "text-slate-500 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-amber-400"
+          }`}
+          aria-label={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+          title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+        >
+          {isSavingToggle ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
+          )}
+        </button>
 
         <button
           type="button"

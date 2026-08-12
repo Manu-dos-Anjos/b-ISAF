@@ -1,213 +1,200 @@
-// app/lib/hooks/useQuizSession.ts
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useSupabase } from "@/app/lib/context/SupabaseContext";
-import { useUser }     from "@/app/lib/context/UserContext";
-
-/* ================================================================
-   TIPOS
-   ================================================================ */
+import { useCallback, useEffect, useState } from "react";
 
 export type QuizSessionState = {
-  contentId:            string;
+  questionIds: string[];
   currentQuestionIndex: number;
+  /** questionId -> array de answerIds selecionados (suporta 1 ou várias respostas) */
+  answers: Record<string, string[]>;
   timeRemainingSeconds: number | null;
-  answers:              Record<string, string>; // { [question_id]: answer_id }
+  attemptStartedAt: string;
 };
 
-type UseQuizSessionResult = {
-  session:       QuizSessionState | null;
-  hasActiveSession: boolean;
-  isLoading:     boolean;
-  saveAnswer:    (questionId: string, answerId: string) => void;
-  setQuestion:   (index: number) => void;
-  tickTimer:     () => void;
-  clearSession:  () => Promise<void>;
-  loadSession:   () => Promise<QuizSessionState | null>;
+type SaveAnswerOptions = {
+  /** Se true, faz toggle (adiciona/remove) em vez de substituir a seleção */
+  multiple?: boolean;
 };
 
-const LS_PREFIX = "b-isaf:quiz:session:";
-
-function lsKey(contentId: string) {
-  return `${LS_PREFIX}${contentId}`;
+function sessionKey(contentId: string) {
+  return `b-isaf:quiz:session:${contentId}`;
 }
 
-/* ================================================================
-   HOOK
-   ================================================================ */
+function createEmptySession(timeLimitSeconds?: number | null): QuizSessionState {
+  return {
+    questionIds: [],
+    currentQuestionIndex: 0,
+    answers: {},
+    timeRemainingSeconds: timeLimitSeconds ?? null,
+    attemptStartedAt: new Date().toISOString(),
+  };
+}
 
-export function useQuizSession(
-  contentId: string,
-  timeLimitSeconds?: number | null
-): UseQuizSessionResult {
-  const { supabase }  = useSupabase();
-  const { profile }   = useUser();
+/** Compatibilidade com sessões antigas onde `answers` era Record<string, string> */
+function normalizeAnswers(raw: unknown): Record<string, string[]> {
+  if (!raw || typeof raw !== "object") return {};
 
-  const [session,   setSession]   = useState<QuizSessionState | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  /* Ref para debounce do sync remoto */
-  const syncTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingRef    = useRef<QuizSessionState | null>(null);
-
-  /* ── Sync remoto (debounced 5s) ── */
-  const syncRemote = useCallback(async (state: QuizSessionState) => {
-    if (!profile) return;
-    try {
-      await supabase.from("quiz_sessions").upsert({
-        student_id:             profile.id,
-        content_id:             contentId,
-        current_question_index: state.currentQuestionIndex,
-        time_remaining_seconds: state.timeRemainingSeconds,
-        answers:                state.answers,
-        updated_at:             new Date().toISOString(),
-      }, { onConflict: "student_id,content_id" });
-    } catch (e) {
-      console.warn("Quiz session sync failed:", e);
+  const out: Record<string, string[]> = {};
+  for (const [qid, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (Array.isArray(value)) {
+      out[qid] = value.filter((v): v is string => typeof v === "string");
+    } else if (typeof value === "string") {
+      out[qid] = [value];
     }
-  }, [supabase, profile, contentId]);
+  }
+  return out;
+}
 
-  const scheduleSyncRemote = useCallback((state: QuizSessionState) => {
-    pendingRef.current = state;
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(() => {
-      if (pendingRef.current) void syncRemote(pendingRef.current);
-    }, 5000);
-  }, [syncRemote]);
+function readSession(contentId: string): QuizSessionState | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = localStorage.getItem(sessionKey(contentId));
+    if (!raw) return null;
 
-  /* ── Persistir estado ── */
-  const persist = useCallback((next: QuizSessionState) => {
-    setSession(next);
-    // Local imediato
-    try { localStorage.setItem(lsKey(contentId), JSON.stringify(next)); } catch { /* ignore */ }
-    // Remoto debounced
-    scheduleSyncRemote(next);
-  }, [contentId, scheduleSyncRemote]);
+    const parsed = JSON.parse(raw) as Partial<QuizSessionState> | null;
+    if (!parsed || typeof parsed !== "object") return null;
 
-  /* ── Carregar sessão ── */
-  const loadSession = useCallback(async (): Promise<QuizSessionState | null> => {
+    return {
+      questionIds: Array.isArray(parsed.questionIds) ? parsed.questionIds : [],
+      currentQuestionIndex:
+        typeof parsed.currentQuestionIndex === "number" ? parsed.currentQuestionIndex : 0,
+      answers: normalizeAnswers(parsed.answers),
+      timeRemainingSeconds:
+        typeof parsed.timeRemainingSeconds === "number" ? parsed.timeRemainingSeconds : null,
+      attemptStartedAt:
+        typeof parsed.attemptStartedAt === "string"
+          ? parsed.attemptStartedAt
+          : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(contentId: string, session: QuizSessionState) {
+  try {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(sessionKey(contentId), JSON.stringify(session));
+  } catch {
+    // ignore
+  }
+}
+
+function removeSession(contentId: string) {
+  try {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(sessionKey(contentId));
+  } catch {
+    // ignore
+  }
+}
+
+export function useQuizSession(contentId: string, timeLimitSeconds?: number | null) {
+  const [session, setSession] = useState<QuizSessionState | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
     setIsLoading(true);
-    try {
-      // 1. Tentar do Supabase primeiro (mais recente)
-      if (profile) {
-        const { data } = await supabase
-          .from("quiz_sessions")
-          .select("*")
-          .eq("student_id", profile.id)
-          .eq("content_id", contentId)
-          .maybeSingle();
 
-        if (data) {
-          const state: QuizSessionState = {
-            contentId,
-            currentQuestionIndex: data.current_question_index,
-            timeRemainingSeconds: data.time_remaining_seconds,
-            answers:              (data.answers as Record<string, string>) ?? {},
-          };
-          setSession(state);
-          try { localStorage.setItem(lsKey(contentId), JSON.stringify(state)); } catch { /* ignore */ }
-          return state;
-        }
-      }
-
-      // 2. Fallback: localStorage
-      try {
-        const raw = localStorage.getItem(lsKey(contentId));
-        if (raw) {
-          const state = JSON.parse(raw) as QuizSessionState;
-          setSession(state);
-          return state;
-        }
-      } catch { /* ignore */ }
-
-      return null;
-    } finally {
-      setIsLoading(false);
+    const existing = readSession(contentId);
+    if (existing) {
+      setSession(existing);
+    } else {
+      const fresh = createEmptySession(timeLimitSeconds);
+      setSession(fresh);
+      writeSession(contentId, fresh);
     }
-  }, [supabase, profile, contentId]);
 
-  /* ── Limpar sessão ── */
-  const clearSession = useCallback(async () => {
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    setSession(null);
-    try { localStorage.removeItem(lsKey(contentId)); } catch { /* ignore */ }
-    if (profile) {
-      try {
-        await supabase.from("quiz_sessions")
-          .delete()
-          .eq("student_id", profile.id)
-          .eq("content_id", contentId);
-      } catch { /* ignore */ }
-    }
-  }, [supabase, profile, contentId]);
-
-  /* ── API ── */
-  const saveAnswer = useCallback((questionId: string, answerId: string) => {
-    setSession((prev) => {
-      const next: QuizSessionState = {
-        contentId,
-        currentQuestionIndex: prev?.currentQuestionIndex ?? 0,
-        timeRemainingSeconds: prev?.timeRemainingSeconds ?? null,
-        answers: { ...(prev?.answers ?? {}), [questionId]: answerId },
-      };
-      try { localStorage.setItem(lsKey(contentId), JSON.stringify(next)); } catch { /* ignore */ }
-      scheduleSyncRemote(next);
-      return next;
-    });
-  }, [contentId, scheduleSyncRemote]);
-
-  const setQuestion = useCallback((index: number) => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, currentQuestionIndex: index };
-      try { localStorage.setItem(lsKey(contentId), JSON.stringify(next)); } catch { /* ignore */ }
-      scheduleSyncRemote(next);
-      return next;
-    });
-  }, [contentId, scheduleSyncRemote]);
-
-  const tickTimer = useCallback(() => {
-    setSession((prev) => {
-      if (!prev || prev.timeRemainingSeconds === null) return prev;
-      const next = { ...prev, timeRemainingSeconds: Math.max(0, prev.timeRemainingSeconds - 1) };
-      // Sync local a cada tick; remoto pelo debounce já activo
-      try { localStorage.setItem(lsKey(contentId), JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
+    setIsLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentId]);
 
-  /* ── Inicializar sessão nova (sem histórico) ── */
-  useEffect(() => {
-    // Só inicializa se não houver sessão carregada
-    setSession((prev) => {
-      if (prev) return prev;
-      return {
-        contentId,
-        currentQuestionIndex: 0,
-        timeRemainingSeconds: timeLimitSeconds ?? null,
-        answers: {},
-      };
+  const persist = useCallback(
+    (updater: (prev: QuizSessionState) => QuizSessionState) => {
+      setSession((prev) => {
+        const base = prev ?? createEmptySession(timeLimitSeconds);
+        const next = updater(base);
+        writeSession(contentId, next);
+        return next;
+      });
+    },
+    [contentId, timeLimitSeconds]
+  );
+
+  const loadSession = useCallback(async () => {
+    const existing = readSession(contentId);
+    if (existing) setSession(existing);
+    return existing;
+  }, [contentId]);
+
+  const setQuestionIds = useCallback(
+    (ids: string[]) => {
+      persist((prev) => ({ ...prev, questionIds: ids }));
+    },
+    [persist]
+  );
+
+  const setQuestion = useCallback(
+    (index: number) => {
+      persist((prev) => ({
+        ...prev,
+        currentQuestionIndex: Math.max(
+          0,
+          Math.min(index, Math.max(prev.questionIds.length - 1, 0))
+        ),
+      }));
+    },
+    [persist]
+  );
+
+  const saveAnswer = useCallback(
+    (questionId: string, answerId: string, options: SaveAnswerOptions = {}) => {
+      persist((prev) => {
+        const current = prev.answers[questionId] ?? [];
+
+        const nextForQuestion = options.multiple
+          ? current.includes(answerId)
+            ? current.filter((id) => id !== answerId)
+            : [...current, answerId]
+          : [answerId];
+
+        return {
+          ...prev,
+          answers: { ...prev.answers, [questionId]: nextForQuestion },
+        };
+      });
+    },
+    [persist]
+  );
+
+  const tickTimer = useCallback(() => {
+    persist((prev) => {
+      if (prev.timeRemainingSeconds == null) return prev;
+      return { ...prev, timeRemainingSeconds: Math.max(0, prev.timeRemainingSeconds - 1) };
     });
+  }, [persist]);
+
+  const resetSession = useCallback(async () => {
+    const fresh = createEmptySession(timeLimitSeconds);
+    writeSession(contentId, fresh);
+    setSession(fresh);
+    return fresh;
   }, [contentId, timeLimitSeconds]);
 
-  /* Cleanup ao desmontar */
-  useEffect(() => {
-    return () => {
-      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-      // Sync imediato ao desmontar
-      if (pendingRef.current) void syncRemote(pendingRef.current);
-    };
-  }, [syncRemote]);
+  const clearSession = useCallback(async () => {
+    removeSession(contentId);
+    setSession(null);
+  }, [contentId]);
 
   return {
     session,
-    hasActiveSession: (session?.currentQuestionIndex ?? 0) > 0 || Object.keys(session?.answers ?? {}).length > 0,
     isLoading,
     saveAnswer,
     setQuestion,
+    setQuestionIds,
     tickTimer,
     clearSession,
+    resetSession,
     loadSession,
   };
 }

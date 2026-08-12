@@ -2,7 +2,7 @@
 import { Calendar } from "lucide-react";
 import { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Eventos · b-ISAF" };
+export const metadata: Metadata = { title: "Eventos | b-ISAF" };
 
 export default function EventosPage() {
   return (

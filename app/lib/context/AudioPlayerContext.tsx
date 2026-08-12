@@ -56,6 +56,19 @@ function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
 }
 
+// Normaliza um AudioTrack, convertendo strings vazias/whitespace em undefined —
+// evita que valores vazios (ex.: persistidos de versões antigas do app, ou vindos
+// de queries que devolvem "" em vez de null) apareçam como "Sem disciplina" etc.
+// no MiniPlayer.
+function sanitizeTrack(t: AudioTrack): AudioTrack {
+  return {
+    ...t,
+    discipline: t.discipline?.trim() ? t.discipline.trim() : undefined,
+    chapter: t.chapter?.trim() ? t.chapter.trim() : undefined,
+    topic: t.topic?.trim() ? t.topic.trim() : undefined,
+  };
+}
+
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -69,7 +82,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const [playbackRate, _setPlaybackRate] = useState(1);
   const [hasRestored, setHasRestored] = useState(false);
 
-  // cria 1 elemento de áudio global
   useEffect(() => {
     const audio = new Audio();
     audio.preload = "metadata";
@@ -98,7 +110,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  // restore: faixa + tempo + volume + velocidade + “estava a tocar”
   useEffect(() => {
     if (hasRestored) return;
     const audio = audioRef.current;
@@ -128,14 +139,15 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       audio.playbackRate = restoredRate;
 
       if (parsed.track?.url) {
-        setTrack(parsed.track);
-        audio.src = parsed.track.url;
+        const cleanTrack = sanitizeTrack(parsed.track);
+
+        setTrack(cleanTrack);
+        audio.src = cleanTrack.url;
         audio.playbackRate = restoredRate;
 
         const restoredTime =
           typeof parsed.time === "number" ? Math.max(0, parsed.time) : 0;
 
-        // esperar metadata antes de setar currentTime (mais consistente)
         const setTime = () => {
           try {
             audio.currentTime = restoredTime;
@@ -146,22 +158,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           }
         };
 
-        // se metadata já carregou, seta já
         if (audio.readyState >= 1) {
           setTime();
         } else {
           audio.addEventListener("loadedmetadata", setTime, { once: true });
         }
 
-        // tentar retomar se estava a tocar
         if (parsed.wasPlaying) {
-          // tentativa após um micro delay
           setTimeout(async () => {
             try {
               await audio.play();
               audio.playbackRate = restoredRate;
             } catch {
-              // autoplay pode ser bloqueado -> utilizador clica play
               setIsPlaying(false);
             }
           }, 150);
@@ -174,7 +182,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [hasRestored]);
 
-  // persistir estado (frequente mas leve)
   useEffect(() => {
     const data: Persisted = {
       track,
@@ -191,7 +198,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [track, currentTime, volume, isPlaying, playbackRate]);
 
-  // persistir também no refresh/fechar tab (garante último segundo)
   useEffect(() => {
     const onBeforeUnload = () => {
       const data: Persisted = {
@@ -229,16 +235,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     const audio = audioRef.current;
     if (!audio) return;
 
-    const sameTrack = track?.id === nextTrack.id && track?.url === nextTrack.url;
+    const cleanTrack = sanitizeTrack(nextTrack);
 
-    setTrack(nextTrack);
+    const sameTrack = track?.id === cleanTrack.id && track?.url === cleanTrack.url;
+
+    setTrack(cleanTrack);
 
     if (!sameTrack) {
-      audio.src = nextTrack.url;
+      audio.src = cleanTrack.url;
       audio.playbackRate = playbackRate;
       const startAt = opts?.startAt ?? 0;
 
-      // set time quando metadata estiver pronta
       const setTime = () => {
         try {
           audio.currentTime = startAt;

@@ -1,4 +1,3 @@
-// app/components/quiz/QuizReview.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,9 +11,11 @@ import {
   RotateCcw,
   BarChart2,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { useUser } from "@/app/lib/context/UserContext";
+import QuizModalShell from "./QuizModalShell";
 
 /* ================================================================
    TIPOS
@@ -25,8 +26,11 @@ type ReviewDetail = {
   questionText: string;
   selectedId: string | null;
   selectedText: string | null;
+  selectedFeedback: string | null;
   correctId: string;
   correctText: string;
+  correctFeedback: string | null;
+  questionExplanation: string | null;
   isCorrect: boolean;
 };
 
@@ -49,6 +53,7 @@ type QuestionRow = {
   id: string;
   question_text: string;
   order_index: number;
+  explanation: string | null;
 };
 
 type AnswerRow = {
@@ -57,6 +62,7 @@ type AnswerRow = {
   answer_text: string;
   is_correct: boolean;
   order_index: number;
+  feedback: string | null;
 };
 
 type Props = {
@@ -98,14 +104,12 @@ export default function QuizReview({
     }
 
     const sid = studentId as string;
-
     let cancelled = false;
 
     async function load() {
       setLoading(true);
 
       try {
-        // 1) Buscar o último resultado do aluno para este quiz
         const { data: resultData, error: resErr } = await supabase
           .from("quiz_results")
           .select(
@@ -118,7 +122,6 @@ export default function QuizReview({
           .maybeSingle();
 
         if (resErr) throw resErr;
-
         if (cancelled) return;
 
         if (!resultData) {
@@ -128,30 +131,24 @@ export default function QuizReview({
         }
 
         setResult(resultData as ResultSummary);
-
-        // Guardar id do resultado (resolver inferência do TS)
         const resultId = (resultData as ResultSummary).id;
 
-        // 2) Buscar os detalhes desse resultado
         const { data: dets, error: detErr } = await supabase
           .from("quiz_results_details")
           .select("question_id, selected_answer_id, is_correct")
           .eq("result_id", resultId);
 
         if (detErr) throw detErr;
-
         if (cancelled) return;
 
         const detailRows = (dets ?? []) as ResultDetailRow[];
-
-        // 3) Buscar as perguntas envolvidas
         const questionIds = [...new Set(detailRows.map((d) => d.question_id))];
 
         let questionRows: QuestionRow[] = [];
         if (questionIds.length > 0) {
           const { data: qRows, error: qErr } = await supabase
             .from("quiz_questions")
-            .select("id, question_text, order_index")
+            .select("id, question_text, order_index, explanation")
             .in("id", questionIds);
 
           if (qErr) throw qErr;
@@ -161,12 +158,11 @@ export default function QuizReview({
           );
         }
 
-        // 4) Buscar as respostas dessas perguntas
         let answerRows: AnswerRow[] = [];
         if (questionIds.length > 0) {
           const { data: aRows, error: aErr } = await supabase
             .from("quiz_answers")
-            .select("id, question_id, answer_text, is_correct, order_index")
+            .select("id, question_id, answer_text, is_correct, order_index, feedback")
             .in("question_id", questionIds);
 
           if (aErr) throw aErr;
@@ -184,26 +180,38 @@ export default function QuizReview({
             {
               text: q.question_text,
               orderIndex: q.order_index,
+              explanation: q.explanation,
             },
           ])
         );
 
         const answersById = new Map(
-          answerRows.map((a) => [a.id, a.answer_text])
+          answerRows.map((a) => [
+            a.id,
+            {
+              text: a.answer_text,
+              feedback: a.feedback,
+              isCorrect: a.is_correct,
+              questionId: a.question_id,
+            },
+          ])
         );
 
-        const correctByQuestion = new Map<string, { id: string; text: string }>();
+        const correctByQuestion = new Map<
+          string,
+          { id: string; text: string; feedback: string | null }
+        >();
 
         for (const a of answerRows) {
           if (a.is_correct) {
             correctByQuestion.set(a.question_id, {
               id: a.id,
               text: a.answer_text,
+              feedback: a.feedback,
             });
           }
         }
 
-        // Ordenar pela ordem da pergunta no quiz
         const orderedDetails = [...detailRows].sort((a, b) => {
           const ao = questionsMap.get(a.question_id)?.orderIndex ?? 0;
           const bo = questionsMap.get(b.question_id)?.orderIndex ?? 0;
@@ -211,17 +219,27 @@ export default function QuizReview({
         });
 
         setDetails(
-          orderedDetails.map((d) => ({
-            questionId: d.question_id,
-            questionText: questionsMap.get(d.question_id)?.text ?? "—",
-            selectedId: d.selected_answer_id,
-            selectedText: d.selected_answer_id
+          orderedDetails.map((d) => {
+            const selected = d.selected_answer_id
               ? answersById.get(d.selected_answer_id) ?? null
-              : null,
-            correctId: correctByQuestion.get(d.question_id)?.id ?? "",
-            correctText: correctByQuestion.get(d.question_id)?.text ?? "—",
-            isCorrect: d.is_correct,
-          }))
+              : null;
+
+            const correct = correctByQuestion.get(d.question_id) ?? null;
+
+            return {
+              questionId: d.question_id,
+              questionText: questionsMap.get(d.question_id)?.text ?? "—",
+              selectedId: d.selected_answer_id,
+              selectedText: selected?.text ?? null,
+              selectedFeedback: selected?.feedback ?? null,
+              correctId: correct?.id ?? "",
+              correctText: correct?.text ?? "—",
+              correctFeedback: correct?.feedback ?? null,
+              questionExplanation:
+                questionsMap.get(d.question_id)?.explanation ?? null,
+              isCorrect: d.is_correct,
+            };
+          })
         );
       } catch (err) {
         console.error("Erro ao carregar revisão:", err);
@@ -239,7 +257,6 @@ export default function QuizReview({
     };
   }, [supabase, studentId, contentId]);
 
-  /* ── Toggle expand ── */
   const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -247,14 +264,12 @@ export default function QuizReview({
       return next;
     });
 
-  /* ── Formatar tempo ── */
   function formatTime(secs: number) {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   }
 
-  /* ── Mensagem de desempenho ── */
   function perfMessage(pct: number) {
     if (pct >= 90)
       return { text: "Excelente! 🏆", color: "text-amber-600 dark:text-amber-400" };
@@ -271,26 +286,38 @@ export default function QuizReview({
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center gap-3 py-20">
-        <Loader2 size={24} className="animate-spin text-blue-600 dark:text-blue-400" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">A carregar revisão…</p>
-      </div>
+      <QuizModalShell>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3">
+          <Loader2 size={24} className="animate-spin text-blue-600 dark:text-blue-400" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            A carregar revisão…
+          </p>
+        </div>
+      </QuizModalShell>
     );
   }
 
   if (!result) {
     return (
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Nenhum resultado encontrado.
-        </p>
-        <button
-          onClick={onRepeat}
-          className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-500"
-        >
-          Fazer questionário
-        </button>
-      </div>
+      <QuizModalShell>
+        <div className="flex shrink-0 items-center justify-end px-5 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+          <AlertCircle size={24} className="text-slate-400 dark:text-slate-600" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Nenhum resultado encontrado.
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-500">
+            Usa o botão do capítulo para iniciar o questionário.
+          </p>
+        </div>
+      </QuizModalShell>
     );
   }
 
@@ -299,7 +326,7 @@ export default function QuizReview({
   const perf = perfMessage(pct);
 
   return (
-    <div className="flex flex-col overflow-hidden">
+    <QuizModalShell>
       {/* ── Header ── */}
       <div className="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-white/10 px-5 py-4">
         <div>
@@ -318,145 +345,189 @@ export default function QuizReview({
         </button>
       </div>
 
-      {/* ── Score card ── */}
-      <div
-        className={`mx-5 mt-5 rounded-2xl border p-5 ${
-          pass
-            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5"
-            : "border-rose-200 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/5"
-        }`}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
-              pass
-                ? "bg-emerald-100 dark:bg-emerald-500/15"
-                : "bg-rose-100 dark:bg-rose-500/15"
-            }`}
-          >
-            <Trophy
-              size={24}
-              className={pass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}
-            />
-          </div>
-
-          <div className="flex-1">
-            <p
-              className={`text-4xl font-black tabular-nums ${
-                pass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+      {/* ── Corpo com scroll (score + lista) ── */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Score card */}
+        <div
+          className={`mx-5 mt-5 rounded-2xl border p-5 ${
+            pass
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5"
+              : "border-rose-200 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/5"
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            <div
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+                pass
+                  ? "bg-emerald-100 dark:bg-emerald-500/15"
+                  : "bg-rose-100 dark:bg-rose-500/15"
               }`}
             >
-              {pct}%
-            </p>
-            <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
-              {result.correct_answers} de {result.total_questions} correctas
-            </p>
-          </div>
+              <Trophy
+                size={24}
+                className={
+                  pass
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400"
+                }
+              />
+            </div>
 
-          <div className="text-right">
-            <p className={`text-sm font-bold ${perf.color}`}>{perf.text}</p>
-            {result.time_spent_seconds != null && (
-              <p className="mt-1 text-[11px] text-slate-500">
-                ⏱ {formatTime(result.time_spent_seconds)}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${
-              pass ? "bg-emerald-500" : "bg-rose-500"
-            }`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-
-      {/* ── Lista de perguntas ── */}
-      <div className="flex-1 space-y-2 overflow-y-auto px-5 py-4">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-          Revisão questão a questão
-        </p>
-
-        {details.map((d, idx) => {
-          const open = expanded.has(d.questionId);
-
-          return (
-            <div
-              key={d.questionId}
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
-            >
-              <button
-                onClick={() => toggle(d.questionId)}
-                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50 dark:hover:bg-white/5"
+            <div className="flex-1">
+              <p
+                className={`text-4xl font-black tabular-nums ${
+                  pass
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400"
+                }`}
               >
-                <div
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                    d.isCorrect
-                      ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"
-                      : "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
-                  }`}
-                >
-                  {d.isCorrect ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
-                </div>
+                {pct}%
+              </p>
+              <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+                {result.correct_answers} de {result.total_questions} correctas
+              </p>
+            </div>
 
-                <p className="flex-1 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-2">
-                  {idx + 1}. {d.questionText}
+            <div className="text-right">
+              <p className={`text-sm font-bold ${perf.color}`}>{perf.text}</p>
+              {result.time_spent_seconds != null && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  ⏱ {formatTime(result.time_spent_seconds)}
                 </p>
+              )}
+            </div>
+          </div>
 
-                <div className="shrink-0 text-slate-400 dark:text-slate-600">
-                  {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                </div>
-              </button>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                pass ? "bg-emerald-500" : "bg-rose-500"
+              }`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
 
-              {open && (
-                <div className="space-y-2 border-t border-slate-200 dark:border-white/5 px-4 py-3">
-                  {!d.isCorrect && d.selectedText && (
+        {/* Lista de perguntas */}
+        <div className="space-y-2 px-5 py-4">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            Revisão questão a questão
+          </p>
+
+          {details.map((d, idx) => {
+            const open = expanded.has(d.questionId);
+
+            return (
+              <div
+                key={d.questionId}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
+              >
+                <button
+                  onClick={() => toggle(d.questionId)}
+                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50 dark:hover:bg-white/5"
+                >
+                  <div
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                      d.isCorrect
+                        ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"
+                        : "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
+                    }`}
+                  >
+                    {d.isCorrect ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                  </div>
+
+                  <p className="flex-1 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-2">
+                    {idx + 1}. {d.questionText}
+                  </p>
+
+                  <div className="shrink-0 text-slate-400 dark:text-slate-600">
+                    {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </div>
+                </button>
+
+                {open && (
+                  <div className="space-y-2 border-t border-slate-200 dark:border-white/5 px-4 py-3">
+                    {!d.isCorrect && d.selectedText && (
+                      <div className="flex items-start gap-2">
+                        <XCircle
+                          size={12}
+                          className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400"
+                        />
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-500">
+                            A tua resposta
+                          </p>
+                          <p className="mt-0.5 text-xs text-rose-700 dark:text-rose-300">
+                            {d.selectedText}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {!d.isCorrect && !d.selectedText && (
+                      <p className="text-[11px] italic text-slate-500">
+                        Não respondeste a esta pergunta.
+                      </p>
+                    )}
+
                     <div className="flex items-start gap-2">
-                      <XCircle
+                      <CheckCircle2
                         size={12}
-                        className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400"
+                        className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
                       />
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-500">
-                          A tua resposta
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">
+                          Resposta correcta
                         </p>
-                        <p className="mt-0.5 text-xs text-rose-700 dark:text-rose-300">
-                          {d.selectedText}
+                        <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                          {d.correctText}
                         </p>
                       </div>
                     </div>
-                  )}
 
-                  {!d.isCorrect && !d.selectedText && (
-                    <p className="text-[11px] italic text-slate-500">
-                      Não respondeste a esta pergunta.
-                    </p>
-                  )}
+                    {d.selectedFeedback && (
+                      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                          Feedback
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                          {d.selectedFeedback}
+                        </p>
+                      </div>
+                    )}
 
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2
-                      size={12}
-                      className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
-                    />
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">
-                        Resposta correcta
-                      </p>
-                      <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
-                        {d.correctText}
-                      </p>
-                    </div>
+                    {!d.isCorrect &&
+                      d.correctFeedback &&
+                      d.correctFeedback !== d.selectedFeedback && (
+                        <div className="rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                            Comentário da resposta correcta
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-emerald-800 dark:text-emerald-200">
+                            {d.correctFeedback}
+                          </p>
+                        </div>
+                      )}
+
+                    {d.questionExplanation && (
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-500/20 dark:bg-blue-500/10">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-200">
+                          Explicação
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-blue-800 dark:text-blue-200">
+                          {d.questionExplanation}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* ── Acções ── */}
+      {/* ── Acções (sempre visíveis, nunca exigem scroll) ── */}
       <div className="flex shrink-0 gap-3 border-t border-slate-200 dark:border-white/10 px-5 py-4">
         <button
           onClick={onRepeat}
@@ -471,6 +542,6 @@ export default function QuizReview({
           <BarChart2 size={14} /> Ver estatísticas
         </button>
       </div>
-    </div>
+    </QuizModalShell>
   );
 }

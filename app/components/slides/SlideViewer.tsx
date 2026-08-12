@@ -175,23 +175,27 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
           className="h-full w-full overflow-auto"
           style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y pinch-zoom" }}
         >
-          <img
-            key={attempt}
-            src={src}
-            alt={title}
-            className="block w-full h-auto"
+          {/*
+            Wrapper que define a largura real (não visual) da imagem consoante o zoom.
+            Ao contrário de `transform: scale()`, isto faz o browser recalcular o
+            layout/altura verdadeiros, permitindo que o `overflow-auto` do contentor
+            pai gere scroll correcto em X e Y sem cortes nem espaços em branco no fundo.
+          */}
+          <div
             style={{
-              // Para imagens o zoom é aplicado directamente via CSS transform,
-              // já que não há iframe para comunicar via postMessage.
-              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-              transformOrigin: "top center",
-              // Ajusta a altura do contentor para que o scroll funcione correctamente
-              // quando a imagem é ampliada (evita corte no fundo).
-              marginBottom: zoom > 1 ? `${(zoom - 1) * 100}%` : undefined,
+              width: `${zoom * 100}%`,
+              margin: zoom <= 1 ? "0 auto" : undefined,
             }}
-            onLoad={markReady}
-            onError={markError}
-          />
+          >
+            <img
+              key={attempt}
+              src={src}
+              alt={title}
+              className="block h-auto w-full"
+              onLoad={markReady}
+              onError={markError}
+            />
+          </div>
         </div>
       )}
 

@@ -1,3 +1,4 @@
+// app/guardados/GuardadosClient.tsx
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
@@ -16,9 +17,17 @@ import {
   Trash2,
   ExternalLink,
   Loader2,
+  X,
+  ZoomIn,
+  ZoomOut,
+  Expand,
+  Shrink,
 } from "lucide-react";
 import type { Profile } from "@/src/types/database";
 import { removeSavedItem, type SavedItem } from "@/app/actions/saved";
+import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
+import SlideViewer from "@/app/components/slides/SlideViewer";
+import QuizPlayer from "@/app/components/quiz/QuizPlayer";
 
 type Discipline = { id: string; name: string };
 
@@ -27,6 +36,14 @@ type Props = {
   savedItems: SavedItem[];
   disciplines: Discipline[];
 };
+
+/* ================================================================
+   CONSTANTES
+================================================================ */
+
+const ZOOM_MIN  = 0.5;
+const ZOOM_MAX  = 2;
+const ZOOM_STEP = 0.1;
 
 const SCROLLBAR_X = [
   "scrollbar-thin",
@@ -70,12 +87,64 @@ const CONTENT_META: Record<
   },
 };
 
+/* ================================================================
+   ZOOM CONTROLS (reutilizado do DisciplineClient)
+================================================================ */
+
+function ZoomControls({
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onReset,
+}: {
+  zoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white px-0.5 dark:border-white/10 dark:bg-white/5">
+      <button
+        type="button"
+        onClick={onZoomOut}
+        disabled={zoom <= ZOOM_MIN}
+        className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+        title="Reduzir zoom"
+      >
+        <ZoomOut size={13} />
+      </button>
+      <button
+        type="button"
+        onClick={onReset}
+        className="min-w-[36px] px-1 text-center text-[10px] font-bold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+        title="Repor zoom (100%)"
+      >
+        {Math.round(zoom * 100)}%
+      </button>
+      <button
+        type="button"
+        onClick={onZoomIn}
+        disabled={zoom >= ZOOM_MAX}
+        className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+        title="Ampliar zoom"
+      >
+        <ZoomIn size={13} />
+      </button>
+    </div>
+  );
+}
+
+/* ================================================================
+   COMPONENTE PRINCIPAL
+================================================================ */
+
 export default function GuardadosClient({
   profile,
   savedItems: initialItems,
   disciplines,
 }: Props) {
-  const router = useRouter();
+  const router      = useRouter();
+  const audioPlayer = useAudioPlayer();
 
   const [items, setItems]               = useState<SavedItem[]>(initialItems);
   const [search, setSearch]             = useState("");
@@ -83,6 +152,14 @@ export default function GuardadosClient({
   const [filterType, setFilterType]     = useState<string>("all");
   const [removingId, setRemovingId]     = useState<string | null>(null);
   const [expandedDisc, setExpandedDisc] = useState<Record<string, boolean>>({});
+
+  /* ── Slide modal ── */
+  const [activeSlide, setActiveSlide]         = useState<SavedItem | null>(null);
+  const [slideZoom, setSlideZoom]             = useState(1);
+  const [slideFullscreen, setSlideFullscreen] = useState(false);
+
+  /* ── Quiz modal ── */
+  const [activeQuiz, setActiveQuiz] = useState<SavedItem | null>(null);
 
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "Aluno";
 
@@ -93,12 +170,65 @@ export default function GuardadosClient({
     setRemovingId(null);
   }, []);
 
+  const openItem = useCallback(
+    (item: SavedItem) => {
+      if (item.type === "audio") {
+        if (!item.fileUrl) {
+          alert("Este áudio ainda não tem ficheiro associado.");
+          return;
+        }
+        void audioPlayer.play({
+  id:         item.contentId,
+  title:      item.title,
+  url:        item.fileUrl,
+  discipline: item.disciplineName,
+  chapter:    item.chapterTitle,
+  topic:      item.topicTitle,   // ← agora disponível
+  coverUrl:   item.disciplineCoverUrl ?? undefined, 
+});
+        return;
+      }
+
+      if (item.type === "slide") {
+        if (!item.fileUrl) {
+          alert("Este slide ainda não tem ficheiro associado.");
+          return;
+        }
+        setSlideZoom(1);
+        setSlideFullscreen(false);
+        setActiveSlide(item);
+        return;
+      }
+
+      if (item.type === "quiz") {
+        setActiveQuiz(item);
+        return;
+      }
+
+      // Interativo — sem viewer dedicado ainda
+      router.push(`/disciplinas/${item.disciplineId}`);
+    },
+    [audioPlayer, router]
+  );
+
+  const closeSlide = useCallback(() => {
+    setActiveSlide(null);
+    setSlideZoom(1);
+    setSlideFullscreen(false);
+  }, []);
+
+  const adjustZoom = (delta: number) =>
+    setSlideZoom((z) =>
+      Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((z + delta) * 100) / 100))
+    );
+
   const isDiscOpen = (discId: string, index: number) =>
     expandedDisc[discId] ?? index === 0;
 
   const toggleDisc = (id: string, index: number) =>
     setExpandedDisc((prev) => ({ ...prev, [id]: !isDiscOpen(id, index) }));
 
+  /* ── Filtros ── */
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const term = search.trim().toLowerCase();
@@ -156,13 +286,12 @@ export default function GuardadosClient({
   return (
     <div className="space-y-4 sm:space-y-6">
 
-            {/* ══════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           CABEÇALHO
       ══════════════════════════════════════════ */}
       <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-slate-950/50 dark:shadow-none sm:rounded-2xl sm:p-5 md:p-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-50 dark:from-indigo-950/60 dark:via-slate-950/80 dark:to-slate-950" />
 
-        {/* Título + total — linha única e compacta no mobile */}
         <div className="relative z-10 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 sm:text-[11px]">
@@ -181,53 +310,42 @@ export default function GuardadosClient({
             <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl">
               {items.length}
             </p>
-            <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px]">
+            <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 sm:text-[11px]">
               guardados
             </p>
           </div>
         </div>
 
-        {/* Stats — faixa compacta de pills no mobile, grid de cards a partir de sm */}
+        {/* Stats */}
         <div
           className={`relative z-10 mt-3 flex gap-1.5 overflow-x-auto sm:mt-5 sm:grid sm:grid-cols-4 sm:gap-2 sm:overflow-visible ${SCROLLBAR_X}`}
         >
           {[
-            { label: "Áudios", value: typeCount["audio"] ?? 0, icon: Headphones },
-            { label: "Slides", value: typeCount["slide"] ?? 0, icon: FileText },
-            { label: "Quizzes", value: typeCount["quiz"] ?? 0, icon: Trophy },
-            { label: "Disciplinas", value: disciplinesWithItems.length, icon: Bookmark },
+            { label: "Áudios",      value: typeCount["audio"] ?? 0,    icon: Headphones },
+            { label: "Slides",      value: typeCount["slide"] ?? 0,    icon: FileText   },
+            { label: "Quizzes",     value: typeCount["quiz"] ?? 0,     icon: Trophy     },
+            { label: "Disciplinas", value: disciplinesWithItems.length, icon: Bookmark  },
           ].map(({ label, value, icon: Icon }) => (
             <div
               key={label}
               className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5 sm:block sm:rounded-xl sm:px-3 sm:py-3"
             >
               <Icon size={12} className="text-slate-400 dark:text-slate-500 sm:hidden" />
-              <span className="text-xs font-bold tabular-nums text-slate-900 dark:text-white sm:hidden">
-                {value}
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-500 sm:hidden">
-                {label}
-              </span>
-
-              {/* versão desktop (card completo) */}
-              <div className="hidden items-center gap-1.5 text-slate-500 dark:text-slate-500 sm:flex">
+              <span className="text-xs font-bold tabular-nums text-slate-900 dark:text-white sm:hidden">{value}</span>
+              <span className="text-xs text-slate-500 sm:hidden">{label}</span>
+              <div className="hidden items-center gap-1.5 text-slate-500 sm:flex">
                 <Icon size={12} />
                 <p className="text-[10px] font-medium uppercase tracking-widest">{label}</p>
               </div>
-              <p className="mt-1.5 hidden text-xl font-bold tabular-nums text-slate-900 dark:text-white sm:block">
-                {value}
-              </p>
+              <p className="mt-1.5 hidden text-xl font-bold tabular-nums text-slate-900 dark:text-white sm:block">{value}</p>
             </div>
           ))}
         </div>
 
-        {/* Pesquisa + filtro de tipo */}
+        {/* Pesquisa + filtros */}
         <div className="relative z-10 mt-3 space-y-2 sm:mt-5">
           <div className="relative">
-            <Search
-              size={14}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
-            />
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -236,10 +354,7 @@ export default function GuardadosClient({
             />
           </div>
 
-          {/* No mobile: só mostra filtro de tipo se houver pesquisa/filtro ativo OU deixa sempre visível mas mais fino */}
-          <div
-            className={`flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 dark:bg-white/5 sm:rounded-xl ${SCROLLBAR_X}`}
-          >
+          <div className={`flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 dark:bg-white/5 sm:rounded-xl ${SCROLLBAR_X}`}>
             {typeOptions.map(({ key, label }) => (
               <button
                 key={key}
@@ -257,11 +372,9 @@ export default function GuardadosClient({
           </div>
 
           <div className={`flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:gap-2 sm:overflow-visible ${SCROLLBAR_X}`}>
-            <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:inline-flex">
-              <Filter size={12} />
-              Disciplina
+            <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:inline-flex">
+              <Filter size={12} /> Disciplina
             </span>
-
             <button
               type="button"
               onClick={() => setFilterDisc("all")}
@@ -273,7 +386,6 @@ export default function GuardadosClient({
             >
               Todas
             </button>
-
             {disciplinesWithItems.map((d) => (
               <button
                 key={d.id}
@@ -293,7 +405,7 @@ export default function GuardadosClient({
       </section>
 
       {/* ══════════════════════════════════════════
-          CONTEÚDO
+          LISTA
       ══════════════════════════════════════════ */}
       <div className="space-y-4">
         {grouped.length === 0 ? (
@@ -304,7 +416,7 @@ export default function GuardadosClient({
             <h3 className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">
               Nenhum item guardado
             </h3>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-500">
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">
               {items.length === 0
                 ? "Ainda não guardaste nenhum conteúdo. Usa o ícone de marcador nas disciplinas para guardar áudios, slides e quizzes."
                 : "Nenhum item corresponde aos filtros selecionados."}
@@ -336,34 +448,21 @@ export default function GuardadosClient({
                     }`}
                   >
                     <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-                      <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 ${
-                          isOpen
-                            ? "bg-indigo-600 text-white"
-                            : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-slate-400"
-                        }`}
-                      >
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 ${isOpen ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-slate-400"}`}>
                         <BookOpen size={15} />
                       </div>
                       <div className="min-w-0">
-                        <p
-                          className={`truncate text-sm font-semibold sm:text-base ${
-                            isOpen
-                              ? "text-slate-900 dark:text-white"
-                              : "text-slate-600 dark:text-slate-300"
-                          }`}
-                        >
+                        <p className={`truncate text-sm font-semibold sm:text-base ${isOpen ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300"}`}>
                           {group.discipline.name}
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-500">
+                        <p className="text-xs text-slate-500">
                           {totalItems} {totalItems === 1 ? "item guardado" : "itens guardados"}
                         </p>
                       </div>
                     </div>
-
                     {isOpen
-                      ? <ChevronDown size={16} className="shrink-0 text-slate-400 dark:text-slate-400" />
-                      : <ChevronRight size={16} className="shrink-0 text-slate-400 dark:text-slate-400" />
+                      ? <ChevronDown  size={16} className="shrink-0 text-slate-400" />
+                      : <ChevronRight size={16} className="shrink-0 text-slate-400" />
                     }
                   </button>
 
@@ -374,7 +473,7 @@ export default function GuardadosClient({
                         <div key={chTitle} className="p-3 sm:p-4">
                           <div className="mb-2.5 flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-white/5 sm:mb-3">
                             <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                               {chTitle}
                             </p>
                           </div>
@@ -386,31 +485,36 @@ export default function GuardadosClient({
                               return (
                                 <div
                                   key={item.savedId}
-                                  className="group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 transition hover:bg-slate-100 dark:hover:bg-white/5 sm:px-3 sm:py-2.5"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => openItem(item)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") openItem(item);
+                                  }}
+                                  title={`Abrir ${meta.label.toLowerCase()}: ${item.title}`}
+                                  className="group flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition hover:bg-slate-100 dark:hover:bg-white/5 sm:px-3 sm:py-2.5"
                                 >
-                                  <div
-                                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${meta.colorClasses}`}
-                                  >
+                                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${meta.colorClasses}`}>
                                     <Icon size={13} />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm leading-snug text-slate-700 dark:text-slate-300">
                                       {item.title}
                                     </p>
-                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
+                                    <p className="mt-0.5 text-xs text-slate-500">
                                       {meta.label}
                                     </p>
                                   </div>
                                   <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:gap-1 md:opacity-0 md:group-hover:opacity-100">
                                     <button
-                                      onClick={() => router.push(`/disciplinas/${item.disciplineId}`)}
+                                      onClick={(e) => { e.stopPropagation(); router.push(`/disciplinas/${item.disciplineId}`); }}
                                       title="Abrir disciplina"
                                       className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
                                     >
                                       <ExternalLink size={13} />
                                     </button>
                                     <button
-                                      onClick={() => handleRemove(item.savedId)}
+                                      onClick={(e) => { e.stopPropagation(); void handleRemove(item.savedId); }}
                                       disabled={removingId === item.savedId}
                                       title="Remover dos guardados"
                                       className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
@@ -435,6 +539,128 @@ export default function GuardadosClient({
           </div>
         )}
       </div>
+
+{/* ══════════════════════════════════════════
+    MODAL: SLIDE — com zoom + fullscreen
+══════════════════════════════════════════ */}
+{activeSlide && (
+  <>
+    {!slideFullscreen && (
+      <div
+        className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-md"
+        onClick={closeSlide}
+      />
+    )}
+
+    <div
+      className={`fixed z-[81] flex flex-col overflow-hidden bg-white dark:bg-slate-950 transition-all duration-200 ${
+        slideFullscreen
+          ? "inset-0 rounded-none border-0"
+          : [
+              // Mobile: bottom sheet a quase ecrã inteiro
+              "inset-x-0 bottom-0 top-[5dvh] rounded-t-3xl border-t border-x border-slate-200 shadow-2xl dark:border-white/10",
+              // Desktop: janela centrada, grande, redimensionável
+              "sm:inset-auto sm:rounded-3xl sm:border sm:border-slate-200 sm:dark:border-white/10",
+              "sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
+              "sm:w-[min(780px,92vw)] sm:h-[min(88dvh,760px)]",
+              "sm:resize sm:overflow-auto sm:min-w-[400px] sm:min-h-[360px]",
+            ].join(" ")
+      }`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Handle mobile */}
+      {!slideFullscreen && (
+        <div className="flex shrink-0 justify-center py-2.5 sm:hidden">
+          <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
+        </div>
+      )}
+
+      {/* ── Cabeçalho ── */}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-emerald-200 bg-slate-50 px-4 py-2.5 dark:border-emerald-500/20 dark:bg-black/30">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-emerald-50 text-emerald-600 dark:border-white/10 dark:bg-emerald-500/10 dark:text-emerald-400">
+            <FileText size={14} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-xs font-bold text-slate-900 dark:text-white">
+              {activeSlide.title}
+            </h3>
+            <p className="truncate text-[10px] text-slate-500 mt-0.5">
+              {[activeSlide.disciplineName, activeSlide.chapterTitle]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <ZoomControls
+            zoom={slideZoom}
+            onZoomIn={() => adjustZoom(ZOOM_STEP)}
+            onZoomOut={() => adjustZoom(-ZOOM_STEP)}
+            onReset={() => setSlideZoom(1)}
+          />
+          <button
+            type="button"
+            onClick={() => setSlideFullscreen((f) => !f)}
+            className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+            title={slideFullscreen ? "Sair do ecrã inteiro" : "Ecrã inteiro"}
+          >
+            {slideFullscreen ? <Shrink size={14} /> : <Expand size={14} />}
+          </button>
+          <button
+            type="button"
+            onClick={closeSlide}
+            className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+            title="Fechar"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Viewer — ocupa todo o espaço restante ── */}
+      <div className="relative min-h-0 flex-1">
+        <SlideViewer
+          url={activeSlide.fileUrl ?? ""}
+          title={activeSlide.title}
+          zoom={slideZoom}
+        />
+      </div>
+    </div>
+  </>
+)}
+
+      {/* ══════════════════════════════════════════
+          MODAL: QUIZ
+      ══════════════════════════════════════════ */}
+      {activeQuiz && (
+        <>
+          <div
+            className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-md dark:bg-slate-950/90"
+            onClick={() => setActiveQuiz(null)}
+          />
+          <div className="fixed inset-0 z-[81] flex items-end justify-center pointer-events-none sm:items-center sm:p-4">
+            <div
+              className="pointer-events-auto relative flex w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:rounded-3xl"
+              style={{ maxHeight: "95dvh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-center pt-3 sm:hidden">
+                <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
+              </div>
+              <QuizPlayer
+                contentId={activeQuiz.contentId}
+                title={activeQuiz.title}
+                disciplineName={activeQuiz.disciplineName}
+                chapterTitle={activeQuiz.chapterTitle}
+                timeLimitSeconds={null}
+                onClose={() => setActiveQuiz(null)}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

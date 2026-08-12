@@ -7,6 +7,7 @@ import {
   Users, TrendingUp, Clock, Target,
 } from "lucide-react";
 import { getQuizStats, type QuizStats as QuizStatsData } from "@/app/actions/quiz-stats";
+import QuizModalShell from "./QuizModalShell";
 
 /* ================================================================
    HELPERS
@@ -59,10 +60,9 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
   }, [contentId]);
 
   return (
-    <div className="flex flex-col overflow-hidden">
-
+    <QuizModalShell>
       {/* ── Header ── */}
-      <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 px-5 py-4 shrink-0">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-white/10 px-5 py-4">
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
@@ -87,8 +87,8 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
         </button>
       </div>
 
-      {/* ── Conteúdo ── */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      {/* ── Conteúdo (único a fazer scroll) ── */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
 
         {loading && (
           <div className="flex flex-col items-center gap-3 py-16">
@@ -174,12 +174,10 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
                         key={qs.questionId}
                         className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-3 dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
                       >
-                        {/* Pergunta */}
                         <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
                           {idx + 1}. {qs.questionText}
                         </p>
 
-                        {/* Barra de acertos */}
                         <div className="flex items-center gap-3">
                           <div className="flex-1">
                             <div className="mb-1 flex justify-between text-[10px] text-slate-500">
@@ -198,7 +196,6 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
                           </span>
                         </div>
 
-                        {/* Distribuição de respostas */}
                         {qs.answerDist.length > 0 && (
                           <div className="space-y-1.5">
                             <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-600 font-semibold">
@@ -225,7 +222,6 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
                           </div>
                         )}
 
-                        {/* Alerta erro mais comum */}
                         {qs.correctRate < 50 && qs.topWrongAnswer && (
                           <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-500/15 dark:bg-amber-500/8 px-3 py-2">
                             <AlertTriangle size={11} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -247,6 +243,6 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
           </>
         )}
       </div>
-    </div>
+    </QuizModalShell>
   );
 }

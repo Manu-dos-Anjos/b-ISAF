@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 
 import SlideViewer from "@/app/components/slides/SlideViewer";
-import QuizPlayer from "@/app/components/quiz/QuizPlayer";
+import QuizHost from "@/app/components/quiz/QuizHost";
 import { useLocalStorageState } from "@/app/lib/hooks/useLocalStorageState";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { saveItem, removeSavedItem } from "@/app/actions/saved";
@@ -78,6 +78,7 @@ type FloatingContentDragState = {
 type ActiveQuiz = {
   contentId: string;
   title: string;
+  disciplineName: string;
   chapterTitle: string;
   timeLimitSecs: number | null;
 };
@@ -98,9 +99,9 @@ function getContentIcon(type: TopicContent["type"]) {
 function getContentButtonClass(type: TopicContent["type"]) {
   switch (type) {
     case "audio":
-    case "slide":
-    case "quiz":
       return "border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20 dark:hover:border-blue-500/50 dark:hover:text-blue-200";
+    case "slide":
+      return "border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-400 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 dark:hover:border-indigo-500/50 dark:hover:text-indigo-200";
     default:
       return "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:border-white/20";
   }
@@ -137,6 +138,29 @@ function formatTime(sec: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function getChapterContentCount(chapter: Chapter) {
+  return (
+    (chapter.topics ?? []).reduce(
+      (sum, topic) => sum + (topic.contents?.length ?? 0),
+      0
+    ) + (chapter.quiz ? 1 : 0)
+  );
+}
+
+function getChapterQuizzes(chapter: Chapter) {
+  // novo modelo: quiz directamente no capítulo
+  if (chapter.quiz) return [chapter.quiz];
+
+  // fallback para mock/legado: quizzes ainda dentro dos tópicos
+  const seen = new Set<string>();
+  return (chapter.topics ?? [])
+    .flatMap((t) => t.contents ?? [])
+    .filter((c) => {
+      if (c.type !== "quiz" || seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    });
+}
 /* ================================================================
    CONSTANTES
 ================================================================ */
@@ -147,7 +171,7 @@ const DEFAULT_PANEL_H = 420;
 const MOBILE_PANEL_W = 0.94;
 const MOBILE_PANEL_H = 0.82;
 const CONTROLS_HIDE_DELAY = 3000;
-const CONTENT_ORDER: Record<string, number> = { audio: 0, slide: 1 };
+const CONTENT_ORDER: Record<string, number> = { audio: 0, slide: 1, quiz: 2 };
 const PANEL_HEADER_H = "h-[72px]";
 
 const ZOOM_MIN = 0.5;
@@ -182,23 +206,28 @@ const SCROLLBAR_CLASS = [
 function useBodyScrollLock(active: boolean) {
   useEffect(() => {
     if (!active) return;
-    const body = document.body.style;
-    const html = document.documentElement.style;
+
+    const html = document.documentElement;
+    const body = document.body;
+
     const prev = {
-      bodyOverflow: body.overflow,
-      bodyOverscroll: (body as any).overscrollBehavior,
-      htmlOverflow: html.overflow,
-      htmlOverscroll: (html as any).overscrollBehavior,
+      htmlOverflowY: html.style.overflowY,
+      htmlScrollbarGutter: (html.style as any).scrollbarGutter,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
     };
-    body.overflow = "hidden";
-    html.overflow = "hidden";
-    (body as any).overscrollBehavior = "none";
-    (html as any).overscrollBehavior = "none";
+
+    html.style.overflowY = "scroll";
+    (html.style as any).scrollbarGutter = "stable";
+
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+
     return () => {
-      body.overflow = prev.bodyOverflow;
-      html.overflow = prev.htmlOverflow;
-      (body as any).overscrollBehavior = prev.bodyOverscroll;
-      (html as any).overscrollBehavior = prev.htmlOverscroll;
+      html.style.overflowY = prev.htmlOverflowY;
+      (html.style as any).scrollbarGutter = prev.htmlScrollbarGutter;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
     };
   }, [active]);
 }
@@ -264,6 +293,9 @@ function MobileSlideSheet({
   onZoomIn,
   onZoomOut,
   onZoomReset,
+  isSaved,
+  isSaving,
+  onToggleSave,
 }: {
   panel: FloatingContentPanel;
   index: number;
@@ -276,6 +308,9 @@ function MobileSlideSheet({
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
+  isSaved: boolean;
+  isSaving: boolean;
+  onToggleSave: () => void;
 }) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const dragZoneRef = useRef<HTMLDivElement | null>(null);
@@ -335,6 +370,23 @@ function MobileSlideSheet({
             <ZoomControls zoom={zoom} onZoomIn={onZoomIn} onZoomOut={onZoomOut} onReset={onZoomReset} />
             <button
               type="button"
+              onClick={onToggleSave}
+              disabled={isSaving}
+              title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+              className={`rounded-xl p-2 transition disabled:opacity-50 ${
+                isSaved
+                  ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-amber-400"
+              }`}
+            >
+              {isSaving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Bookmark size={14} fill={isSaved ? "currentColor" : "none"} />
+              )}
+            </button>
+            <button
+              type="button"
               onClick={onToggleFullscreen}
               className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
               title={isFullscreen ? "Sair do ecrã inteiro" : "Ecrã inteiro"}
@@ -381,9 +433,6 @@ export default function DisciplineClient({ discipline }: Props) {
       const isTouchDevice =
         typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
       const isNarrow = window.innerWidth < 768;
-      // Considera "mobile" se o ecrã for estreito OU se for um dispositivo táctil,
-      // para não trocar de layout (bottom sheet ↔ painel desktop) apenas por rodar
-      // o telemóvel para paisagem (o que perderia o fullscreen a meio).
       setIsMobile(isNarrow || isTouchDevice);
     };
     check();
@@ -422,12 +471,21 @@ export default function DisciplineClient({ discipline }: Props) {
     const save = () => {
       if (ticking) return;
       ticking = true;
-      requestAnimationFrame(() => { sessionStorage.setItem(scrollKey, String(Math.round(window.scrollY))); ticking = false; });
+      requestAnimationFrame(() => {
+        sessionStorage.setItem(scrollKey, String(Math.round(window.scrollY)));
+        ticking = false;
+      });
     };
-    const saveOnUnload = () => { sessionStorage.setItem(scrollKey, String(Math.round(window.scrollY))); };
+    const saveOnUnload = () => {
+      sessionStorage.setItem(scrollKey, String(Math.round(window.scrollY)));
+    };
     window.addEventListener("scroll", save, { passive: true });
     window.addEventListener("beforeunload", saveOnUnload);
-    return () => { window.removeEventListener("scroll", save); window.removeEventListener("beforeunload", saveOnUnload); saveOnUnload(); };
+    return () => {
+      window.removeEventListener("scroll", save);
+      window.removeEventListener("beforeunload", saveOnUnload);
+      saveOnUnload();
+    };
   }, [scrollKey]);
 
   useEffect(() => {
@@ -523,7 +581,10 @@ export default function DisciplineClient({ discipline }: Props) {
     const loadSaved = async () => {
       const { data: { user } } = await supabaseRef.current.auth.getUser();
       if (!user || cancelled) return;
-      const { data, error } = await (supabaseRef.current as any).from("saved_items").select("content_id").eq("student_id", user.id);
+      const { data, error } = await (supabaseRef.current as any)
+        .from("saved_items")
+        .select("content_id")
+        .eq("student_id", user.id);
       if (!error && data && !cancelled) {
         setSavedContentIds(new Set((data as { content_id: string }[]).map((item) => item.content_id)));
       }
@@ -538,7 +599,12 @@ export default function DisciplineClient({ discipline }: Props) {
     setSavingContentId(contentId);
     try {
       if (savedContentIds.has(contentId)) {
-        const { data: saved } = await (supabase as any).from("saved_items").select("id").eq("student_id", user.id).eq("content_id", contentId).maybeSingle();
+        const { data: saved } = await (supabase as any)
+          .from("saved_items")
+          .select("id")
+          .eq("student_id", user.id)
+          .eq("content_id", contentId)
+          .maybeSingle();
         if (saved?.id) await removeSavedItem(saved.id);
         setSavedContentIds((prev) => { const next = new Set(prev); next.delete(contentId); return next; });
       } else {
@@ -550,10 +616,6 @@ export default function DisciplineClient({ discipline }: Props) {
     }
   };
 
-  // Alterna o fullscreen nativo do browser (tenta API real primeiro; recorre a CSS se indisponível).
-  // Não faz `await` antes de `requestFullscreen()`, para não perder o "gesto do utilizador"
-  // exigido por navegadores mais estritos (ex.: Safari). Também protege contra falhas
-  // síncronas (comuns em Safari/iOS para elementos que não são <video>).
   const toggleBrowserFullscreen = (panelId: string) => {
     const el = contentPanelRefs.current[panelId];
     if (!el) return;
@@ -595,38 +657,101 @@ export default function DisciplineClient({ discipline }: Props) {
   /* ── Vídeo helpers ── */
   const closeVideo = () => {
     videoRef.current?.pause();
-    setIsVideoLandscape(false); setIsVideoOpen(false); setShowSpeedMenu(false); setShowControls(true);
-    if (controlsHideTimerRef.current) { window.clearTimeout(controlsHideTimerRef.current); controlsHideTimerRef.current = null; }
+    setIsVideoLandscape(false);
+    setIsVideoOpen(false);
+    setShowSpeedMenu(false);
+    setShowControls(true);
+    if (controlsHideTimerRef.current) {
+      window.clearTimeout(controlsHideTimerRef.current);
+      controlsHideTimerRef.current = null;
+    }
   };
-  const toggleVideoPlay = async () => { const v = videoRef.current; if (!v) return; try { v.paused ? await v.play() : v.pause(); } catch {} };
-  const seekVideo = (t: number) => { const v = videoRef.current; if (!v) return; const c = clamp(t, 0, videoDuration || 0); v.currentTime = c; setVideoCurrentTime(c); };
+  const toggleVideoPlay = async () => {
+    const v = videoRef.current;
+    if (!v) return;
+    try { v.paused ? await v.play() : v.pause(); } catch {}
+  };
+  const seekVideo = (t: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    const c = clamp(t, 0, videoDuration || 0);
+    v.currentTime = c;
+    setVideoCurrentTime(c);
+  };
   const skipVideo = (delta: number) => seekVideo(videoCurrentTime + delta);
   const toggleVideoMute = () => {
-    const v = videoRef.current; if (!v) return;
-    if (videoMuted || v.volume === 0) { const restore = lastVideoVolume || 0.7; v.muted = false; v.volume = restore; setVideoMuted(false); setVideoVolume(restore); }
-    else { setLastVideoVolume(v.volume || 1); v.volume = 0; v.muted = true; setVideoMuted(true); setVideoVolume(0); }
+    const v = videoRef.current;
+    if (!v) return;
+    if (videoMuted || v.volume === 0) {
+      const restore = lastVideoVolume || 0.7;
+      v.muted = false;
+      v.volume = restore;
+      setVideoMuted(false);
+      setVideoVolume(restore);
+    } else {
+      setLastVideoVolume(v.volume || 1);
+      v.volume = 0;
+      v.muted = true;
+      setVideoMuted(true);
+      setVideoVolume(0);
+    }
   };
-  const handleVolumeChange = (val: number) => { const v = videoRef.current; if (!v) return; const vol = clamp(val, 0, 1); v.volume = vol; v.muted = vol === 0; setVideoVolume(vol); setVideoMuted(vol === 0); if (vol > 0) setLastVideoVolume(vol); };
-  const handleProgressClick = (e: MouseEvent<HTMLDivElement>) => { const rect = e.currentTarget.getBoundingClientRect(); seekVideo(clamp((e.clientX - rect.left) / rect.width, 0, 1) * (videoDuration || 0)); };
-  const setVideoSpeedFn = (speed: number) => { const v = videoRef.current; if (!v) return; v.playbackRate = speed; setVideoSpeed(speed); setShowSpeedMenu(false); };
+  const handleVolumeChange = (val: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    const vol = clamp(val, 0, 1);
+    v.volume = vol;
+    v.muted = vol === 0;
+    setVideoVolume(vol);
+    setVideoMuted(vol === 0);
+    if (vol > 0) setLastVideoVolume(vol);
+  };
+  const handleProgressClick = (e: MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    seekVideo(clamp((e.clientX - rect.left) / rect.width, 0, 1) * (videoDuration || 0));
+  };
+  const setVideoSpeedFn = (speed: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.playbackRate = speed;
+    setVideoSpeed(speed);
+    setShowSpeedMenu(false);
+  };
   const resetControlsTimer = () => {
     setShowControls(true);
     if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current);
     if (videoPlaying) controlsHideTimerRef.current = window.setTimeout(() => setShowControls(false), CONTROLS_HIDE_DELAY);
   };
-  const toggleControls = () => { setShowControls((p) => !p); if (controlsHideTimerRef.current) { window.clearTimeout(controlsHideTimerRef.current); controlsHideTimerRef.current = null; } };
+  const toggleControls = () => {
+    setShowControls((p) => !p);
+    if (controlsHideTimerRef.current) {
+      window.clearTimeout(controlsHideTimerRef.current);
+      controlsHideTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (videoPlaying) resetControlsTimer();
-    else { setShowControls(true); if (controlsHideTimerRef.current) { window.clearTimeout(controlsHideTimerRef.current); controlsHideTimerRef.current = null; } }
+    else {
+      setShowControls(true);
+      if (controlsHideTimerRef.current) {
+        window.clearTimeout(controlsHideTimerRef.current);
+        controlsHideTimerRef.current = null;
+      }
+    }
   }, [videoPlaying]); // eslint-disable-line
 
-  useEffect(() => () => { if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current); }, []);
+  useEffect(() => () => {
+    if (controlsHideTimerRef.current) window.clearTimeout(controlsHideTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!isVideoOpen) return;
-    setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0); setVideoDuration(0); setVideoMuted(false); setVideoVolume(1); setVideoSpeed(1); setShowSpeedMenu(false); setShowControls(true);
-    const v = videoRef.current; if (!v) return;
+    setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0);
+    setVideoDuration(0); setVideoMuted(false); setVideoVolume(1);
+    setVideoSpeed(1); setShowSpeedMenu(false); setShowControls(true);
+    const v = videoRef.current;
+    if (!v) return;
     const onMeta = () => { setVideoDuration(Number.isFinite(v.duration) ? v.duration : 0); setVideoReady(true); v.playbackRate = 1; };
     const onTime = () => { setVideoCurrentTime(v.currentTime || 0); if (v.buffered.length > 0) setVideoBuffered((v.buffered.end(v.buffered.length - 1) / (v.duration || 1)) * 100); };
     const onPlay = () => setVideoPlaying(true);
@@ -634,11 +759,29 @@ export default function DisciplineClient({ discipline }: Props) {
     const onVol = () => { setVideoVolume(v.volume); setVideoMuted(v.muted || v.volume === 0); if (v.volume > 0) setLastVideoVolume(v.volume); };
     const onEnded = () => { setVideoPlaying(false); setVideoCurrentTime(v.duration || 0); };
     const onReady = () => setVideoReady(true);
-    v.addEventListener("loadedmetadata", onMeta); v.addEventListener("timeupdate", onTime); v.addEventListener("play", onPlay); v.addEventListener("pause", onPause); v.addEventListener("volumechange", onVol); v.addEventListener("ended", onEnded); v.addEventListener("canplay", onReady); v.addEventListener("error", onReady);
-    return () => { v.removeEventListener("loadedmetadata", onMeta); v.removeEventListener("timeupdate", onTime); v.removeEventListener("play", onPlay); v.removeEventListener("pause", onPause); v.removeEventListener("volumechange", onVol); v.removeEventListener("ended", onEnded); v.removeEventListener("canplay", onReady); v.removeEventListener("error", onReady); };
+    v.addEventListener("loadedmetadata", onMeta);
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    v.addEventListener("volumechange", onVol);
+    v.addEventListener("ended", onEnded);
+    v.addEventListener("canplay", onReady);
+    v.addEventListener("error", onReady);
+    return () => {
+      v.removeEventListener("loadedmetadata", onMeta);
+      v.removeEventListener("timeupdate", onTime);
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+      v.removeEventListener("volumechange", onVol);
+      v.removeEventListener("ended", onEnded);
+      v.removeEventListener("canplay", onReady);
+      v.removeEventListener("error", onReady);
+    };
   }, [isVideoOpen]);
 
-  useEffect(() => { if (isTutorOpen && !isTutorMinimized) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [isTutorOpen, isTutorMinimized, tutorMessages]);
+  useEffect(() => {
+    if (isTutorOpen && !isTutorMinimized) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [isTutorOpen, isTutorMinimized, tutorMessages]);
 
   useEffect(() => {
     if (!isTutorOpen || hasTutorPosition || isMobile) return;
@@ -670,11 +813,20 @@ export default function DisciplineClient({ discipline }: Props) {
     const onMove = (e: PointerEvent) => {
       if (!tutorDragRef.current || !tutorPanelRef.current) return;
       const rect = tutorPanelRef.current.getBoundingClientRect();
-      setTutorPosition({ x: clamp(e.clientX - tutorDragRef.current.offsetX, 16, Math.max(16, window.innerWidth - rect.width - 16)), y: clamp(e.clientY - tutorDragRef.current.offsetY, 16, Math.max(16, window.innerHeight - rect.height - 16)) });
+      setTutorPosition({
+        x: clamp(e.clientX - tutorDragRef.current.offsetX, 16, Math.max(16, window.innerWidth - rect.width - 16)),
+        y: clamp(e.clientY - tutorDragRef.current.offsetY, 16, Math.max(16, window.innerHeight - rect.height - 16)),
+      });
     };
     const onUp = () => { setIsDraggingTutor(false); tutorDragRef.current = null; };
-    window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
-    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
   }, [isDraggingTutor]);
 
   /* ── Drag: bottom sheet ── */
@@ -686,8 +838,14 @@ export default function DisciplineClient({ discipline }: Props) {
       setTutorSheetHeight(clamp(sheetDragRef.current.startHeight + dy / (window.innerHeight / 100), 28, 92));
     };
     const onUp = () => { setIsDraggingSheet(false); sheetDragRef.current = null; };
-    window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
-    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
   }, [isDraggingSheet]);
 
   /* ── Drag: painéis de conteúdo ── */
@@ -696,37 +854,56 @@ export default function DisciplineClient({ discipline }: Props) {
     const onMove = (e: PointerEvent) => {
       if (!contentDragRef.current) return;
       const { panelId, offsetX, offsetY } = contentDragRef.current;
-      const el = contentPanelRefs.current[panelId]; if (!el) return;
+      const el = contentPanelRefs.current[panelId];
+      if (!el) return;
       const rect = el.getBoundingClientRect();
-      setContentPanels((prev) => prev.map((p) => p.id === panelId ? { ...p, position: { x: clamp(e.clientX - offsetX, 8, Math.max(8, window.innerWidth - rect.width - 8)), y: clamp(e.clientY - offsetY, 8, Math.max(8, window.innerHeight - rect.height - 8)) } } : p));
+      setContentPanels((prev) =>
+        prev.map((p) =>
+          p.id === panelId
+            ? { ...p, position: { x: clamp(e.clientX - offsetX, 8, Math.max(8, window.innerWidth - rect.width - 8)), y: clamp(e.clientY - offsetY, 8, Math.max(8, window.innerHeight - rect.height - 8)) } }
+            : p
+        )
+      );
     };
     const onUp = () => { setIsDraggingContent(false); contentDragRef.current = null; };
-    window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp); window.addEventListener("pointercancel", onUp);
-    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); window.removeEventListener("pointercancel", onUp); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
   }, [isDraggingContent]);
 
   const isMobileSlideSheetOpen = isMobile && contentPanels.length > 0;
   const isMobileTutorSheetOpen = isMobile && isTutorOpen;
-  useBodyScrollLock(isMobileSlideSheetOpen || isMobileTutorSheetOpen || isVideoOpen || !!activeQuiz);
 
   const activeChapter = chapters.find((ch) => ch.id === activeChapterId) ?? chapters[0] ?? null;
 
-  const stats = useMemo(() => ({
+ const stats = useMemo(
+  () => ({
     totalChapters: chapters.length,
     totalTopics: chapters.reduce((a, ch) => a + (ch.topics?.length ?? 0), 0),
-    totalContents: chapters.reduce((a, ch) => a + (ch.topics ?? []).reduce((b, t) => b + (t.contents?.length ?? 0), 0), 0),
-  }), [chapters]);
+    totalContents: chapters.reduce((a, ch) => a + getChapterContentCount(ch), 0),
+  }),
+  [chapters]
+);
 
   const shouldRotateVideo = isMobile && isVideoLandscape;
 
   const openTutor = (topicTitle: string) => {
     setTutorContext({ discipline: discipline.title, chapter: activeChapter?.title ?? "", topic: topicTitle });
     setTutorMessages([{ role: "assistant", text: `Olá! Vamos falar sobre "${topicTitle}". Escreve a tua dúvida.` }]);
-    setTutorInput(""); setIsTutorOpen(true); setIsTutorMinimized(false); setHasTutorPosition(false);
+    setTutorInput("");
+    setIsTutorOpen(true);
+    setIsTutorMinimized(false);
+    setHasTutorPosition(false);
   };
 
   const handleSendMessage = () => {
-    const text = tutorInput.trim(); if (!text) return;
+    const text = tutorInput.trim();
+    if (!text) return;
     setTutorMessages((prev) => [...prev, { role: "user", text }]);
     setTutorInput("");
     setTimeout(() => {
@@ -736,7 +913,8 @@ export default function DisciplineClient({ discipline }: Props) {
 
   const focusContentPanel = (id: string) => {
     setContentPanels((prev) => {
-      const found = prev.find((p) => p.id === id); if (!found) return prev;
+      const found = prev.find((p) => p.id === id);
+      if (!found) return prev;
       return [...prev.filter((p) => p.id !== id), found];
     });
   };
@@ -744,11 +922,13 @@ export default function DisciplineClient({ discipline }: Props) {
   const applyTutorPreset = (width: number, height: number) => {
     setIsResizingTutor(true);
     setTutorSize({ width, height });
-    setTutorPosition((prev) => ({ x: clamp(prev.x, 16, Math.max(16, window.innerWidth - width - 16)), y: clamp(prev.y, 16, Math.max(16, window.innerHeight - height - 16)) }));
+    setTutorPosition((prev) => ({
+      x: clamp(prev.x, 16, Math.max(16, window.innerWidth - width - 16)),
+      y: clamp(prev.y, 16, Math.max(16, window.innerHeight - height - 16)),
+    }));
     setTimeout(() => setIsResizingTutor(false), 100);
   };
 
-  // Ajusta o zoom de um painel de conteúdo (slide), dentro dos limites permitidos.
   const adjustPanelZoom = (panelId: string, delta: number) => {
     setContentPanels((prev) =>
       prev.map((p) =>
@@ -763,9 +943,6 @@ export default function DisciplineClient({ discipline }: Props) {
     setContentPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, zoom: 1 } : p)));
   };
 
-  // Fecha um painel de conteúdo, saindo do fullscreen nativo primeiro (se aplicável)
-  // e só depois desmontando o elemento — evita glitches visuais e garante que a
-  // referência guardada em `contentPanelRefs` não fica "presa" após o fecho.
   const closeContentPanel = (panelId: string) => {
     const currentFsEl = (document.fullscreenElement || (document as any).webkitFullscreenElement) as HTMLElement | null;
 
@@ -786,12 +963,36 @@ export default function DisciplineClient({ discipline }: Props) {
     cleanup();
   };
 
+  const openQuiz = (content: TopicContent, chapterTitle: string) => {
+  setActiveQuiz({
+    contentId: content.id,
+    title: content.title,
+    disciplineName: discipline.title,
+    chapterTitle,
+    timeLimitSecs: content.timeLimitSeconds ?? null,
+  });
+};
+
   const openContent = (content: TopicContent, topicTitle: string) => {
     if (content.type === "audio") {
       if (!content.url) { alert("Este áudio ainda não tem URL configurada."); return; }
-      void audioPlayer.play({ id: content.id, title: content.title, url: content.url, discipline: discipline.title, chapter: activeChapter?.title ?? "", topic: topicTitle, coverUrl: discipline.coverUrl });
+      void audioPlayer.play({
+        id: content.id,
+        title: content.title,
+        url: content.url,
+        discipline: discipline.title,
+        chapter: activeChapter?.title ?? "",
+        topic: topicTitle,
+        coverUrl: discipline.coverUrl,
+      });
       return;
     }
+
+    if (content.type === "quiz") {
+      openQuiz(content, activeChapter?.title ?? "");
+      return;
+    }
+
     const panelId = [discipline.id, activeChapter?.id ?? "ch", topicTitle, content.id].join("-");
     setContentPanels((prev) => {
       const exists = prev.find((p) => p.id === panelId);
@@ -814,47 +1015,64 @@ export default function DisciplineClient({ discipline }: Props) {
      SUB-RENDERS
   ================================================================ */
 
-  const renderSaveBtn = (contentId: string) => {
+  const renderSaveIconBtn = (contentId: string) => {
     const isSaved = savedContentIds.has(contentId);
     const isSaving = savingContentId === contentId;
     return (
       <button
-        type="button" onClick={() => void toggleSaved(contentId)} disabled={isSaving}
+        type="button"
+        onClick={() => void toggleSaved(contentId)}
+        disabled={isSaving}
         title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
-        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition disabled:opacity-50 sm:h-auto sm:w-auto sm:p-2.5 ${
+        className={`rounded-xl p-2 transition disabled:opacity-50 ${
           isSaved
-            ? "border border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-400"
-            : "border border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-300 hover:text-amber-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-500 dark:hover:border-amber-500/30 dark:hover:text-amber-400"
+            ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
+            : "text-slate-500 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-amber-400"
         }`}
       >
-        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Bookmark size={14} fill={isSaved ? "currentColor" : "none"} />}
+        {isSaving ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : (
+          <Bookmark size={14} fill={isSaved ? "currentColor" : "none"} />
+        )}
       </button>
     );
   };
 
+  // Quiz removido dos tópicos — acedido exclusivamente pelo botão no cabeçalho do capítulo
   const renderContentBtn = (content: TopicContent, topicTitle: string) => {
     if (content.type !== "audio" && content.type !== "slide") return null;
+
     const Icon = getContentIcon(content.type);
     const cls = getContentButtonClass(content.type);
     const label = content.type === "audio" ? "Áudio" : "Slide";
+
     return (
-      <div key={content.id} className="flex items-center gap-1">
-        <button type="button" onClick={() => openContent(content, topicTitle)} title={`${label}: ${content.title}`} className={`${ACTION_BTN} ${cls}`}>
-          <Icon size={16} />
-          <span className={ACTION_LABEL}>{label}</span>
-        </button>
-        {renderSaveBtn(content.id)}
-      </div>
+      <button
+        key={content.id}
+        type="button"
+        onClick={() => openContent(content, topicTitle)}
+        title={`${label}: ${content.title}`}
+        className={`${ACTION_BTN} ${cls}`}
+      >
+        <Icon size={16} />
+        <span className={ACTION_LABEL}>{label}</span>
+      </button>
     );
   };
 
   const renderTopicActions = (topic: Topic) => {
-    const contents = [...(topic.contents ?? [])].sort((a, b) => (CONTENT_ORDER[a.type] ?? 99) - (CONTENT_ORDER[b.type] ?? 99));
+    const contents = [...(topic.contents ?? [])]
+      .filter((c) => c.type === "audio" || c.type === "slide")
+      .sort((a, b) => (CONTENT_ORDER[a.type] ?? 99) - (CONTENT_ORDER[b.type] ?? 99));
+
     return (
       <div className="grid w-full grid-flow-col auto-cols-fr items-stretch gap-1.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:ml-auto sm:justify-end">
         {contents.map((c) => renderContentBtn(c, topic.title))}
         <button
-          type="button" onClick={() => openTutor(topic.title)} title="Tutor IA"
+          type="button"
+          onClick={() => openTutor(topic.title)}
+          title="Tutor IA"
           className={`${ACTION_BTN} border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:border-violet-400 dark:border-violet-400/40 dark:bg-violet-500/15 dark:text-violet-200 dark:hover:bg-violet-500/25 dark:hover:border-violet-400/60 dark:hover:text-white`}
         >
           <Sparkles size={16} />
@@ -864,43 +1082,43 @@ export default function DisciplineClient({ discipline }: Props) {
     );
   };
 
-  const renderChapterQuizBanner = (chapter: Chapter) => {
-    const seen = new Set<string>();
-    const quizzes = (chapter.topics ?? []).flatMap((t) => t.contents ?? []).filter((c) => {
-      if (c.type !== "quiz" || seen.has(c.id)) return false; seen.add(c.id); return true;
-    });
-    if (quizzes.length === 0) return null;
+  // Botão de quiz do capítulo — discreto, usado no cabeçalho da coluna de temas
+const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => {
+  const quizzes = getChapterQuizzes(chapter);
+  if (quizzes.length === 0) return null;
+  const mainQuiz = quizzes[0];
+
+  if (size === "xs") {
     return (
-      <div className="mt-3 space-y-2">
-        {quizzes.map((quizContent) => (
-          <button
-            key={quizContent.id} type="button"
-            onClick={() => setActiveQuiz({ contentId: quizContent.id, title: quizContent.title, chapterTitle: chapter.title, timeLimitSecs: (quizContent as any).timeLimitSeconds ?? null })}
-            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-left transition hover:border-indigo-300 hover:bg-indigo-100 active:scale-[0.99] dark:border-indigo-500/20 dark:bg-indigo-500/8 dark:hover:border-indigo-500/40 dark:hover:bg-indigo-500/12"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-500/15">
-                <Trophy size={14} className="text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div className="min-w-0">
-                <p className="line-clamp-1 text-xs font-bold leading-snug text-indigo-800 dark:text-indigo-300">{quizContent.title}</p>
-                <p className="truncate text-[11px] text-indigo-500 dark:text-indigo-400/60">
-                  {(quizContent as any).timeLimitSeconds ? `⏱ ${Math.floor((quizContent as any).timeLimitSeconds / 60)} min · ` : ""}Questionário do capítulo
-                </p>
-              </div>
-            </div>
-            <ChevronRight size={14} className="shrink-0 text-indigo-400 dark:text-indigo-400/50" />
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        onClick={() => openQuiz(mainQuiz, chapter.title)}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+      >
+        <Trophy size={12} />
+        Quiz
+      </button>
     );
-  };
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => openQuiz(mainQuiz, chapter.title)}
+      className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/30"
+    >
+      <Trophy size={13} />
+      Questionário
+    </button>
+  );
+};
 
   const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
     const topicsCount = chapter.topics?.length ?? 0;
     const progress = chapter.status === "Concluído" ? 100 : 35;
+
     return (
-      <div key={chapter.id} className="space-y-0">
+      <div key={chapter.id}>
         <button
           onClick={() => { setActiveChapterId(chapter.id); setMobileView("topics"); }}
           className={`w-full rounded-2xl border p-3.5 text-left transition-all duration-200 ${
@@ -919,10 +1137,12 @@ export default function DisciplineClient({ discipline }: Props) {
             <ChevronRight size={16} className={`mt-0.5 shrink-0 transition-transform ${isActive ? "rotate-90 text-indigo-500 dark:text-indigo-400" : "text-slate-400 dark:text-slate-600"}`} />
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-            <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </button>
-        {isActive && renderChapterQuizBanner(chapter)}
       </div>
     );
   };
@@ -946,12 +1166,17 @@ export default function DisciplineClient({ discipline }: Props) {
       <div className="shrink-0 border-t border-slate-200 p-4 dark:border-white/10">
         <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-violet-400 focus-within:ring-1 focus-within:ring-violet-300 dark:border-white/10 dark:bg-white/5 dark:focus-within:border-violet-500/50 dark:focus-within:ring-violet-500/30">
           <input
-            value={tutorInput} onChange={(e) => setTutorInput(e.target.value)}
+            value={tutorInput}
+            onChange={(e) => setTutorInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
             placeholder="Escreve a tua pergunta…"
             className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
           />
-          <button type="button" onClick={handleSendMessage} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md transition hover:bg-violet-500 active:scale-95">
+          <button
+            type="button"
+            onClick={handleSendMessage}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md transition hover:bg-violet-500 active:scale-95"
+          >
             <Send size={15} />
           </button>
         </div>
@@ -976,9 +1201,13 @@ export default function DisciplineClient({ discipline }: Props) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Tutor IA</h3>
-            {draggable && !isTutorFullscreen && !isTutorMinimized && <GripVertical size={13} className="hidden text-slate-400 dark:text-slate-600 sm:block" />}
+            {draggable && !isTutorFullscreen && !isTutorMinimized && (
+              <GripVertical size={13} className="hidden text-slate-400 dark:text-slate-600 sm:block" />
+            )}
           </div>
-          {!isTutorMinimized && <p className="text-xs font-medium text-violet-600 dark:text-violet-400/70">Assistente da disciplina</p>}
+          {!isTutorMinimized && (
+            <p className="text-xs font-medium text-violet-600 dark:text-violet-400/70">Assistente da disciplina</p>
+          )}
           {tutorContext && !isTutorFullscreen && !isTutorMinimized && (
             <div className="mt-3 space-y-1 rounded-xl border border-slate-200 bg-white p-3 text-[11px] dark:border-white/5 dark:bg-white/[0.03]">
               <p className="truncate text-slate-600"><span className="text-slate-500">Capítulo:</span> {tutorContext.chapter}</p>
@@ -989,16 +1218,28 @@ export default function DisciplineClient({ discipline }: Props) {
       </div>
       <div className="shrink-0 flex items-center gap-1">
         {!isMobile && !isTutorMinimized && (
-          <button type="button" onClick={() => { setIsTutorFullscreen((p) => !p); if (isTutorMinimized) setIsTutorMinimized(false); }} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white">
+          <button
+            type="button"
+            onClick={() => { setIsTutorFullscreen((p) => !p); if (isTutorMinimized) setIsTutorMinimized(false); }}
+            className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+          >
             {isTutorFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         )}
         {!isMobile && (
-          <button type="button" onClick={() => { setIsTutorMinimized((p) => !p); if (isTutorFullscreen) setIsTutorFullscreen(false); }} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white">
+          <button
+            type="button"
+            onClick={() => { setIsTutorMinimized((p) => !p); if (isTutorFullscreen) setIsTutorFullscreen(false); }}
+            className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+          >
             {isTutorMinimized ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         )}
-        <button type="button" onClick={() => setIsTutorOpen(false)} className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/15 dark:hover:text-red-400">
+        <button
+          type="button"
+          onClick={() => setIsTutorOpen(false)}
+          className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+        >
           <X size={18} />
         </button>
       </div>
@@ -1047,6 +1288,7 @@ export default function DisciplineClient({ discipline }: Props) {
   ================================================================ */
   return (
     <div className="space-y-6">
+
       {/* ── Hero ── */}
       <section
         className={`relative overflow-hidden rounded-2xl border p-5 shadow-lg sm:p-6 md:p-8 ${
@@ -1080,7 +1322,11 @@ export default function DisciplineClient({ discipline }: Props) {
               ))}
             </div>
           </div>
-          <button type="button" onClick={() => { setIsVideoLandscape(false); setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0); setIsVideoOpen(true); }} className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95">
+          <button
+            type="button"
+            onClick={() => { setIsVideoLandscape(false); setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0); setIsVideoOpen(true); }}
+            className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
+          >
             <PlayCircle size={18} /> Reproduzir vídeo
           </button>
         </div>
@@ -1092,10 +1338,16 @@ export default function DisciplineClient({ discipline }: Props) {
           <div className="border-b border-slate-200 p-3 dark:border-white/10">
             <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
               {(["chapters", "topics"] as MobileView[]).map((view) => (
-                <button key={view} type="button" onClick={() => setMobileView(view)}
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setMobileView(view)}
                   className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
-                    mobileView === view ? "bg-indigo-600 text-white shadow-md" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                  }`}>
+                    mobileView === view
+                      ? "bg-indigo-600 text-white shadow-md"
+                      : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  }`}
+                >
                   {view === "chapters" ? "Capítulos" : "Temas"}
                 </button>
               ))}
@@ -1109,30 +1361,40 @@ export default function DisciplineClient({ discipline }: Props) {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Header mobile com nome do capítulo + botão quiz + nav */}
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-bold text-slate-900 dark:text-white">{activeChapter?.title}</h2>
-                    <p className="mt-0.5 text-xs text-slate-500">{activeChapter?.status} · {activeChapter?.topics?.length ?? 0} temas</p>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-base font-bold text-slate-900 dark:text-white">
+                      {activeChapter?.title}
+                    </h2>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {activeChapter?.status} · {activeChapter?.topics?.length ?? 0} temas
+                    </p>
                   </div>
-                  <button type="button" onClick={() => setMobileView("chapters")} className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10">
-                    Capítulos
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {activeChapter && renderChapterQuizButton(activeChapter, "xs")}
+                  </div>
                 </div>
 
-                {activeChapter && renderChapterQuizBanner(activeChapter)}
-
+                {/* Tópicos */}
                 <div className="space-y-2.5">
                   {activeChapter?.topics?.map((topic, index) => (
                     <article key={topic.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-white/5 dark:bg-white/[0.02]">
                       <div className="mb-3 flex items-start gap-3">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-[10px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">{index + 1}</span>
-                        <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">{topic.title}</h3>
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-[10px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
+                          {index + 1}
+                        </span>
+                        <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">
+                          {topic.title}
+                        </h3>
                       </div>
                       {renderTopicActions(topic)}
                     </article>
                   ))}
                   {(!activeChapter?.topics || activeChapter.topics.length === 0) && (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600 dark:border-white/10">Este capítulo ainda não tem temas.</div>
+                    <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600 dark:border-white/10">
+                      Este capítulo ainda não tem temas.
+                    </div>
                   )}
                 </div>
               </div>
@@ -1143,7 +1405,12 @@ export default function DisciplineClient({ discipline }: Props) {
 
       {/* ── Desktop ── */}
       <section className="hidden overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-lg shadow-slate-300/50 dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none lg:grid lg:h-[42rem] lg:grid-cols-[320px_1fr]">
-        <aside ref={chaptersPanelRef} className={`h-full overflow-y-auto border-r border-slate-300 bg-slate-100 dark:border-white/10 dark:bg-black/20 ${SCROLLBAR_CLASS}`}>
+
+        {/* Coluna esquerda: índice de capítulos */}
+        <aside
+          ref={chaptersPanelRef}
+          className={`h-full overflow-y-auto border-r border-slate-300 bg-slate-100 dark:border-white/10 dark:bg-black/20 ${SCROLLBAR_CLASS}`}
+        >
           <div className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center border-b border-slate-300 bg-white/95 px-5 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}>
             <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Índice</h2>
           </div>
@@ -1152,19 +1419,40 @@ export default function DisciplineClient({ discipline }: Props) {
           </div>
         </aside>
 
-        <main ref={topicsPanelRef} className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}>
-          <div className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex flex-col justify-center border-b border-slate-300 bg-white/95 px-6 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}>
-            <h2 className="truncate text-lg font-bold text-slate-900 dark:text-white">{activeChapter?.title}</h2>
-            {activeChapter && <p className="mt-0.5 truncate text-xs text-slate-500">{activeChapter.status} · {activeChapter.topics?.length ?? 0} temas</p>}
+        {/* Coluna direita: temas do capítulo activo */}
+        <main
+          ref={topicsPanelRef}
+          className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}
+        >
+          {/* Cabeçalho sticky com nome do capítulo + progresso + botão de questionário */}
+          <div className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center justify-between gap-4 border-b border-slate-300 bg-white/95 px-6 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}>
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-lg font-bold text-slate-900 dark:text-white">
+                {activeChapter?.title}
+              </h2>
+              {activeChapter && (
+                <p className="mt-0.5 truncate text-xs text-slate-500">
+                  {activeChapter.status} · {activeChapter.topics?.length ?? 0} temas
+                </p>
+              )}
+            </div>
+            {activeChapter && renderChapterQuizButton(activeChapter, "sm")}
           </div>
 
+          {/* Lista de tópicos */}
           <div className="space-y-2.5 p-5">
-            {activeChapter && renderChapterQuizBanner(activeChapter)}
             {activeChapter?.topics?.map((topic, index) => (
-              <article key={topic.id} className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:shadow-md dark:border-white/5 dark:bg-white/[0.02] dark:shadow-none dark:hover:border-white/10 dark:hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between">
+              <article
+                key={topic.id}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:shadow-md dark:border-white/5 dark:bg-white/[0.02] dark:shadow-none dark:hover:border-white/10 dark:hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between"
+              >
                 <div className="flex min-w-0 flex-1 items-start gap-4">
-                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">{index + 1}</span>
-                  <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-200">{topic.title}</h3>
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
+                    {index + 1}
+                  </span>
+                  <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-200">
+                    {topic.title}
+                  </h3>
                 </div>
                 {renderTopicActions(topic)}
               </article>
@@ -1185,7 +1473,10 @@ export default function DisciplineClient({ discipline }: Props) {
           return (
             <div key={panel.id}>
               {!isPanelFullscreen && (
-                <div className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm" onClick={() => closeContentPanel(panel.id)} />
+                <div
+                  className="fixed inset-0 z-[59] bg-black/60 backdrop-blur-sm"
+                  onClick={() => closeContentPanel(panel.id)}
+                />
               )}
               <MobileSlideSheet
                 panel={panel}
@@ -1199,6 +1490,9 @@ export default function DisciplineClient({ discipline }: Props) {
                 onZoomIn={() => adjustPanelZoom(panel.id, ZOOM_STEP)}
                 onZoomOut={() => adjustPanelZoom(panel.id, -ZOOM_STEP)}
                 onZoomReset={() => resetPanelZoom(panel.id)}
+                isSaved={savedContentIds.has(panel.context.content.id)}
+                isSaving={savingContentId === panel.context.content.id}
+                onToggleSave={() => void toggleSaved(panel.context.content.id)}
               />
             </div>
           );
@@ -1210,7 +1504,8 @@ export default function DisciplineClient({ discipline }: Props) {
 
         return (
           <div
-            key={panel.id} data-panel-id={panel.id}
+            key={panel.id}
+            data-panel-id={panel.id}
             ref={(el) => { contentPanelRefs.current[panel.id] = el; }}
             style={{ ...baseStyle, zIndex: 59 + index }}
             className={`fixed flex flex-col overflow-hidden backdrop-blur-2xl ${
@@ -1219,12 +1514,16 @@ export default function DisciplineClient({ discipline }: Props) {
                 : "rounded-3xl border border-slate-200 bg-white shadow-[0_30px_100px_rgba(0,0,0,0.15)] min-w-[20rem] min-h-[16rem] max-w-[96vw] max-h-[90dvh] resize dark:border-white/10 dark:bg-slate-950/90 dark:shadow-[0_30px_100px_rgba(0,0,0,0.65)]"
             }`}
           >
-            <div className={`shrink-0 flex items-center justify-between gap-2 border-b bg-slate-50 px-3 py-2.5 md:px-4 dark:bg-black/30 ${theme.borderClass}`} style={{ touchAction: "none" }}>
+            <div
+              className={`shrink-0 flex items-center justify-between gap-2 border-b bg-slate-50 px-3 py-2.5 md:px-4 dark:bg-black/30 ${theme.borderClass}`}
+              style={{ touchAction: "none" }}
+            >
               <div
                 className={`flex min-w-0 flex-1 select-none items-center gap-2.5 ${isPanelFullscreen ? "cursor-default" : "cursor-move"}`}
                 onPointerDown={(e) => {
                   if (isPanelFullscreen || e.button !== 0) return;
-                  const el = contentPanelRefs.current[panel.id]; if (!el) return;
+                  const el = contentPanelRefs.current[panel.id];
+                  if (!el) return;
                   focusContentPanel(panel.id);
                   const rect = el.getBoundingClientRect();
                   contentDragRef.current = { panelId: panel.id, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
@@ -1235,10 +1534,16 @@ export default function DisciplineClient({ discipline }: Props) {
                   <FileText size={14} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-xs font-bold text-slate-900 dark:text-white">{panel.context.content.title}</h3>
-                  {!isPanelFullscreen && <p className="truncate text-[10px] text-slate-500 mt-0.5">{panel.context.chapter}</p>}
+                  <h3 className="truncate text-xs font-bold text-slate-900 dark:text-white">
+                    {panel.context.content.title}
+                  </h3>
+                  {!isPanelFullscreen && (
+                    <p className="truncate text-[10px] text-slate-500 mt-0.5">{panel.context.chapter}</p>
+                  )}
                 </div>
-                {!isPanelFullscreen && <GripVertical size={13} className="hidden shrink-0 text-slate-400 dark:text-slate-600 sm:block" />}
+                {!isPanelFullscreen && (
+                  <GripVertical size={13} className="hidden shrink-0 text-slate-400 dark:text-slate-600 sm:block" />
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 <ZoomControls
@@ -1248,10 +1553,21 @@ export default function DisciplineClient({ discipline }: Props) {
                   onReset={() => resetPanelZoom(panel.id)}
                 />
                 <div className="flex items-center gap-0.5">
-                  <button type="button" onClick={() => toggleBrowserFullscreen(panel.id)} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white" title={isPanelFullscreen ? "Sair do ecrã inteiro" : "Ecrã inteiro"}>
+                  {renderSaveIconBtn(panel.context.content.id)}
+                  <button
+                    type="button"
+                    onClick={() => toggleBrowserFullscreen(panel.id)}
+                    className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                    title={isPanelFullscreen ? "Sair do ecrã inteiro" : "Ecrã inteiro"}
+                  >
                     {isPanelFullscreen ? <Shrink size={14} /> : <Expand size={14} />}
                   </button>
-                  <button type="button" onClick={() => closeContentPanel(panel.id)} className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/15 dark:hover:text-red-400" title="Fechar">
+                  <button
+                    type="button"
+                    onClick={() => closeContentPanel(panel.id)}
+                    className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+                    title="Fechar"
+                  >
                     <X size={15} />
                   </button>
                 </div>
@@ -1275,15 +1591,27 @@ export default function DisciplineClient({ discipline }: Props) {
                 style={{ height: `${tutorSheetHeight}dvh` }}
                 className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col overflow-hidden rounded-t-3xl border-t border-x border-slate-200 bg-white shadow-[0_-20px_60px_rgba(0,0,0,0.15)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/95 dark:shadow-[0_-20px_60px_rgba(0,0,0,0.5)]"
               >
-                <div className="flex touch-none cursor-ns-resize select-none justify-center py-3" onPointerDown={(e) => { sheetDragRef.current = { startY: e.clientY, startHeight: tutorSheetHeight }; setIsDraggingSheet(true); }}>
+                <div
+                  className="flex touch-none cursor-ns-resize select-none justify-center py-3"
+                  onPointerDown={(e) => {
+                    sheetDragRef.current = { startY: e.clientY, startHeight: tutorSheetHeight };
+                    setIsDraggingSheet(true);
+                  }}
+                >
                   <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
                 </div>
                 <div className="flex justify-center gap-2 pb-2">
                   {[62, 88].map((h) => (
-                    <button key={h} type="button" onClick={() => setTutorSheetHeight(h)}
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setTutorSheetHeight(h)}
                       className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${
-                        Math.abs(tutorSheetHeight - h) < 5 ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
-                      }`}>
+                        Math.abs(tutorSheetHeight - h) < 5
+                          ? "bg-violet-600 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
+                      }`}
+                    >
                       {h === 62 ? "Médio" : "Grande"}
                     </button>
                   ))}
@@ -1298,12 +1626,18 @@ export default function DisciplineClient({ discipline }: Props) {
             <div
               ref={tutorPanelRef}
               style={
-                isTutorFullscreen ? { left: 16, top: 16, right: 16, bottom: 16, width: "auto", height: "auto" }
-                : isTutorMinimized ? { left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px`, width: `${tutorSize.width}px`, height: "auto" }
-                : { left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px`, width: `${tutorSize.width}px`, height: `${tutorSize.height}px` }
+                isTutorFullscreen
+                  ? { left: 16, top: 16, right: 16, bottom: 16, width: "auto", height: "auto" }
+                  : isTutorMinimized
+                  ? { left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px`, width: `${tutorSize.width}px`, height: "auto" }
+                  : { left: `${tutorPosition.x}px`, top: `${tutorPosition.y}px`, width: `${tutorSize.width}px`, height: `${tutorSize.height}px` }
               }
               className={`fixed z-[60] flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/90 dark:shadow-2xl dark:shadow-black/60 ${
-                isTutorFullscreen ? "max-w-none max-h-none" : isTutorMinimized ? "resize-none" : "resize min-w-[340px] min-h-[450px] max-w-[90vw] max-h-[90vh]"
+                isTutorFullscreen
+                  ? "max-w-none max-h-none"
+                  : isTutorMinimized
+                  ? "resize-none"
+                  : "resize min-w-[340px] min-h-[450px] max-w-[90vw] max-h-[90vh]"
               }`}
             >
               {renderTutorHeader(true)}
@@ -1313,10 +1647,16 @@ export default function DisciplineClient({ discipline }: Props) {
                     { label: "Médio", width: 420, height: 580 },
                     { label: "Grande", width: 520, height: 680 },
                   ].map((p) => (
-                    <button key={p.label} type="button" onClick={() => applyTutorPreset(p.width, p.height)}
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => applyTutorPreset(p.width, p.height)}
                       className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${
-                        Math.abs(tutorSize.width - p.width) < 20 && Math.abs(tutorSize.height - p.height) < 20 ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
-                      }`}>
+                        Math.abs(tutorSize.width - p.width) < 20 && Math.abs(tutorSize.height - p.height) < 20
+                          ? "bg-violet-600 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
+                      }`}
+                    >
                       {p.label}
                     </button>
                   ))}
@@ -1328,17 +1668,28 @@ export default function DisciplineClient({ discipline }: Props) {
         </>
       )}
 
-      {/* ── Modal do vídeo (mantido escuro — player de vídeo) ── */}
+      {/* ── Modal do vídeo ── */}
       {isVideoOpen && discipline.introVideoUrl && (
         <>
           <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md" onClick={closeVideo} />
-          <div className="fixed z-[121]" style={shouldRotateVideo ? { position: "fixed", top: "50%", left: "50%", width: "100dvh", height: "100dvw", transform: "translate(-50%, -50%) rotate(90deg)", transformOrigin: "center center", overflow: "hidden" } : { inset: 0 }}>
+          <div
+            className="fixed z-[121]"
+            style={
+              shouldRotateVideo
+                ? { position: "fixed", top: "50%", left: "50%", width: "100dvh", height: "100dvw", transform: "translate(-50%, -50%) rotate(90deg)", transformOrigin: "center center", overflow: "hidden" }
+                : { inset: 0 }
+            }
+          >
             <div
               ref={videoModalRef}
               onClick={(e) => e.stopPropagation()}
               onMouseMove={resetControlsTimer}
               onTouchStart={resetControlsTimer}
-              className={`absolute bg-black ${shouldRotateVideo ? "inset-0 rounded-none" : "inset-0 md:inset-auto md:left-1/2 md:top-1/2 md:w-[90vw] md:max-w-5xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:border md:border-white/10 md:shadow-[0_40px_120px_rgba(0,0,0,0.8)] md:max-h-[92dvh] md:overflow-hidden"}`}
+              className={`absolute bg-black ${
+                shouldRotateVideo
+                  ? "inset-0 rounded-none"
+                  : "inset-0 md:inset-auto md:left-1/2 md:top-1/2 md:w-[90vw] md:max-w-5xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:border md:border-white/10 md:shadow-[0_40px_120px_rgba(0,0,0,0.8)] md:max-h-[92dvh] md:overflow-hidden"
+              }`}
               style={!shouldRotateVideo ? { height: "100dvh" } : undefined}
             >
               <div className="absolute inset-0 bg-black">
@@ -1348,10 +1699,21 @@ export default function DisciplineClient({ discipline }: Props) {
                     <p className="text-xs font-medium tracking-widest text-slate-500 uppercase">A carregar…</p>
                   </div>
                 )}
-                <video ref={videoRef} className={`h-full w-full ${shouldRotateVideo ? "object-cover" : "object-contain"}`} playsInline preload="metadata" src={discipline.introVideoUrl} onClick={toggleControls} />
+                <video
+                  ref={videoRef}
+                  className={`h-full w-full ${shouldRotateVideo ? "object-cover" : "object-contain"}`}
+                  playsInline
+                  preload="metadata"
+                  src={discipline.introVideoUrl}
+                  onClick={toggleControls}
+                />
                 {!videoPlaying && videoReady && showControls && (
                   <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); void toggleVideoPlay(); }} className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-2xl backdrop-blur-md transition hover:scale-110 hover:bg-indigo-600/80 active:scale-95">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void toggleVideoPlay(); }}
+                      className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-2xl backdrop-blur-md transition hover:scale-110 hover:bg-indigo-600/80 active:scale-95"
+                    >
                       <Play size={24} className="translate-x-0.5" />
                     </button>
                   </div>
@@ -1362,51 +1724,97 @@ export default function DisciplineClient({ discipline }: Props) {
               <div className={`absolute left-0 right-0 top-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-4 py-4 md:px-6 md:py-5 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-600/20"><PlayCircle size={18} className="text-indigo-400" /></div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-600/20">
+                      <PlayCircle size={18} className="text-indigo-400" />
+                    </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-white">Vídeo Introdutório</p>
                       <p className="truncate text-xs text-slate-400">{discipline.title}</p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <button type="button" onClick={() => { setIsVideoLandscape((p) => !p); setShowSpeedMenu(false); }} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-md transition hover:bg-white/10 md:hidden">
-                      {isVideoLandscape ? <Smartphone size={13} /> : <Monitor size={13} />}<span>{isVideoLandscape ? "Vertical" : "Paisagem"}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setIsVideoLandscape((p) => !p); setShowSpeedMenu(false); }}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-md transition hover:bg-white/10 md:hidden"
+                    >
+                      {isVideoLandscape ? <Smartphone size={13} /> : <Monitor size={13} />}
+                      <span>{isVideoLandscape ? "Vertical" : "Paisagem"}</span>
                     </button>
-                    <button type="button" onClick={closeVideo} className="rounded-xl border border-white/10 bg-black/50 p-2.5 text-slate-300 backdrop-blur-md transition hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30"><X size={17} /></button>
+                    <button
+                      type="button"
+                      onClick={closeVideo}
+                      className="rounded-xl border border-white/10 bg-black/50 p-2.5 text-slate-300 backdrop-blur-md transition hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30"
+                    >
+                      <X size={17} />
+                    </button>
                   </div>
                 </div>
               </div>
 
               {/* Controlos inferiores */}
-              <div className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`} style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}>
+              <div
+                className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
+                style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}
+              >
                 <div className="space-y-4">
                   <div className="group relative h-2 cursor-pointer rounded-full bg-white/15" onClick={handleProgressClick}>
                     <div className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-all" style={{ width: `${videoBuffered}%` }} />
                     <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all" style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }} />
                     <div className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-indigo-500 bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100" style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }} />
                   </div>
-                  <div className="flex items-center justify-between text-xs tabular-nums text-slate-400"><span>{formatTime(videoCurrentTime)}</span><span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span></div>
+                  <div className="flex items-center justify-between text-xs tabular-nums text-slate-400">
+                    <span>{formatTime(videoCurrentTime)}</span>
+                    <span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span>
+                  </div>
                   <div className="flex items-center gap-2.5">
-                    <button type="button" onClick={() => void toggleVideoPlay()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95">
+                    <button
+                      type="button"
+                      onClick={() => void toggleVideoPlay()}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
+                    >
                       {videoPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-0.5" />}
                     </button>
-                    <button type="button" onClick={() => skipVideo(-15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="-15s"><SkipBack size={16} /></button>
-                    <button type="button" onClick={() => skipVideo(15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="+15s"><SkipForward size={16} /></button>
+                    <button type="button" onClick={() => skipVideo(-15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="-15s">
+                      <SkipBack size={16} />
+                    </button>
+                    <button type="button" onClick={() => skipVideo(15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="+15s">
+                      <SkipForward size={16} />
+                    </button>
                     <div className="hidden items-center gap-2.5 border-l border-white/10 pl-2.5 sm:flex">
                       <button type="button" onClick={toggleVideoMute} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10">
                         {videoMuted || videoVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                       </button>
-                      <input type="range" min={0} max={1} step={0.05} value={videoMuted ? 0 : videoVolume} onChange={(e) => handleVolumeChange(Number(e.target.value))} className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500" />
+                      <input
+                        type="range" min={0} max={1} step={0.05}
+                        value={videoMuted ? 0 : videoVolume}
+                        onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                        className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
+                      />
                     </div>
                     <div className="relative ml-auto">
-                      <button type="button" onClick={() => setShowSpeedMenu((p) => !p)} className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-bold text-slate-200 transition hover:bg-white/10"><Settings size={14} /> {videoSpeed}×</button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSpeedMenu((p) => !p)}
+                        className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                      >
+                        <Settings size={14} /> {videoSpeed}×
+                      </button>
                       {showSpeedMenu && (
                         <div className="absolute bottom-[calc(100%+8px)] right-0 z-[130] min-w-[120px] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
-                          <div className="border-b border-white/10 px-3 py-2.5"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Velocidade</p></div>
+                          <div className="border-b border-white/10 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Velocidade</p>
+                          </div>
                           <div className="p-1">
                             {VIDEO_SPEEDS.map((speed) => (
-                              <button key={speed} type="button" onClick={() => setVideoSpeedFn(speed)} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition hover:bg-white/10 ${videoSpeed === speed ? "text-indigo-400 bg-indigo-500/10" : "text-slate-300"}`}>
-                                <span>{speed}×</span>{videoSpeed === speed && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+                              <button
+                                key={speed}
+                                type="button"
+                                onClick={() => setVideoSpeedFn(speed)}
+                                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition hover:bg-white/10 ${videoSpeed === speed ? "text-indigo-400 bg-indigo-500/10" : "text-slate-300"}`}
+                              >
+                                <span>{speed}×</span>
+                                {videoSpeed === speed && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
                               </button>
                             ))}
                           </div>
@@ -1423,15 +1831,16 @@ export default function DisciplineClient({ discipline }: Props) {
 
       {/* ── Modal do Quiz ── */}
       {activeQuiz && (
-        <>
-          <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-md dark:bg-slate-950/90" onClick={() => setActiveQuiz(null)} />
-          <div className="fixed inset-0 z-[81] flex items-end justify-center sm:items-center sm:p-4 pointer-events-none">
-            <div className="pointer-events-auto relative flex w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl dark:border-white/10 dark:bg-slate-950" style={{ maxHeight: "95dvh" }} onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-center pt-3 sm:hidden"><div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" /></div>
-              <QuizPlayer contentId={activeQuiz.contentId} title={activeQuiz.title} disciplineName={discipline.title} chapterTitle={activeQuiz.chapterTitle} timeLimitSeconds={activeQuiz.timeLimitSecs} onClose={() => setActiveQuiz(null)} />
-            </div>
-          </div>
-        </>
+        <QuizHost
+          key={activeQuiz.contentId}
+          isOpen={true}
+          contentId={activeQuiz.contentId}
+          title={activeQuiz.title}
+          disciplineName={activeQuiz.disciplineName}
+          chapterTitle={activeQuiz.chapterTitle}
+          timeLimitSeconds={activeQuiz.timeLimitSecs}
+          onClose={() => setActiveQuiz(null)}
+        />
       )}
     </div>
   );
