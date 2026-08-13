@@ -622,10 +622,12 @@ export default function GuardadosClient({
       {/* ── Viewer — ocupa todo o espaço restante ── */}
       <div className="relative min-h-0 flex-1">
         <SlideViewer
-          url={activeSlide.fileUrl ?? ""}
-          title={activeSlide.title}
-          zoom={slideZoom}
-        />
+  url={activeSlide.fileUrl ?? ""}
+  title={activeSlide.title}
+  zoom={slideZoom}
+  contentId={activeSlide.contentId}                    // ✅ campo correto
+  estimatedDurationSeconds={activeSlide.durationSeconds ?? undefined} // ✅ campo correto
+/>
       </div>
     </div>
   </>

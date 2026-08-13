@@ -4,10 +4,12 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useSupabase } from "@/app/lib/context/SupabaseContext";
 
 export type AudioTrack = {
   id: string;
@@ -56,10 +58,6 @@ function clamp(v: number, min: number, max: number) {
   return Math.min(Math.max(v, min), max);
 }
 
-// Normaliza um AudioTrack, convertendo strings vazias/whitespace em undefined —
-// evita que valores vazios (ex.: persistidos de versões antigas do app, ou vindos
-// de queries que devolvem "" em vez de null) apareçam como "Sem disciplina" etc.
-// no MiniPlayer.
 function sanitizeTrack(t: AudioTrack): AudioTrack {
   return {
     ...t,
@@ -71,6 +69,21 @@ function sanitizeTrack(t: AudioTrack): AudioTrack {
 
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const { supabase } = useSupabase();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Busca o userId diretamente do Supabase Auth
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.id) {
+        setUserId(data.user.id);
+        console.log("✅ AudioPlayer: userId obtido:", data.user.id);
+      } else {
+        console.warn("⚠️ AudioPlayer: sem user autenticado");
+      }
+    });
+  }, [supabase]);
 
   const [track, setTrack] = useState<AudioTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -219,6 +232,85 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [track, currentTime, volume, playbackRate]);
 
+  // Gravar progresso a cada 10 segundos
+  useEffect(() => {
+    if (!track?.id || !userId || !isPlaying) return;
+
+    const interval = setInterval(async () => {
+      const audio = audioRef.current;
+
+      console.log("🎵 AudioPlayer.saveProgress chamado:", {
+        hasAudio: !!audio,
+        trackId: track?.id,
+        userId,
+        currentTime: audio?.currentTime,
+        duration: audio?.duration,
+      });
+
+      if (!audio || !audio.duration || audio.duration <= 0) {
+        console.warn("⚠️ AudioPlayer: condições não cumpridas para gravar");
+        return;
+      }
+
+      const progressPercent = Math.min(
+        100,
+        Math.round((audio.currentTime / audio.duration) * 100)
+      );
+      const completed = progressPercent >= 80;
+
+      try {
+        await supabase.from("student_progress").upsert(
+          {
+            student_id: userId,
+            content_id: track.id,
+            progress_percent: progressPercent,
+            last_position_seconds: Math.floor(audio.currentTime),
+            completed,
+            completed_at: completed ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "student_id,content_id" }
+        );
+        console.log("✅ Progresso do áudio gravado com sucesso!");
+      } catch (err) {
+        console.error("❌ Erro ao gravar progresso do áudio:", err);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [track?.id, userId, isPlaying, supabase]);
+
+  // Gravar quando o áudio termina
+  useEffect(() => {
+    if (!track?.id || !userId) return;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onEnded = async () => {
+      try {
+        await supabase.from("student_progress").upsert(
+          {
+            student_id: userId,
+            content_id: track.id,
+            progress_percent: 100,
+            last_position_seconds: Math.floor(audio.duration || 0),
+            completed: true,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "student_id,content_id" }
+        );
+        console.log("✅ Conclusão do áudio gravada com sucesso!");
+      } catch (err) {
+        console.error("❌ Erro ao gravar conclusão do áudio:", err);
+      }
+    };
+
+    audio.addEventListener("ended", onEnded);
+    return () => audio.removeEventListener("ended", onEnded);
+  }, [track?.id, userId, supabase]);
+
   const setVolume = (v: number) => {
     const next = clamp(v, 0, 1);
     _setVolume(next);
@@ -236,7 +328,6 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (!audio) return;
 
     const cleanTrack = sanitizeTrack(nextTrack);
-
     const sameTrack = track?.id === cleanTrack.id && track?.url === cleanTrack.url;
 
     setTrack(cleanTrack);

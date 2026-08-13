@@ -49,6 +49,7 @@ export default function Page({ params }: PageProps) {
               title: ch.quiz.title,
               url: ch.quiz.file_url ?? undefined,
               timeLimitSeconds: ch.quiz.time_limit_seconds,
+              durationSeconds: ch.quiz.duration_seconds, // ✅ NOVO
             }
           : null,
         topics: ch.topics.map((t) => ({
@@ -60,6 +61,7 @@ export default function Page({ params }: PageProps) {
             title: c.title,
             url: c.file_url ?? undefined,
             timeLimitSeconds: c.time_limit_seconds,
+            durationSeconds: c.duration_seconds, // ✅ NOVO
           })),
         })),
       })),

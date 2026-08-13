@@ -1,6 +1,7 @@
+// components/audio/MiniPlayer.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react"; // ✅ adiciona useCallback
 import Image from "next/image";
 import {
   Bookmark,
@@ -110,14 +111,11 @@ function ModernSlider({
         if (e.key === "ArrowRight") onChange(clamp(safeValue + keyboardStep, min, safeMax));
       }}
     >
-      {/* Track de fundo */}
       <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-slate-300 dark:bg-white/10" />
-      {/* Track preenchido */}
       <div
         className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500"
         style={{ width: `${pct}%` }}
       />
-      {/* Thumb */}
       <div
         className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow-md ring-2 ring-slate-400 dark:ring-black/30"
         style={{ left: `calc(${pct}% - 7px)` }}
@@ -157,10 +155,79 @@ export default function MiniPlayer() {
   const [isMuted,    setIsMuted]    = useState(false);
   const [prevVolume, setPrevVolume] = useState(1);
 
-  /* ── Guardar (bookmark) ── */
-  const [studentId, setStudentId] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(false);
+  const [studentId,     setStudentId]     = useState<string | null>(null);
+  const [isSaved,       setIsSaved]       = useState(false);
   const [isSavingToggle, setIsSavingToggle] = useState(false);
+
+  // ===================== TRACKING DE PROGRESSO DO ÁUDIO =====================
+  const saveTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedTimeRef = useRef<number>(0);
+
+  const saveAudioProgress = useCallback(async (
+    trackId: string,
+    currentTimeSec: number,
+    durationSec: number,
+    sid: string,
+  ) => {
+    if (!sid || !trackId || durationSec <= 0) return;
+
+    const pct       = Math.min(100, Math.round((currentTimeSec / durationSec) * 100));
+    const completed = pct >= 90;
+
+    try {
+      await supabase.from("student_progress").upsert(
+        {
+          student_id:           sid,
+          content_id:           trackId,
+          progress_percent:     pct,
+          last_position_seconds: Math.round(currentTimeSec),
+          completed,
+          completed_at:  completed ? new Date().toISOString() : null,
+          updated_at:    new Date().toISOString(),
+        },
+        { onConflict: "student_id,content_id" }
+      );
+      lastSavedTimeRef.current = currentTimeSec;
+    } catch (err) {
+      console.error("Erro ao guardar progresso do áudio:", err);
+    }
+  }, [supabase]);
+
+  // Grava quando o utilizador avança 5s, com debounce de 3s
+  useEffect(() => {
+    if (!track?.id || !isPlaying || duration <= 0 || !studentId) return;
+
+    const diff = Math.abs(currentTime - lastSavedTimeRef.current);
+    if (diff < 5) return;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    saveTimerRef.current = setTimeout(() => {
+      void saveAudioProgress(track.id, currentTime, duration, studentId);
+    }, 3000);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [currentTime, isPlaying, track?.id, duration, studentId, saveAudioProgress]);
+
+  // Grava ao fechar a página
+  useEffect(() => {
+    if (!track?.id || !studentId || duration <= 0) return;
+
+    const onUnload = () => {
+      void saveAudioProgress(track.id, currentTime, duration, studentId);
+    };
+
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [track?.id, currentTime, duration, studentId, saveAudioProgress]);
+
+  // Reset do lastSavedTime quando muda de faixa
+  useEffect(() => {
+    lastSavedTimeRef.current = 0;
+  }, [track?.id]);
+  // =========================================================================
 
   const safeDuration = Math.max(0, duration || 0);
   const safeCurrent  = clamp(currentTime || 0, 0, safeDuration || 0);
@@ -189,16 +256,16 @@ export default function MiniPlayer() {
     }
   };
 
-  /* ── Obter utilizador autenticado ── */
+  // Obter studentId do Supabase auth
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: { data: { user: { id?: string } | null } }) => {
       if (!cancelled) setStudentId(data.user?.id ?? null);
     });
     return () => { cancelled = true; };
   }, [supabase]);
 
-  /* ── Verificar se a faixa actual já está guardada ── */
+  // Verificar se a faixa está guardada
   useEffect(() => {
     if (!track || !studentId) { setIsSaved(false); return; }
     let cancelled = false;
@@ -236,7 +303,7 @@ export default function MiniPlayer() {
     }
   };
 
-  /* ── Carregar preferências ── */
+  // Carregar preferências
   useEffect(() => {
     if (!track || hasLoadedPrefs) return;
     try {
@@ -266,7 +333,7 @@ export default function MiniPlayer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track, hasLoadedPrefs]);
 
-  /* ── Persistir preferências ── */
+  // Persistir preferências
   useEffect(() => {
     if (!track || !hasLoadedPrefs) return;
     try { localStorage.setItem(MINIMIZED_KEY, isMinimized ? "1" : "0"); } catch { /* ignore */ }
@@ -287,7 +354,7 @@ export default function MiniPlayer() {
     try { localStorage.setItem(RATE_KEY, String(playbackRate)); } catch { /* ignore */ }
   }, [track, playbackRate, hasLoadedPrefs]);
 
-  /* ── Restaurar posição ── */
+  // Restaurar posição
   useEffect(() => {
     if (!track || hasPosition) return;
     try {
@@ -317,13 +384,13 @@ export default function MiniPlayer() {
     return () => window.clearTimeout(t);
   }, [track, hasPosition, isMinimized]);
 
-  /* ── Persistir posição ── */
+  // Persistir posição
   useEffect(() => {
     if (!track || !hasPosition) return;
     try { localStorage.setItem(POS_KEY, JSON.stringify(position)); } catch { /* ignore */ }
   }, [track, position, hasPosition]);
 
-  /* ── Limitar posição à viewport ── */
+  // Limitar posição à viewport
   useEffect(() => {
     if (!track) return;
     const clampToViewport = () => {
@@ -344,7 +411,7 @@ export default function MiniPlayer() {
     };
   }, [track, isMinimized]);
 
-  /* ── Drag ── */
+  // Drag
   useEffect(() => {
     if (!isDragging) return;
     const onMove = (e: PointerEvent) => {
@@ -372,7 +439,6 @@ export default function MiniPlayer() {
 
   if (!track) return null;
 
-  /* ── Botão "pill" quando oculto ── */
   if (isHidden) {
     return (
       <button
@@ -381,11 +447,7 @@ export default function MiniPlayer() {
         className="fixed bottom-4 right-4 z-[90] flex items-center gap-2 rounded-full border-2 border-slate-300 bg-white px-3 py-2.5 shadow-2xl shadow-slate-400/50 backdrop-blur-xl transition hover:bg-slate-50 active:scale-95 dark:border-white/10 dark:bg-slate-950/90 dark:shadow-black/40 dark:hover:bg-slate-900/90"
         title="Mostrar leitor de áudio"
       >
-        <span
-          className={`flex h-8 w-8 items-center justify-center rounded-full ${
-            isPlaying ? "bg-blue-600" : "bg-slate-100 dark:bg-white/10"
-          }`}
-        >
+        <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isPlaying ? "bg-blue-600" : "bg-slate-100 dark:bg-white/10"}`}>
           {isPlaying ? (
             <Pause size={14} className="text-white" />
           ) : (
@@ -399,7 +461,6 @@ export default function MiniPlayer() {
     );
   }
 
-  /* ── Classes reutilizáveis ── */
   const glassBtn =
     "rounded-xl bg-slate-100 ring-1 ring-slate-300 text-slate-700 hover:bg-slate-200 hover:text-slate-900 dark:bg-white/5 dark:ring-white/10 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white transition active:scale-[0.97]";
 
@@ -421,10 +482,8 @@ export default function MiniPlayer() {
       style={{ left: position.x, top: position.y }}
       className={containerClassName}
     >
-      {/* ── Top bar ── */}
+      {/* Top bar */}
       <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-3 py-2 dark:border-white/10">
-
-        {/* Drag handle + título */}
         <div
           className="flex min-w-0 flex-1 cursor-move select-none items-center gap-2"
           style={{ touchAction: "none" }}
@@ -451,82 +510,40 @@ export default function MiniPlayer() {
           </div>
         </div>
 
-        {/* Tempo (apenas expandido) */}
         {!isMinimized && (
-          <p
-            className={`flex shrink-0 items-center gap-1 text-[11px] tabular-nums ${
-              isBuffering ? "text-slate-400 dark:text-slate-600" : "text-slate-500 dark:text-slate-400"
-            }`}
-          >
+          <p className={`flex shrink-0 items-center gap-1 text-[11px] tabular-nums ${isBuffering ? "text-slate-400 dark:text-slate-600" : "text-slate-500 dark:text-slate-400"}`}>
             {isBuffering ? (
-              <>
-                <Loader2 size={11} className="animate-spin" />
-                A carregar…
-              </>
+              <><Loader2 size={11} className="animate-spin" />A carregar…</>
             ) : (
-              <>
-                {formatTime(safeCurrent)}
-                <span className="text-slate-400 dark:text-slate-600">/</span>
-                {formatTime(safeDuration)}
-              </>
+              <>{formatTime(safeCurrent)}<span className="text-slate-400 dark:text-slate-600">/</span>{formatTime(safeDuration)}</>
             )}
           </p>
         )}
 
-        {/* Guardar */}
         <button
           type="button"
           onClick={() => void toggleSave()}
           disabled={isSavingToggle || !studentId}
-          className={`rounded-xl p-2 transition disabled:opacity-40 ${
-            isSaved
-              ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
-              : "text-slate-500 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-amber-400"
-          }`}
+          className={`rounded-xl p-2 transition disabled:opacity-40 ${isSaved ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15" : "text-slate-500 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-amber-400"}`}
           aria-label={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
-          title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
         >
-          {isSavingToggle ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
-          )}
+          {isSavingToggle ? <Loader2 size={16} className="animate-spin" /> : <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setIsHidden(true)}
-          className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
-          aria-label="Ocultar"
-          title="Ocultar leitor (continua a tocar)"
-        >
+        <button type="button" onClick={() => setIsHidden(true)} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white" aria-label="Ocultar">
           <EyeOff size={16} />
         </button>
 
-        <button
-          type="button"
-          onClick={() => setIsMinimized((v) => !v)}
-          className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
-          aria-label={isMinimized ? "Expandir" : "Minimizar"}
-          title={isMinimized ? "Expandir" : "Minimizar"}
-        >
+        <button type="button" onClick={() => setIsMinimized((v) => !v)} className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white" aria-label={isMinimized ? "Expandir" : "Minimizar"}>
           {isMinimized ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
 
-        <button
-          type="button"
-          onClick={stop}
-          className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-red-400"
-          aria-label="Fechar"
-          title="Fechar"
-        >
+        <button type="button" onClick={stop} className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-red-400" aria-label="Fechar">
           <X size={16} />
         </button>
       </div>
 
-      {/* ══════════════════════════════════════
-          MINIMIZADO
-      ══════════════════════════════════════ */}
+      {/* MINIMIZADO */}
       {isMinimized ? (
         <div className="px-3 py-2.5">
           <div className="flex items-center gap-3">
@@ -539,46 +556,23 @@ export default function MiniPlayer() {
                 </div>
               )}
             </div>
-
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                {track.title}
-              </p>
+              <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{track.title}</p>
               <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                 {[track.discipline, track.chapter, track.topic].filter(Boolean).join(" · ")}
               </p>
             </div>
-
-            {/* Velocidade (pill cíclico) */}
-            <button
-              type="button"
-              onClick={cycleSpeed}
-              className="inline-flex h-8 items-center justify-center rounded-xl bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-300 transition hover:bg-slate-200 hover:text-slate-900 active:scale-[0.97] dark:bg-white/5 dark:text-slate-300 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white"
-              title="Velocidade de reprodução"
-              aria-label={`Velocidade: ${playbackRate}x`}
-            >
+            <button type="button" onClick={cycleSpeed} className="inline-flex h-8 items-center justify-center rounded-xl bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-300 transition hover:bg-slate-200 hover:text-slate-900 active:scale-[0.97] dark:bg-white/5 dark:text-slate-300 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white">
               {playbackRate}x
             </button>
-
-            <button
-              type="button"
-              onClick={() => void toggle()}
-              className={iconBtn}
-              aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-              title={isPlaying ? "Pausar" : "Reproduzir"}
-            >
+            <button type="button" onClick={() => void toggle()} className={iconBtn} aria-label={isPlaying ? "Pausar" : "Reproduzir"}>
               {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
             </button>
           </div>
         </div>
-
       ) : (
-        /* ══════════════════════════════════════
-            EXPANDIDO
-        ══════════════════════════════════════ */
+        /* EXPANDIDO */
         <div className="flex flex-col gap-3.5 px-3.5 py-3.5 sm:px-4 sm:py-4">
-
-          {/* Capa + info */}
           <div className="flex items-center gap-3">
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5 sm:h-14 sm:w-14">
               {track.coverUrl ? (
@@ -590,28 +584,20 @@ export default function MiniPlayer() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                {track.title}
-              </p>
+              <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{track.title}</p>
               <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                 {[track.discipline, track.chapter, track.topic].filter(Boolean).join(" · ")}
               </p>
             </div>
           </div>
 
-          {/* Progresso */}
           <div>
             <div className="mb-1 flex items-center justify-between text-[11px] tabular-nums text-slate-500">
               <span>{formatTime(safeCurrent)}</span>
               <span className={`flex items-center gap-1 ${isBuffering ? "text-slate-400 dark:text-slate-600" : ""}`}>
                 {isBuffering ? (
-                  <>
-                    <Loader2 size={11} className="animate-spin" />
-                    A carregar…
-                  </>
-                ) : (
-                  `-${formatTime(timeLeft)}`
-                )}
+                  <><Loader2 size={11} className="animate-spin" />A carregar…</>
+                ) : (`-${formatTime(timeLeft)}`)}
               </span>
             </div>
             <ModernSlider
@@ -625,42 +611,18 @@ export default function MiniPlayer() {
             />
           </div>
 
-          {/* Controlos de reprodução */}
           <div className="flex items-center justify-center gap-3 sm:gap-4">
-            <button
-              type="button"
-              onClick={() => jumpSeconds(-15)}
-              className={iconBtn}
-              disabled={isBuffering}
-              aria-label="Voltar 15 segundos"
-              title="Voltar 15 segundos"
-            >
+            <button type="button" onClick={() => jumpSeconds(-15)} className={iconBtn} disabled={isBuffering} aria-label="Voltar 15 segundos">
               <SkipBack size={18} />
             </button>
-
-            <button
-              type="button"
-              onClick={() => void toggle()}
-              className={primaryBtn}
-              aria-label={isPlaying ? "Pausar" : "Reproduzir"}
-              title={isPlaying ? "Pausar" : "Reproduzir"}
-            >
+            <button type="button" onClick={() => void toggle()} className={primaryBtn} aria-label={isPlaying ? "Pausar" : "Reproduzir"}>
               {isPlaying ? <Pause size={22} /> : <Play size={22} className="ml-0.5" />}
             </button>
-
-            <button
-              type="button"
-              onClick={() => jumpSeconds(15)}
-              className={iconBtn}
-              disabled={isBuffering}
-              aria-label="Avançar 15 segundos"
-              title="Avançar 15 segundos"
-            >
+            <button type="button" onClick={() => jumpSeconds(15)} className={iconBtn} disabled={isBuffering} aria-label="Avançar 15 segundos">
               <SkipForward size={18} />
             </button>
           </div>
 
-          {/* Velocidade */}
           <div className="flex items-center justify-center gap-3 sm:gap-4">
             <div className="flex items-center gap-1">
               {SPEED_OPTIONS.map((rate) => (
@@ -674,7 +636,6 @@ export default function MiniPlayer() {
                       ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 dark:shadow-blue-500/20"
                       : "bg-slate-100 text-slate-600 ring-1 ring-slate-300 hover:bg-slate-200 hover:text-slate-900 dark:bg-white/5 dark:text-slate-400 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white",
                   ].join(" ")}
-                  aria-label={`Velocidade ${rate}x`}
                   aria-pressed={Math.abs(playbackRate - rate) < 0.001}
                 >
                   {rate}x
@@ -683,25 +644,15 @@ export default function MiniPlayer() {
             </div>
           </div>
 
-          {/* Volume */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="shrink-0 text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-              aria-label={isMuted || volume === 0 ? "Ativar som" : "Silenciar"}
-              title={isMuted || volume === 0 ? "Ativar som" : "Silenciar"}
-            >
+            <button type="button" onClick={toggleMute} className="shrink-0 text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white" aria-label={isMuted || volume === 0 ? "Ativar som" : "Silenciar"}>
               {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </button>
             <ModernSlider
               value={isMuted ? 0 : volume}
               min={0}
               max={1}
-              onChange={(v) => {
-                setVolume(v);
-                if (v > 0) setIsMuted(false);
-              }}
+              onChange={(v) => { setVolume(v); if (v > 0) setIsMuted(false); }}
               ariaLabel="Volume"
               keyboardStep={0.05}
             />

@@ -18,6 +18,7 @@ import {
   Inbox,
   Megaphone,
   ChevronDown,
+  ChevronLeft,
   Mail,
   Shield,
   PencilLine,
@@ -290,7 +291,7 @@ interface ProfileEditProps {
   profileError: string | null;
   saving: boolean;
   hasProfileSave: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -538,6 +539,10 @@ const Header = memo(function Header({
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileMode, setProfileMode] = useState<"view" | "edit">("view");
 
+  /* ── pesquisa mobile ── */
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+
   /* ── notificações ── */
   const [notifications,   setNotifications]   = useState<NotificationItem[]>([]);
   const [notifLoading,    setNotifLoading]    = useState(false);
@@ -579,6 +584,7 @@ const Header = memo(function Header({
       setFilterOpen(false);
       setNotifOpen(false);
       setProfileOpen(false);
+      setMobileSearchOpen(false);
     };
     const handleClick = (e: MouseEvent) => {
       const t = e.target as Node;
@@ -594,6 +600,19 @@ const Header = memo(function Header({
       document.removeEventListener("keydown",   handleKey);
     };
   }, []);
+
+  /* ── overlay de pesquisa mobile: autofocus + bloqueio de scroll ── */
+  useEffect(() => {
+    if (mobileSearchOpen) {
+      const id = window.setTimeout(() => mobileSearchInputRef.current?.focus(), 50);
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        window.clearTimeout(id);
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [mobileSearchOpen]);
 
   /* ── reset ao fechar painel ── */
   useEffect(() => {
@@ -734,10 +753,10 @@ const Header = memo(function Header({
   return (
     <>
      <header className={`fixed top-0 z-40 h-16 border-b border-slate-200/70 bg-slate-100/80 backdrop-blur-xl transition-all duration-300 dark:border-white/10 dark:bg-slate-950/80 right-0 left-0 ${expanded ? "md:left-56" : "md:left-16"}`}>
-        <div className="mx-auto flex h-full max-w-screen-2xl items-center justify-between gap-3 px-4 md:px-6">
+        <div className="mx-auto flex h-full max-w-screen-2xl items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 md:px-6">
 
           {/* ── Esquerda ── */}
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setMobileOpen?.(!mobileOpen)}
@@ -751,8 +770,8 @@ const Header = memo(function Header({
             </span>
           </div>
 
-          {/* ── Centro: pesquisa ── */}
-          <div className="min-w-0 flex-1 px-2 md:px-6" ref={filterRef}>
+          {/* ── Centro: pesquisa (desktop, inline) ── */}
+          <div className="hidden min-w-0 flex-1 px-2 md:block md:px-6" ref={filterRef}>
             <div className="relative mx-auto max-w-xl">
               <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -773,8 +792,8 @@ const Header = memo(function Header({
                 <SlidersHorizontal size={14} />
               </button>
 
-              {/* Dropdown filtros — sheet fixo no mobile, dropdown ancorado a partir de sm: */}
-              <div className={`fixed inset-x-4 top-[4.5rem] z-50 origin-top transition-all sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:z-auto sm:mt-2 sm:w-80 sm:origin-top-right ${
+              {/* Dropdown filtros (desktop) */}
+              <div className={`absolute right-0 top-full z-auto mt-2 w-80 origin-top-right transition-all ${
                 filterOpen ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
               }`}>
                 <div className="max-h-[calc(100vh-5rem)] overflow-y-auto rounded-2xl border border-slate-300 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
@@ -813,14 +832,38 @@ const Header = memo(function Header({
             </div>
           </div>
 
-          {/* ── Direita: notificações + perfil ── */}
-          <div className="flex shrink-0 items-center gap-2">
+          {/* ── Centro (mobile): título compacto, substitui a pesquisa embutida ── */}
+          <div className="flex flex-1 items-center justify-center overflow-hidden md:hidden">
+            <span className="truncate text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Biblioteca ISAF
+            </span>
+          </div>
+
+          {/* ── Direita: pesquisa (mobile) + notificações + perfil ── */}
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+
+            {/* Trigger de pesquisa — mobile apenas */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileSearchOpen(true);
+                setNotifOpen(false);
+                setProfileOpen(false);
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:hover:bg-slate-800 md:hidden"
+              aria-label="Pesquisar"
+            >
+              <Search size={18} className="text-slate-600 dark:text-slate-300" />
+              {searchQuery && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-blue-500" />
+              )}
+            </button>
 
             {/* Notificações */}
             <div className="relative" ref={notifRef}>
               <button
                 type="button"
-                onClick={() => { setNotifOpen(!notifOpen); setFilterOpen(false); setProfileOpen(false); }}
+                onClick={() => { setNotifOpen(!notifOpen); setFilterOpen(false); setProfileOpen(false); setMobileSearchOpen(false); }}
                 className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-white transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:hover:bg-slate-800"
                 aria-label="Notificações"
               >
@@ -939,7 +982,7 @@ const Header = memo(function Header({
                 {/* Trigger do perfil */}
                 <button
                   type="button"
-                  onClick={() => { setProfileOpen(!profileOpen); setFilterOpen(false); setNotifOpen(false); }}
+                  onClick={() => { setProfileOpen(!profileOpen); setFilterOpen(false); setNotifOpen(false); setMobileSearchOpen(false); }}
                   className="flex items-center gap-2 rounded-full py-1 pl-1.5 pr-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
                   aria-haspopup="menu"
                   aria-expanded={profileOpen}
@@ -1013,6 +1056,91 @@ const Header = memo(function Header({
           </div>
         </div>
       </header>
+
+      {/* ── Overlay de pesquisa em ecrã inteiro (mobile) ── */}
+      <div
+        role="search"
+        aria-hidden={!mobileSearchOpen}
+        className={`fixed inset-0 z-50 flex flex-col bg-white transition-transform duration-200 dark:bg-slate-950 md:hidden ${
+          mobileSearchOpen ? "translate-y-0" : "pointer-events-none -translate-y-full"
+        }`}
+      >
+        {/* Barra de pesquisa */}
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-200 px-3 dark:border-white/10">
+          <button
+            type="button"
+            onClick={() => setMobileSearchOpen(false)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-slate-100 dark:hover:bg-slate-800"
+            aria-label="Fechar pesquisa"
+          >
+            <ChevronLeft size={20} className="text-slate-600 dark:text-slate-300" />
+          </button>
+
+          <div className="relative flex-1">
+            <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              ref={mobileSearchInputRef}
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") mobileSearchInputRef.current?.blur(); }}
+              placeholder="Pesquisar disciplinas, temas, slides…"
+              className="h-11 w-full rounded-full border border-slate-300 bg-slate-50 pl-10 pr-10 text-sm text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => { onSearchChange(""); mobileSearchInputRef.current?.focus(); }}
+                className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-700"
+                aria-label="Limpar pesquisa"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setFilterOpen(!filterOpen)}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition ${
+              filterOpen ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+            aria-label="Filtros"
+          >
+            <SlidersHorizontal size={18} />
+          </button>
+        </div>
+
+        {/* Filtros rápidos (mobile) */}
+        {filterOpen && (
+          <div className="border-b border-slate-200 p-4 dark:border-white/10">
+            <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              Filtros rápidos
+            </p>
+            <div className="space-y-1">
+              {FILTER_OPTIONS.map(({ id, label, icon: Icon, color, description }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <Icon size={17} className={`shrink-0 ${color}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{label}</p>
+                    <p className="text-xs text-slate-500">{description}</p>
+                  </div>
+                  <ChevronRight size={14} className="ml-auto text-slate-300 dark:text-slate-600" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Espaço para a página filtrar/apresentar resultados por trás */}
+        <div className="flex-1 overflow-y-auto" />
+      </div>
 
       {/* Backdrop mobile */}
       <div

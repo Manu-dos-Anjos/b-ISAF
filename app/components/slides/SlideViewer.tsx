@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, ExternalLink, Loader2, RotateCw } from "lucide-react";
+import { useSupabase } from "@/app/lib/context/SupabaseContext";
 
 type Props = {
   url: string;
   className?: string;
   title?: string;
   zoom?: number;
+  contentId?: string;
+  estimatedDurationSeconds?: number;
 };
 
 type ViewMode = "iframe" | "office" | "image" | "empty";
 
 const LOAD_TIMEOUT_MS = 15000;
+const SAVE_INTERVAL_MS = 10_000;
+const DEFAULT_DURATION_SECONDS = 300;
+const COMPLETE_THRESHOLD_PCT = 80;
 
 function resolveViewer(url: string): { src: string; mode: ViewMode } {
   if (!url) return { src: "", mode: "empty" };
@@ -27,7 +33,14 @@ function resolveViewer(url: string): { src: string; mode: ViewMode } {
   return { src: url, mode: "iframe" };
 }
 
-export default function SlideViewer({ url, className, title = "Apresentação", zoom = 1 }: Props) {
+export default function SlideViewer({
+  url,
+  className,
+  title = "Apresentação",
+  zoom = 1,
+  contentId,
+  estimatedDurationSeconds,
+}: Props) {
   const { src, mode } = resolveViewer(url);
 
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
@@ -37,8 +50,150 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
   const timeoutRef = useRef<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // Envia o zoom actual ao iframe (HTML puro apenas — cross-origin é ignorado silenciosamente).
-  // Separado em função para ser chamado tanto no `useEffect` como no `onLoad`.
+  // ===================== TRACKING DE PROGRESSO =====================
+  const { supabase } = useSupabase();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Busca o userId diretamente do Supabase Auth
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.id) {
+        setUserId(data.user.id);
+        console.log("✅ SlideViewer: userId obtido:", data.user.id);
+      } else {
+        console.warn("⚠️ SlideViewer: sem user autenticado");
+      }
+    });
+  }, [supabase]);
+
+  const durationSeconds = estimatedDurationSeconds ?? DEFAULT_DURATION_SECONDS;
+
+  console.log("🔍 SlideViewer tracking:", {
+    contentId,
+    userId,
+    estimatedDurationSeconds,
+    durationSeconds,
+    status,
+    mode,
+  });
+
+  const savedSecondsRef = useRef(0);
+  const sessionSecondsRef = useRef(0);
+  const hasLoadedInitialRef = useRef(false);
+  const scrollPctRef = useRef<number | null>(null);
+
+  // Carrega progresso anterior
+  useEffect(() => {
+    if (!contentId || !userId || hasLoadedInitialRef.current) return;
+    hasLoadedInitialRef.current = true;
+
+    supabase
+      .from("student_progress")
+      .select("last_position_seconds")
+      .eq("student_id", userId)
+      .eq("content_id", contentId)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.last_position_seconds) {
+          savedSecondsRef.current = data.last_position_seconds;
+        }
+      });
+  }, [contentId, userId, supabase]);
+
+  // Listener de mensagens do iframe para capturar scroll %
+  useEffect(() => {
+    if (!contentId || mode !== "iframe") return;
+
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type !== "slide-progress") return;
+      const pct = e.data.pct;
+      if (typeof pct === "number") {
+        scrollPctRef.current = pct;
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [contentId, mode]);
+
+  // Contabiliza tempo apenas quando visível e carregado
+  useEffect(() => {
+    if (!contentId || !userId || status !== "ready") return;
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        sessionSecondsRef.current += 1;
+      }
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [contentId, userId, status]);
+
+  // Prioriza scroll %, fallback por tempo
+  const saveProgress = useCallback(async () => {
+    console.log("📊 SlideViewer.saveProgress chamado:", {
+      contentId,
+      userId,
+      status,
+      scrollPct: scrollPctRef.current,
+      sessionSeconds: sessionSecondsRef.current,
+    });
+
+    if (!contentId || !userId) {
+      console.warn("⚠️ saveProgress sem contentId/userId:", { contentId, userId });
+      return;
+    }
+
+    let pct: number;
+
+    if (scrollPctRef.current !== null) {
+      pct = scrollPctRef.current;
+    } else {
+      const totalSeconds = savedSecondsRef.current + sessionSecondsRef.current;
+      pct = Math.min(100, Math.round((totalSeconds / durationSeconds) * 100));
+    }
+
+    const completed = pct >= COMPLETE_THRESHOLD_PCT;
+
+    console.log("📊 saveProgress:", { contentId, userId, pct, completed });
+
+    try {
+      await supabase.from("student_progress").upsert(
+        {
+          student_id: userId,
+          content_id: contentId,
+          progress_percent: pct,
+          last_position_seconds: savedSecondsRef.current + sessionSecondsRef.current,
+          completed,
+          completed_at: completed ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "student_id,content_id" }
+      );
+      console.log("✅ Progresso gravado com sucesso!");
+    } catch (err) {
+      console.error("❌ Erro ao guardar progresso do slide:", err);
+    }
+  }, [contentId, userId, durationSeconds, supabase]);
+
+  // Grava periodicamente + ao sair da página
+  useEffect(() => {
+    if (!contentId || !userId) return;
+
+    const interval = window.setInterval(saveProgress, SAVE_INTERVAL_MS);
+    const onBeforeUnload = () => saveProgress();
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      saveProgress();
+    };
+  }, [contentId, userId, saveProgress]);
+
+  // ===================== LÓGICA ORIGINAL (inalterada) =====================
+
   const sendZoom = (z: number) => {
     try {
       iframeRef.current?.contentWindow?.postMessage({ type: "app-zoom", zoom: z }, "*");
@@ -47,8 +202,6 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
     }
   };
 
-  // Sempre que o zoom muda, reenvia ao iframe (se já estiver carregado).
-  // Para iframes cross-origin o postMessage pode falhar silenciosamente — não é problema.
   useEffect(() => {
     if (mode !== "iframe" || status !== "ready") return;
     sendZoom(zoom);
@@ -78,9 +231,6 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
 
   const handleIframeLoad = () => {
     markReady();
-
-    // Envia o zoom actual assim que o iframe termina de carregar.
-    // Feito antes da injeção de CSS para garantir que o documento já existe.
     sendZoom(zoom);
 
     if (mode !== "iframe") return;
@@ -92,7 +242,6 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
       const style = doc.createElement("style");
       style.id = "__sv_fix__";
       style.textContent = `
-        /* ── Fix scroll iOS Safari dentro de iframe position:fixed ── */
         html {
           height: 100%;
           overflow-y: auto !important;
@@ -104,11 +253,9 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
           -webkit-overflow-scrolling: touch !important;
           touch-action: pan-y pinch-zoom !important;
         }
-        /* Garante que nenhum elemento filho bloqueia gestos de scroll */
         * {
           touch-action: pan-y pinch-zoom !important;
         }
-        /* Excepção: o botão de tema usa touch-action padrão (precisa de tap) */
         .theme-toggle {
           touch-action: auto !important;
         }
@@ -175,12 +322,6 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
           className="h-full w-full overflow-auto"
           style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y pinch-zoom" }}
         >
-          {/*
-            Wrapper que define a largura real (não visual) da imagem consoante o zoom.
-            Ao contrário de `transform: scale()`, isto faz o browser recalcular o
-            layout/altura verdadeiros, permitindo que o `overflow-auto` do contentor
-            pai gere scroll correcto em X e Y sem cortes nem espaços em branco no fundo.
-          */}
           <div
             style={{
               width: `${zoom * 100}%`,
@@ -199,8 +340,6 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
         </div>
       )}
 
-      {/* HTML/CSS/JS puro (o teu caso) e PDF — sem sandbox para não
-          bloquear localStorage, scripts nativos e gestos internos */}
       {mode === "iframe" && (
         <iframe
           key={attempt}
@@ -214,9 +353,6 @@ export default function SlideViewer({ url, className, title = "Apresentação", 
         />
       )}
 
-      {/* Office Online — mantém sandbox por ser domínio externo.
-          Zoom não é suportado via postMessage (cross-origin externo),
-          mas os controlos ficam visíveis para coerência de UI. */}
       {mode === "office" && (
         <iframe
           key={attempt}

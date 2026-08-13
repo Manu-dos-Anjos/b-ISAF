@@ -4,7 +4,9 @@
 import {
   Suspense,
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -49,6 +51,11 @@ const COURSES = [
 
 type CourseId = (typeof COURSES)[number]["id"];
 
+// NOTA: estes UUIDs vivem no bundle do cliente. Funciona, mas qualquer
+// curso novo/alterado exige um redeploy. Se o catálogo de cursos crescer
+// ou mudar com frequência, considera buscar isto de uma tabela `courses`
+// no Supabase em vez de hardcoded — reduz o acoplamento entre o código e
+// os dados, sem custo de segurança adicional (os IDs não são segredo).
 const COURSE_ID_MAP: Record<CourseId, string> = {
   igf: "60313e51-2b89-4c1d-9737-6606c9d5e999",
   cf: "4c41b444-b985-40e0-8449-bdf3156cf3ab",
@@ -78,9 +85,9 @@ type RegForm = {
   password: string;
   confirmPassword: string;
   fullName: string;
-  courseKey: string;
-  currentYear: number;
-  currentSemester: number;
+  courseKey: CourseId | "";
+  currentYear: (typeof YEARS)[number];
+  currentSemester: (typeof SEMESTERS)[number];
 };
 
 const REG_INIT: RegForm = {
@@ -113,14 +120,52 @@ function isIsafEmail(email: string): boolean {
   return Boolean(local) && domain === ISAF_DOMAIN;
 }
 
-function friendlyError(msg: string): string {
-  if (msg.includes("Invalid login credentials")) return "Email ou password incorrectos.";
-  if (msg.includes("Email not confirmed")) return "Confirma o teu email antes de entrar.";
-  if (msg.includes("User already registered")) return "Já existe uma conta com este email.";
-  if (msg.includes("Password should")) return "A password não cumpre os requisitos de segurança.";
-  if (msg.includes("Too many requests")) return "Demasiadas tentativas. Aguarda alguns minutos.";
-  if (msg.includes("Failed to fetch")) return "Sem ligação. Verifica a rede e tenta novamente.";
-  return `Erro: ${msg}`;
+/**
+ * Traduz erros do Supabase/rede para mensagens compreensíveis, sem expor
+ * detalhes internos ao utilizador. Usa `status`/`code` quando disponíveis
+ * (mais estável entre versões do Supabase) e só recorre à comparação de
+ * texto como último recurso. Qualquer erro não reconhecido é registado na
+ * consola para diagnóstico, mas nunca mostrado em bruto ao utilizador.
+ */
+function getErrorMessage(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as { message?: string; status?: number; code?: string; name?: string };
+    const msg = e.message ?? "";
+    const status = e.status;
+    const code = e.code;
+
+    if (code === "invalid_credentials" || msg.includes("Invalid login credentials")) {
+      return "Número de estudante ou password incorrectos.";
+    }
+    if (code === "email_not_confirmed" || msg.includes("Email not confirmed")) {
+      return "Confirma o teu email antes de entrar.";
+    }
+    if (code === "user_already_exists" || msg.includes("User already registered")) {
+      return "Já existe uma conta com este email.";
+    }
+    if (code === "weak_password" || msg.includes("Password should")) {
+      return "A password não cumpre os requisitos de segurança.";
+    }
+    if (status === 429 || msg.toLowerCase().includes("too many requests") || msg.toLowerCase().includes("rate limit")) {
+      return "Demasiadas tentativas. Aguarda alguns minutos antes de tentares novamente.";
+    }
+    if (
+      e.name === "TypeError" ||
+      msg.includes("Failed to fetch") ||
+      msg.includes("NetworkError")
+    ) {
+      return "Sem ligação à internet. Verifica a rede e tenta novamente.";
+    }
+    if (typeof status === "number" && status >= 500) {
+      return "O servidor está indisponível de momento. Tenta novamente dentro de instantes.";
+    }
+
+    console.error("Erro de autenticação:", err);
+  } else {
+    console.error("Erro de autenticação (formato inesperado):", err);
+  }
+
+  return "Não foi possível completar o pedido. Tenta novamente dentro de momentos.";
 }
 
 type PasswordRules = {
@@ -230,7 +275,7 @@ function LeftPanel() {
                 className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/15 text-blue-300">
-                  <Icon size={16} />
+                  <Icon size={16} aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-base font-bold leading-none text-white">{value}</p>
@@ -297,7 +342,7 @@ function MobileStats() {
           className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none"
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
-            <Icon size={14} />
+            <Icon size={14} aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold leading-none text-slate-900 dark:text-white">
@@ -323,15 +368,21 @@ function Feedback({
   if (!error && !success) return null;
 
   return (
-    <div className="mb-4 space-y-2">
+    <div className="mb-4 space-y-2" aria-live="polite" aria-atomic="true">
       {error && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-          <AlertCircle size={15} className="mt-0.5 shrink-0" />
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"
+        >
+          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
       {success && (
-        <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <div
+          role="status"
+          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
+        >
           {success}
         </div>
       )}
@@ -339,9 +390,12 @@ function Feedback({
   );
 }
 
-function FieldLabel({ children }: { children: ReactNode }) {
+function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: ReactNode }) {
   return (
-    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+    <label
+      htmlFor={htmlFor}
+      className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400"
+    >
       {children}
     </label>
   );
@@ -353,7 +407,10 @@ function PasswordChecklist({ password }: { password: string }) {
   const rules = validatePassword(password);
 
   return (
-    <div className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]">
+    <div
+      className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]"
+      aria-live="polite"
+    >
       {PASSWORD_REQS.map(({ key, label }) => {
         const ok = rules[key];
         return (
@@ -365,6 +422,7 @@ function PasswordChecklist({ password }: { password: string }) {
             >
               <Check
                 size={10}
+                aria-hidden="true"
                 className={`transition-colors ${
                   ok ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-600"
                 }`}
@@ -384,6 +442,34 @@ function PasswordChecklist({ password }: { password: string }) {
   );
 }
 
+function PillOption({
+  label,
+  selected,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={selected}
+      className={`flex h-11 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+        selected
+          ? "border-blue-500 bg-blue-600 text-white"
+          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/[0.08]"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 /* ================================================================
    COMPONENTE PRINCIPAL
 ================================================================ */
@@ -392,6 +478,16 @@ function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { supabase } = useSupabase();
+
+  // Evita "setState em componente desmontado" se o utilizador navegar
+  // para fora da página enquanto um pedido ainda está em curso.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const [mode, setMode] = useState<Mode>("login");
   const [loading, setLoading] = useState(false);
@@ -422,12 +518,13 @@ function LoginPageContent() {
   }, []);
 
   const updateReg = useCallback(
-    (field: keyof RegForm, value: string | number) =>
+    <K extends keyof RegForm>(field: K, value: RegForm[K]) =>
       setRegForm((prev) => ({ ...prev, [field]: value })),
     []
   );
 
   function switchMode(next: Mode) {
+    if (loading) return;
     clearFeedback();
     setMode(next);
 
@@ -448,15 +545,19 @@ function LoginPageContent() {
   ================================================================ */
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
     clearFeedback();
+
+    const studentNumber = loginStudentNumber.trim();
+    if (!studentNumber) {
+      setError("Indica o número de estudante.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const email = studentNumberToEmail(loginStudentNumber);
-
-      if (!loginStudentNumber.trim()) {
-        throw new Error("Indica o número de estudante.");
-      }
+      const email = studentNumberToEmail(studentNumber);
 
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -469,9 +570,9 @@ function LoginPageContent() {
       router.push(next);
       router.refresh();
     } catch (err: unknown) {
-      setError(friendlyError(err instanceof Error ? err.message : "Erro desconhecido"));
+      if (isMountedRef.current) setError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }
 
@@ -480,20 +581,30 @@ function LoginPageContent() {
   ================================================================ */
   async function handleReset(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
     clearFeedback();
+
+    const email = resetEmail.trim().toLowerCase();
+    if (!email) {
+      setError("Indica o teu email.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/login/nova-password`,
       });
 
       if (error) throw error;
-      setSuccess("Email enviado! Verifica a tua caixa de entrada.");
+      if (isMountedRef.current) {
+        setSuccess("Email enviado! Verifica a tua caixa de entrada.");
+      }
     } catch (err: unknown) {
-      setError(friendlyError(err instanceof Error ? err.message : "Erro desconhecido"));
+      if (isMountedRef.current) setError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }
 
@@ -549,15 +660,25 @@ function LoginPageContent() {
   ================================================================ */
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
 
-    const err = validateStep();
-    if (err) {
-      setError(err);
+    const stepErr = validateStep();
+    if (stepErr) {
+      setError(stepErr);
       return;
     }
 
-    if (!isIsafEmail(regForm.email)) {
+    const email = regForm.email.trim().toLowerCase();
+    const fullName = regForm.fullName.trim();
+
+    if (!isIsafEmail(email)) {
       setError(`O email institucional deve terminar em @${ISAF_DOMAIN}.`);
+      return;
+    }
+
+    const courseId = regForm.courseKey ? COURSE_ID_MAP[regForm.courseKey] : null;
+    if (!courseId) {
+      setError("Selecciona um curso válido.");
       return;
     }
 
@@ -565,16 +686,21 @@ function LoginPageContent() {
     setLoading(true);
 
     try {
-      const courseId = COURSE_ID_MAP[regForm.courseKey as CourseId];
-      if (!courseId) throw new Error("Curso inválido.");
-
       const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: regForm.email,
+        email,
         password: regForm.password,
         options: {
+          // Enviamos TODOS os dados do perfil aqui (não só nome e número),
+          // para que um trigger no Postgres (ex.: on_auth_user_created a
+          // ler raw_user_meta_data) consiga preencher a tabela "profiles"
+          // de forma atómica — mesmo quando a confirmação de email está
+          // activa e ainda não existe sessão para o passo seguinte.
           data: {
-            full_name: regForm.fullName,
+            full_name: fullName,
             student_number: derivedStudentNumber,
+            course_id: courseId,
+            current_year: regForm.currentYear,
+            current_semester: regForm.currentSemester,
           },
         },
       });
@@ -582,24 +708,30 @@ function LoginPageContent() {
       if (authErr) throw authErr;
       if (!authData.user) throw new Error("Utilizador não criado.");
 
-      const { error: profileErr } = await supabase
-        .from("profiles")
-        .update({
-          full_name: regForm.fullName,
-          student_number: derivedStudentNumber || null,
-          course_id: courseId,
-          current_year: regForm.currentYear,
-          current_semester: regForm.currentSemester,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", authData.user.id);
-
-      if (profileErr) throw profileErr;
-
       if (authData.session) {
+        // Há sessão activa (confirmação de email desligada, ou já
+        // confirmado automaticamente) — tentamos também o update directo
+        // como reforço. Se falhar, não bloqueamos o utilizador: a conta
+        // já existe e o trigger (se configurado) trata do essencial.
+        const { error: profileErr } = await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName,
+            student_number: derivedStudentNumber || null,
+            course_id: courseId,
+            current_year: regForm.currentYear,
+            current_semester: regForm.currentSemester,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", authData.user.id);
+
+        if (profileErr) {
+          console.error("Falha ao atualizar perfil após registo:", profileErr);
+        }
+
         router.push(searchParams.get("next") ?? "/");
         router.refresh();
-      } else {
+      } else if (isMountedRef.current) {
         setMode("login");
         setLoginStudentNumber(derivedStudentNumber);
         setLoginPassword("");
@@ -607,9 +739,9 @@ function LoginPageContent() {
         setSuccess("Conta criada! Verifica o teu email para confirmares e depois entra.");
       }
     } catch (err: unknown) {
-      setError(friendlyError(err instanceof Error ? err.message : "Erro desconhecido"));
+      if (isMountedRef.current) setError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }
 
@@ -633,16 +765,18 @@ function LoginPageContent() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-7 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-sm">
           <Feedback error={error} success={success} />
 
-          <form onSubmit={mode === "reset" ? handleReset : handleLogin} className="space-y-5">
+          <form onSubmit={mode === "reset" ? handleReset : handleLogin} className="space-y-5" noValidate>
             {mode === "login" ? (
               <div>
-                <FieldLabel>Número de estudante</FieldLabel>
+                <FieldLabel htmlFor="login-student-number">Número de estudante</FieldLabel>
                 <div className="relative">
                   <User
                     size={15}
+                    aria-hidden="true"
                     className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
+                    id="login-student-number"
                     type="text"
                     value={loginStudentNumber}
                     onChange={(e) => setLoginStudentNumber(e.target.value)}
@@ -661,13 +795,15 @@ function LoginPageContent() {
               </div>
             ) : (
               <div>
-                <FieldLabel>Email institucional</FieldLabel>
+                <FieldLabel htmlFor="reset-email">Email institucional</FieldLabel>
                 <div className="relative">
                   <Mail
                     size={15}
+                    aria-hidden="true"
                     className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
+                    id="reset-email"
                     type="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
@@ -684,11 +820,12 @@ function LoginPageContent() {
             {mode === "login" && (
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <FieldLabel>Password</FieldLabel>
+                  <FieldLabel htmlFor="login-password">Password</FieldLabel>
                   <button
                     type="button"
                     onClick={() => switchMode("reset")}
-                    className="text-[11px] text-slate-500 transition hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400"
+                    disabled={loading}
+                    className="text-[11px] text-slate-500 transition hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-500 dark:hover:text-blue-400"
                   >
                     Esqueceste a password?
                   </button>
@@ -696,9 +833,11 @@ function LoginPageContent() {
                 <div className="relative">
                   <Lock
                     size={15}
+                    aria-hidden="true"
                     className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
+                    id="login-password"
                     type={showLoginPass ? "text" : "password"}
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
@@ -727,7 +866,7 @@ function LoginPageContent() {
             >
               {loading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2 size={16} className="animate-spin" aria-hidden="true" />
                   <span>A processar…</span>
                 </>
               ) : mode === "reset" ? (
@@ -747,11 +886,12 @@ function LoginPageContent() {
           <button
             type="button"
             onClick={() => switchMode("register")}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            disabled={loading}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
           >
-            <User size={16} className="text-blue-600 dark:text-blue-400" />
+            <User size={16} aria-hidden="true" className="text-blue-600 dark:text-blue-400" />
             Criar conta
-            <ArrowRight size={15} className="ml-auto text-slate-400 dark:text-slate-500" />
+            <ArrowRight size={15} aria-hidden="true" className="ml-auto text-slate-400 dark:text-slate-500" />
           </button>
         </div>
 
@@ -760,7 +900,8 @@ function LoginPageContent() {
             <button
               type="button"
               onClick={() => switchMode("login")}
-              className="text-sm text-slate-500 transition hover:text-slate-800 dark:hover:text-slate-300"
+              disabled={loading}
+              className="text-sm text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-300"
             >
               ← Voltar ao login
             </button>
@@ -784,9 +925,10 @@ function LoginPageContent() {
           <button
             type="button"
             onClick={() => switchMode("login")}
-            className="mb-3 flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-800 dark:hover:text-slate-300"
+            disabled={loading}
+            className="mb-3 flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-300"
           >
-            <ChevronLeft size={14} />
+            <ChevronLeft size={14} aria-hidden="true" />
             Voltar ao login
           </button>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -797,10 +939,11 @@ function LoginPageContent() {
           </p>
         </div>
 
-        <div className="mb-5 flex items-center gap-2">
+        <div className="mb-5 flex items-center gap-2" role="list" aria-label="Progresso do registo">
           {([1, 2, 3] as RegStep[]).map((s) => (
-            <div key={s} className="flex flex-1 flex-col items-center gap-1.5">
+            <div key={s} role="listitem" className="flex flex-1 flex-col items-center gap-1.5">
               <div
+                aria-current={s === regStep ? "step" : undefined}
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
                   s < regStep
                     ? "bg-emerald-500 text-white"
@@ -809,7 +952,7 @@ function LoginPageContent() {
                     : "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-500"
                 }`}
               >
-                {s < regStep ? <Check size={13} /> : s}
+                {s < regStep ? <Check size={13} aria-hidden="true" /> : s}
               </div>
               <p
                 className={`text-[10px] font-medium ${
@@ -837,17 +980,20 @@ function LoginPageContent() {
                 : handleRegister
             }
             className="space-y-4"
+            noValidate
           >
             {regStep === 1 && (
               <>
                 <div>
-                  <FieldLabel>Email institucional</FieldLabel>
+                  <FieldLabel htmlFor="reg-email">Email institucional</FieldLabel>
                   <div className="relative">
                     <Mail
                       size={15}
+                      aria-hidden="true"
                       className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
+                      id="reg-email"
                       type="email"
                       value={regForm.email}
                       onChange={(e) => updateReg("email", e.target.value)}
@@ -855,6 +1001,7 @@ function LoginPageContent() {
                       required
                       autoComplete="email"
                       disabled={loading}
+                      aria-invalid={Boolean(regForm.email) && !isIsafEmail(regForm.email)}
                       className={`${inputCls} h-11 pl-10 pr-4`}
                     />
                   </div>
@@ -868,32 +1015,36 @@ function LoginPageContent() {
 
                   {regForm.email && isIsafEmail(regForm.email) && (
                     <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                      <Check size={11} />
+                      <Check size={11} aria-hidden="true" />
                       Email institucional válido.
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <FieldLabel>Password</FieldLabel>
+                  <FieldLabel htmlFor="reg-password">Password</FieldLabel>
                   <div className="relative">
                     <Lock
                       size={15}
+                      aria-hidden="true"
                       className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
+                      id="reg-password"
                       type={showPass ? "text" : "password"}
                       value={regForm.password}
                       onChange={(e) => updateReg("password", e.target.value)}
                       placeholder="Mínimo 8 caracteres"
                       required
+                      minLength={8}
+                      autoComplete="new-password"
                       disabled={loading}
                       className={`${inputCls} h-11 pl-10 pr-11`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPass((v) => !v)}
-                      aria-label={showPass ? "Ocultar" : "Mostrar"}
+                      aria-label={showPass ? "Ocultar password" : "Mostrar password"}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                     >
                       {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -904,19 +1055,26 @@ function LoginPageContent() {
                 </div>
 
                 <div>
-                  <FieldLabel>Confirmar password</FieldLabel>
+                  <FieldLabel htmlFor="reg-confirm-password">Confirmar password</FieldLabel>
                   <div className="relative">
                     <Lock
                       size={15}
+                      aria-hidden="true"
                       className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
+                      id="reg-confirm-password"
                       type={showPass ? "text" : "password"}
                       value={regForm.confirmPassword}
                       onChange={(e) => updateReg("confirmPassword", e.target.value)}
                       placeholder="Repete a password"
                       required
+                      autoComplete="new-password"
                       disabled={loading}
+                      aria-invalid={
+                        Boolean(regForm.confirmPassword) &&
+                        regForm.password !== regForm.confirmPassword
+                      }
                       className={`${inputCls} h-11 pl-10 pr-4`}
                     />
                   </div>
@@ -932,7 +1090,7 @@ function LoginPageContent() {
                     regForm.password === regForm.confirmPassword &&
                     isPasswordValid(regForm.password) && (
                       <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                        <Check size={11} />
+                        <Check size={11} aria-hidden="true" />
                         Passwords coincidem.
                       </p>
                     )}
@@ -943,13 +1101,15 @@ function LoginPageContent() {
             {regStep === 2 && (
               <>
                 <div>
-                  <FieldLabel>Nome completo</FieldLabel>
+                  <FieldLabel htmlFor="reg-full-name">Nome completo</FieldLabel>
                   <div className="relative">
                     <User
                       size={15}
+                      aria-hidden="true"
                       className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
+                      id="reg-full-name"
                       type="text"
                       value={regForm.fullName}
                       onChange={(e) => updateReg("fullName", e.target.value)}
@@ -963,19 +1123,20 @@ function LoginPageContent() {
                 </div>
 
                 <div>
-                  <FieldLabel>Número de estudante</FieldLabel>
+                  <FieldLabel htmlFor="reg-student-number">Número de estudante</FieldLabel>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                       #
                     </span>
                     <input
+                      id="reg-student-number"
                       type="text"
                       value={derivedStudentNumber}
                       readOnly
                       className="h-11 w-full cursor-not-allowed rounded-xl border border-emerald-300 bg-emerald-50 pl-8 pr-10 text-sm text-slate-900 outline-none dark:border-emerald-500/30 dark:bg-emerald-500/5 dark:text-white"
                     />
                     <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
-                      <Check size={11} className="text-emerald-600 dark:text-emerald-400" />
+                      <Check size={11} aria-hidden="true" className="text-emerald-600 dark:text-emerald-400" />
                     </div>
                   </div>
                   <p className="mt-1.5 text-[11px] text-emerald-600 dark:text-emerald-400/70">
@@ -989,13 +1150,16 @@ function LoginPageContent() {
               <>
                 <div>
                   <FieldLabel>Curso</FieldLabel>
-                  <div className="space-y-2">
+                  <div className="space-y-2" role="radiogroup" aria-label="Curso">
                     {COURSES.map((c) => (
                       <button
                         key={c.id}
                         type="button"
+                        role="radio"
+                        aria-checked={regForm.courseKey === c.id}
                         onClick={() => updateReg("courseKey", c.id)}
-                        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                        disabled={loading}
+                        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                           regForm.courseKey === c.id
                             ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-500/50 dark:bg-blue-500/10 dark:ring-blue-500/30"
                             : "border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/[0.08]"
@@ -1020,7 +1184,7 @@ function LoginPageContent() {
                           {c.name}
                         </p>
                         {regForm.courseKey === c.id && (
-                          <Check size={15} className="shrink-0 text-blue-600 dark:text-blue-400" />
+                          <Check size={15} aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400" />
                         )}
                       </button>
                     ))}
@@ -1030,47 +1194,37 @@ function LoginPageContent() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <FieldLabel>Ano actual</FieldLabel>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" role="radiogroup" aria-label="Ano actual">
                       {YEARS.map((y) => (
-                        <button
+                        <PillOption
                           key={y}
-                          type="button"
+                          label={`${y}º`}
+                          selected={regForm.currentYear === y}
                           onClick={() => updateReg("currentYear", y)}
-                          className={`flex h-11 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition-all ${
-                            regForm.currentYear === y
-                              ? "border-blue-500 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/[0.08]"
-                          }`}
-                        >
-                          {y}º
-                        </button>
+                          disabled={loading}
+                        />
                       ))}
                     </div>
                   </div>
 
                   <div>
                     <FieldLabel>Semestre</FieldLabel>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" role="radiogroup" aria-label="Semestre">
                       {SEMESTERS.map((s) => (
-                        <button
+                        <PillOption
                           key={s}
-                          type="button"
+                          label={`${s}º`}
+                          selected={regForm.currentSemester === s}
                           onClick={() => updateReg("currentSemester", s)}
-                          className={`flex h-11 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition-all ${
-                            regForm.currentSemester === s
-                              ? "border-blue-500 bg-blue-600 text-white"
-                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/[0.08]"
-                          }`}
-                        >
-                          {s}º
-                        </button>
+                          disabled={loading}
+                        />
                       ))}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-400">
-                  <GraduationCap size={13} className="mt-0.5 shrink-0" />
+                  <GraduationCap size={13} aria-hidden="true" className="mt-0.5 shrink-0" />
                   <span>
                     Podes actualizar o ano e semestre a qualquer momento no teu perfil.
                   </span>
@@ -1086,7 +1240,7 @@ function LoginPageContent() {
                   disabled={loading}
                   className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                 >
-                  <ChevronLeft size={15} />
+                  <ChevronLeft size={15} aria-hidden="true" />
                   Voltar
                 </button>
               )}
@@ -1098,17 +1252,17 @@ function LoginPageContent() {
               >
                 {loading ? (
                   <>
-                    <Loader2 size={15} className="animate-spin" />
+                    <Loader2 size={15} className="animate-spin" aria-hidden="true" />
                     A criar conta…
                   </>
                 ) : regStep < 3 ? (
                   <>
                     <span>Continuar</span>
-                    <ChevronRight size={15} />
+                    <ChevronRight size={15} aria-hidden="true" />
                   </>
                 ) : (
                   <>
-                    <Check size={15} />
+                    <Check size={15} aria-hidden="true" />
                     <span>Criar conta</span>
                   </>
                 )}

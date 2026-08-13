@@ -21,6 +21,7 @@ export type SavedItem = {
   chapterTitle: string;
   topicTitle: string;
   fileUrl: string | null;
+  durationSeconds: number | null; // ✅ NOVO
   savedAt: string;
 };
 
@@ -36,6 +37,7 @@ type ContentRow = {
   type: string;
   file_url: string | null;
   topic_id: string | null;
+  duration_seconds: number | null; // ✅ NOVO
 };
 
 type TopicRow = {
@@ -77,7 +79,7 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
 
   const { data: contentRows, error: contentErr } = await supabase
     .from("contents")
-    .select("id, title, type, file_url, topic_id")
+    .select("id, title, type, file_url, topic_id, duration_seconds") // ✅ adicionado duration_seconds
     .in("id", contentIds);
 
   if (contentErr) {
@@ -162,6 +164,7 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
       chapterTitle: chapter?.title ?? "Sem capítulo",
       topicTitle: topic?.title ?? "",
       fileUrl: content?.file_url ?? null,
+      durationSeconds: content?.duration_seconds ?? null, // ✅ NOVO
       savedAt: row.saved_at,
     };
   });

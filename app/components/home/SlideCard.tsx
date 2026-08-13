@@ -1,36 +1,33 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { Clock, Eye } from "lucide-react";
 
 type SlideCardProps = {
-  id: string | number;
+  id: string;
+  disciplinaId: string;
   disciplina: string;
   tituloSlide: string;
-  slidesVistos: number;
-  totalSlides?: number;
   ultimaVisualizacao?: string;
   thumbnail: string;
   progress?: number;
 };
 
 export default function SlideCard({
+  id,
+  disciplinaId,
   disciplina,
   tituloSlide,
-  slidesVistos,
-  totalSlides,
   ultimaVisualizacao,
   thumbnail,
-  progress,
+  progress = 0,
 }: SlideCardProps) {
-  const percentual = totalSlides
-    ? Math.round((slidesVistos / totalSlides) * 100)
-    : progress || 0;
-
   return (
-    <div className="group relative flex w-[280px] flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-md shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-xl hover:shadow-slate-300/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none">
-
-      {/* Imagem */}
+    <Link
+      href={`/disciplinas/${disciplinaId}?openSlide=${id}`} // ✅ query param em vez de rota inexistente
+      className="group relative flex w-[280px] flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-md shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-xl hover:shadow-slate-300/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none"
+    >
       <div className="relative h-40 overflow-hidden bg-slate-200 dark:bg-white/5">
         <Image
           src={thumbnail}
@@ -41,14 +38,13 @@ export default function SlideCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
 
-        {percentual > 0 && (
+        {progress > 0 && (
           <div className="absolute right-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs font-bold text-white ring-1 ring-white/10 backdrop-blur-md">
-            {percentual}%
+            {progress}%
           </div>
         )}
       </div>
 
-      {/* Conteúdo */}
       <div className="flex flex-1 flex-col p-4">
         <p className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
           {disciplina}
@@ -58,14 +54,10 @@ export default function SlideCard({
           {tituloSlide}
         </h3>
 
-        {/* Informações */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
             <Eye size={15} />
-            <span className="font-medium">{slidesVistos} slides</span>
-            {totalSlides && (
-              <span className="text-slate-400 dark:text-slate-500">/ {totalSlides}</span>
-            )}
+            <span className="font-medium">{progress}% visualizado</span>
           </div>
 
           {ultimaVisualizacao && (
@@ -76,17 +68,16 @@ export default function SlideCard({
           )}
         </div>
 
-        {/* Barra de progresso */}
-        {percentual > 0 ? (
+        {progress > 0 ? (
           <div className="mt-auto space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-medium text-slate-500 dark:text-slate-500">Progresso</span>
-              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{percentual}%</span>
+              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{progress}%</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
               <div
                 className="h-full rounded-full bg-blue-600 transition-all duration-300 dark:bg-blue-500"
-                style={{ width: `${percentual}%` }}
+                style={{ width: `${progress}%` }}
               />
             </div>
           </div>
@@ -99,6 +90,6 @@ export default function SlideCard({
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 }

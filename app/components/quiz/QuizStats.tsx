@@ -72,7 +72,7 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
           </button>
           <div>
             <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
-              Estatísticas da turma
+              Estatísticas dos Estudantes
             </p>
             <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 line-clamp-1">
               {title}
@@ -121,7 +121,7 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
                 },
                 {
                   icon:  TrendingUp,
-                  label: "Média da turma",
+                  label: "Média dos Estudantes",
                   value: `${stats.avgScore}%`,
                   color: stats.avgScore >= 60
                     ? "text-emerald-600 dark:text-emerald-400"

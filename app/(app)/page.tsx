@@ -1,8 +1,9 @@
-// app/page.tsx
+// app/(app)/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react"; // ✅ useState incluído
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   BarChart3,
@@ -23,37 +24,12 @@ import AudioCard from "@/app/components/home/AudioCard";
 import SlideCard from "@/app/components/home/SlideCard";
 import QuizCard from "@/app/components/home/QuizCard";
 import SectionCarousel from "@/app/components/home/SectionCarousel";
-import { disciplinaImages } from "@/data/disciplinaImages";
 import { useUser } from "@/app/lib/context/UserContext";
+import { useHomeHistory } from "@/app/lib/hooks/useHomeHistory";
+import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext"; // ✅ novo
+import type { UserQuizHistory } from "@/app/lib/data/homeHistory";
 
-// ===================== TIPOS =====================
-type UserAudioHistory = {
-  id: string | number;
-  disciplina: string;
-  tema: string;
-  duracao: string;
-  progress?: number;
-};
-
-type UserSlideHistory = {
-  id: string | number;
-  disciplina: string;
-  tituloSlide: string;
-  slidesVistos: number;
-  totalSlides?: number;
-  ultimaVisualizacao?: string;
-  progress?: number;
-};
-
-type UserQuizHistory = {
-  id: string | number;
-  disciplina: string;
-  tituloQuiz: string;
-  pontuacao: number;
-  totalPerguntas: number;
-  dataConclusao?: string;
-};
-
+// ===================== COLLAPSE MOBILE =====================
 type MobileInfoCollapseProps = {
   title: string;
   subtitle?: string;
@@ -71,7 +47,7 @@ function MobileInfoCollapse({
   className = "",
   children,
 }: MobileInfoCollapseProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // ✅ agora funciona
 
   return (
     <section
@@ -93,14 +69,12 @@ function MobileInfoCollapse({
               <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                 {title}
               </h3>
-
               {badge && (
                 <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
                   {badge}
                 </span>
               )}
             </div>
-
             {subtitle && (
               <p className="mt-0.5 line-clamp-1 text-sm text-slate-600 dark:text-slate-500">
                 {subtitle}
@@ -124,6 +98,7 @@ function MobileInfoCollapse({
   );
 }
 
+// ===================== SUMMARY PANEL =====================
 type SummaryPanelBodyProps = {
   latestQuiz: UserQuizHistory | null;
   audioAvgProgress: number;
@@ -159,14 +134,12 @@ function SummaryPanelBody({
                 {latestQuiz.disciplina}
               </p>
             </div>
-
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-right dark:border-white/10 dark:bg-white/[0.04]">
               <p className="text-lg font-black text-slate-900 dark:text-white">
                 {latestQuizPct}%
               </p>
             </div>
           </div>
-
           {latestQuiz.dataConclusao && (
             <p className="mt-3 text-[11px] text-slate-600 dark:text-slate-500">
               Concluído {latestQuiz.dataConclusao}
@@ -214,7 +187,6 @@ function SummaryPanelBody({
               histórico recente
             </p>
           </div>
-
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
             <BarChart3 size={14} />
             Sempre atualizado
@@ -225,6 +197,7 @@ function SummaryPanelBody({
   );
 }
 
+// ===================== BANNERS =====================
 function ProfileBannerBody() {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -241,7 +214,6 @@ function ProfileBannerBody() {
           </p>
         </div>
       </div>
-
       <Link
         href="/perfil"
         className="inline-flex min-h-11 items-center justify-center rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500"
@@ -260,16 +232,13 @@ function TutorBannerBody() {
           <Sparkles size={12} />
           Tutor IA
         </div>
-
         <h2 className="mt-3 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-white">
           Tira dúvidas, revisa conceitos e acelera o estudo
         </h2>
-
         <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-400">
-          Escolhe uma disciplina e um tema. O Tutor IA ajuda-te a compreender
-          o conteúdo, destaca o essencial e acompanha o teu ritmo.
+          Escolhe uma disciplina e um tema. O Tutor IA ajuda-te a compreender o
+          conteúdo, destaca o essencial e acompanha o teu ritmo.
         </p>
-
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
           {["Perguntas rápidas", "Explicações por tema", "Foco no exame"].map(
             (item) => (
@@ -283,7 +252,6 @@ function TutorBannerBody() {
           )}
         </div>
       </div>
-
       <Link
         href="/disciplinas"
         className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500"
@@ -297,172 +265,20 @@ function TutorBannerBody() {
 
 // ===================== HOME PAGE =====================
 export default function HomePage() {
+  const router = useRouter();
   const userContext = useUser();
   const { user, profile } = userContext;
   const userLoading =
     (userContext as any).loading ?? (userContext as any).isLoading ?? false;
 
-  const [historicoAudios, setHistoricoAudios] = useState<UserAudioHistory[]>(
-    []
-  );
-  const [historicoSlides, setHistoricoSlides] = useState<UserSlideHistory[]>(
-    []
-  );
-  const [historicoQuizzes, setHistoricoQuizzes] = useState<UserQuizHistory[]>(
-    []
-  );
-  const [loading, setLoading] = useState(true);
+  const { play } = useAudioPlayer(); // ✅ player real
 
-  const getThumbnail = (disciplina: string): string => {
-    return (
-      disciplinaImages[disciplina as keyof typeof disciplinaImages] ||
-      disciplinaImages.default ||
-      "/images/disciplinas/default.jpg"
-    );
-  };
-
-  useEffect(() => {
-    const loadUserHistory = async () => {
-      if (userLoading) return;
-
-      setLoading(true);
-      try {
-        const mockAudios: UserAudioHistory[] = [
-          {
-            id: 1,
-            disciplina: "Fundamentos de Sistemas de Informação",
-            tema: "Introdução aos Sistemas de Informação",
-            duracao: "14:32",
-            progress: 45,
-          },
-          {
-            id: 2,
-            disciplina: "Metodologias de Investigação Científica",
-            tema: "Ciência e Pesquisa",
-            duracao: "22:10",
-            progress: 80,
-          },
-          {
-            id: 3,
-            disciplina: "Comunicação Pessoal e Empresarial",
-            tema: "Comunicação Assertiva",
-            duracao: "08:45",
-            progress: 30,
-          },
-          {
-            id: 4,
-            disciplina: "Matemática I",
-            tema: "Funções e Gráficos",
-            duracao: "22:10",
-            progress: 80,
-          },
-          {
-            id: 5,
-            disciplina: "Inglês I",
-            tema: "The verbs 'to be' and 'to have'",
-            duracao: "08:45",
-            progress: 30,
-          },
-        ];
-
-        const mockSlides: UserSlideHistory[] = [
-          {
-            id: 101,
-            disciplina: "Fundamentos de Sistemas de Informação",
-            tituloSlide: "Introdução aos Sistemas de Informação",
-            slidesVistos: 12,
-            totalSlides: 25,
-            ultimaVisualizacao: "2 dias atrás",
-          },
-          {
-            id: 102,
-            disciplina: "Inglês I",
-            tituloSlide: "Adjetivos e Advérbios",
-            slidesVistos: 25,
-            totalSlides: 25,
-            ultimaVisualizacao: "Há 5 horas",
-          },
-          {
-            id: 103,
-            disciplina: "Comunicação Pessoal e Empresarial",
-            tituloSlide: "Comunicação Assertiva",
-            slidesVistos: 8,
-            totalSlides: 18,
-            ultimaVisualizacao: "Ontem",
-          },
-          {
-            id: 104,
-            disciplina: "Metodologias de Investigação Científica",
-            tituloSlide: "Pesquisa Bibliográfica",
-            slidesVistos: 25,
-            totalSlides: 25,
-            ultimaVisualizacao: "Há 5 horas",
-          },
-          {
-            id: 105,
-            disciplina: "Matemática I",
-            tituloSlide: "Matrizes e Determinantes",
-            slidesVistos: 8,
-            totalSlides: 18,
-            ultimaVisualizacao: "Ontem",
-          },
-        ];
-
-        const mockQuizzes: UserQuizHistory[] = [
-          {
-            id: 201,
-            disciplina: "Inglês I",
-            tituloQuiz: "Teste 1 - Composição de Frases",
-            pontuacao: 14,
-            totalPerguntas: 15,
-            dataConclusao: "3 dias atrás",
-          },
-          {
-            id: 202,
-            disciplina: "Matemática I",
-            tituloQuiz: "Teste 2 - Matrizes e Determinantes",
-            pontuacao: 9,
-            totalPerguntas: 12,
-            dataConclusao: "1 semana atrás",
-          },
-          {
-            id: 203,
-            disciplina: "Metodologias de Investigação Científica",
-            tituloQuiz: "Teste 1 - Recolha de Dados",
-            pontuacao: 14,
-            totalPerguntas: 15,
-            dataConclusao: "3 dias atrás",
-          },
-          {
-            id: 204,
-            disciplina: "Fundamentos de Sistemas de Informação",
-            tituloQuiz: "Teste 3 - Componentes de um SI",
-            pontuacao: 9,
-            totalPerguntas: 12,
-            dataConclusao: "1 semana atrás",
-          },
-          {
-            id: 205,
-            disciplina: "Comunicação Pessoal e Empresarial",
-            tituloQuiz: "Teste 2 - Estilos de comunicação",
-            pontuacao: 14,
-            totalPerguntas: 15,
-            dataConclusao: "3 dias atrás",
-          },
-        ];
-
-        setHistoricoAudios(mockAudios);
-        setHistoricoSlides(mockSlides);
-        setHistoricoQuizzes(mockQuizzes);
-      } catch (error) {
-        console.error("Erro ao carregar histórico:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUserHistory();
-  }, [userLoading]);
+  const {
+    audios: historicoAudios,
+    slides: historicoSlides,
+    quizzes: historicoQuizzes,
+    loading,
+  } = useHomeHistory();
 
   const userName =
     profile?.full_name?.split(" ")[0] ||
@@ -471,43 +287,35 @@ export default function HomePage() {
 
   const quizAveragePct = useMemo(() => {
     if (!historicoQuizzes.length) return null;
-
     const values = historicoQuizzes
       .filter((q) => q.totalPerguntas > 0)
       .map((q) => Math.round((q.pontuacao / q.totalPerguntas) * 100));
-
     if (!values.length) return null;
-
     return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
   }, [historicoQuizzes]);
 
   const audioAvgProgress = useMemo(() => {
     if (!historicoAudios.length) return 0;
-
     return Math.round(
       historicoAudios.reduce((sum, item) => sum + (item.progress ?? 0), 0) /
         historicoAudios.length
     );
   }, [historicoAudios]);
 
-  const slideAvgProgress = useMemo(() => {
-    if (!historicoSlides.length) return 0;
-
-    return Math.round(
-      historicoSlides.reduce((sum, item) => {
-        const pct =
-          item.totalSlides && item.totalSlides > 0
-            ? (item.slidesVistos / item.totalSlides) * 100
-            : 0;
-        return sum + pct;
-      }, 0) / historicoSlides.length
-    );
-  }, [historicoSlides]);
+const slideAvgProgress = useMemo(() => {
+  if (!historicoSlides.length) return 0;
+  return Math.round(
+    historicoSlides.reduce((sum, item) => sum + (item.progress ?? 0), 0) /
+      historicoSlides.length
+  );
+}, [historicoSlides]);
 
   const totalRecentItems =
     historicoAudios.length + historicoSlides.length + historicoQuizzes.length;
 
   const latestQuiz = historicoQuizzes[0] ?? null;
+
+  const DEFAULT_THUMBNAIL = "/images/disciplinas/default.jpg";
 
   const quickActions = [
     {
@@ -565,7 +373,7 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.08),transparent_42%)]" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(34,197,94,0.05),transparent_45%)]" />
 
-        {/* MOBILE — compacto */}
+        {/* MOBILE */}
         <div className="relative p-4 lg:hidden">
           <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
             <div className="min-w-0">
@@ -573,7 +381,6 @@ export default function HomePage() {
                 <Sparkles size={11} />
                 Biblioteca Virtual
               </div>
-
               <h1 className="mt-3 text-lg font-bold tracking-tight text-slate-900 dark:text-white">
                 Olá,{" "}
                 <span className="text-indigo-600 dark:text-indigo-400">
@@ -581,18 +388,15 @@ export default function HomePage() {
                 </span>{" "}
                 👋
               </h1>
-
               <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                 Acede rapidamente aos teus conteúdos sem ocupar demasiado ecrã.
               </p>
             </div>
-
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20">
               <Sparkles size={18} />
             </div>
           </div>
 
-          {/* Ações rápidas em linha */}
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {quickActions.map((action) => {
               const Icon = action.icon;
@@ -609,7 +413,6 @@ export default function HomePage() {
             })}
           </div>
 
-          {/* Linha curta de contexto */}
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900 dark:text-slate-400">
             <Flame size={13} className="text-amber-500" />
             <span>{totalRecentItems} conteúdos recentes</span>
@@ -624,7 +427,6 @@ export default function HomePage() {
 
         {/* DESKTOP */}
         <div className="relative hidden gap-6 p-4 lg:grid xl:grid-cols-[1.2fr_0.8fr] xl:p-8">
-          {/* ESQUERDA */}
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
               <Sparkles size={12} />
@@ -637,8 +439,8 @@ export default function HomePage() {
               </h1>
               <p className="max-w-2xl text-sm leading-relaxed text-slate-700 sm:text-base dark:text-slate-400">
                 Organiza o teu estudo, retoma os conteúdos mais recentes e
-                acompanha o teu progresso com uma visão clara de áudio, slides
-                e avaliações.
+                acompanha o teu progresso com uma visão clara de áudio, slides e
+                avaliações.
               </p>
             </div>
 
@@ -650,7 +452,6 @@ export default function HomePage() {
                 <BookOpen size={15} />
                 Ver disciplinas
               </Link>
-
               <Link
                 href="/avaliacoes"
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
@@ -707,9 +508,7 @@ export default function HomePage() {
                   >
                     <Icon size={16} className={color} />
                   </div>
-                  <p
-                    className={`text-center text-lg font-black tabular-nums ${color}`}
-                  >
+                  <p className={`text-center text-lg font-black tabular-nums ${color}`}>
                     {value}
                   </p>
                   <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-500">
@@ -723,7 +522,6 @@ export default function HomePage() {
             <div className="grid gap-3 sm:grid-cols-3">
               {quickActions.map((action) => {
                 const Icon = action.icon;
-
                 return (
                   <Link
                     key={action.href}
@@ -735,7 +533,6 @@ export default function HomePage() {
                         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 dark:bg-white/[0.04]">
                           <Icon size={18} className={action.iconClass} />
                         </div>
-
                         <div>
                           <h3 className="text-base font-bold text-slate-900 dark:text-white">
                             {action.title}
@@ -745,7 +542,6 @@ export default function HomePage() {
                           </p>
                         </div>
                       </div>
-
                       <ArrowRight
                         size={14}
                         className="mt-1 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700 dark:text-slate-500 dark:group-hover:text-white"
@@ -757,7 +553,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* PAINEL DIREITO DESKTOP */}
+          {/* PAINEL DIREITO */}
           <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60 backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/60 dark:shadow-none sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -768,12 +564,10 @@ export default function HomePage() {
                   O teu progresso
                 </h2>
               </div>
-
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
                 <Flame size={18} />
               </div>
             </div>
-
             <div className="mt-4 space-y-3">
               <SummaryPanelBody
                 latestQuiz={latestQuiz}
@@ -786,7 +580,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* RESUMO DO MOMENTO MOBILE */}
+      {/* RESUMO MOBILE */}
       <MobileInfoCollapse
         className="mt-4"
         title="Resumo do momento"
@@ -816,29 +610,7 @@ export default function HomePage() {
           </MobileInfoCollapse>
 
           <section className="hidden rounded-[24px] border border-amber-200 bg-amber-50 p-4 shadow-sm shadow-amber-100/60 sm:block sm:p-5 dark:border-amber-500/20 dark:bg-amber-500/5 dark:shadow-none">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:ring-amber-500/20">
-                  <Sparkles size={20} />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="font-semibold text-slate-900 dark:text-white">
-                    Completa o teu perfil
-                  </h2>
-                  <p className="mt-0.5 text-sm leading-relaxed text-slate-700 dark:text-slate-400">
-                    Adiciona o teu curso e ano para personalizarmos a tua
-                    experiência.
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                href="/perfil"
-                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-amber-500"
-              >
-                Ir para o perfil
-              </Link>
-            </div>
+            <ProfileBannerBody />
           </section>
         </>
       )}
@@ -860,7 +632,9 @@ export default function HomePage() {
         </section>
       </>
 
-      {/* CARROSSEIS */}
+      {/* ===================== CARROSSEIS ===================== */}
+
+      {/* ÁUDIOS */}
       <SectionCarousel title="Continuar a ouvir">
         {loading ? (
           <div className="flex items-center gap-2 py-8 text-sm font-medium text-slate-600">
@@ -874,17 +648,31 @@ export default function HomePage() {
               disciplina={item.disciplina}
               tema={item.tema}
               duracao={item.duracao}
-              thumbnail={getThumbnail(item.disciplina)}
+              thumbnail={item.thumbnail ?? DEFAULT_THUMBNAIL}
               progress={item.progress}
+              onClick={() => {
+                if (!item.fileUrl) {
+                  console.warn("Áudio sem URL:", item.contentId);
+                  return;
+                }
+                play({
+                  id: item.contentId,
+                  title: item.tema,
+                  url: item.fileUrl,           // ✅ campo correto do AudioTrack
+                  discipline: item.disciplina,
+                  coverUrl: item.thumbnail ?? DEFAULT_THUMBNAIL, // ✅ campo correto
+                });
+              }}
             />
           ))
         ) : (
-          <p className="py-8 text-sm font-medium text-slate-600">
+          <p className="py-8 text-sm font-medium text-slate-600 dark:text-slate-400">
             Nenhum áudio no histórico.
           </p>
         )}
       </SectionCarousel>
 
+      {/* SLIDES */}
       <SectionCarousel title="Slides lidos recentemente">
         {loading ? (
           <div className="flex items-center gap-2 py-8 text-sm font-medium text-slate-600">
@@ -895,23 +683,23 @@ export default function HomePage() {
           historicoSlides.map((item) => (
             <SlideCard
               key={item.id}
-              id={item.id}
+              id={item.contentId}
+              disciplinaId={item.disciplinaId}
               disciplina={item.disciplina}
               tituloSlide={item.tituloSlide}
-              slidesVistos={item.slidesVistos}
-              totalSlides={item.totalSlides}
               ultimaVisualizacao={item.ultimaVisualizacao}
-              thumbnail={getThumbnail(item.disciplina)}
+              thumbnail={item.thumbnail ?? DEFAULT_THUMBNAIL}
               progress={item.progress}
             />
           ))
         ) : (
-          <p className="py-8 text-sm font-medium text-slate-600">
+          <p className="py-8 text-sm font-medium text-slate-600 dark:text-slate-400">
             Ainda não leste nenhum slide.
           </p>
         )}
       </SectionCarousel>
 
+      {/* QUIZZES */}
       <SectionCarousel title="Questionários em andamento">
         {loading ? (
           <div className="flex items-center gap-2 py-8 text-sm font-medium text-slate-600">
@@ -922,18 +710,21 @@ export default function HomePage() {
           historicoQuizzes.map((item) => (
             <QuizCard
               key={item.id}
-              id={item.id}
+              id={item.contentId}
               disciplina={item.disciplina}
               tituloQuiz={item.tituloQuiz}
               pontuacao={item.pontuacao}
+              acertos={item.pontuacao}
               totalPerguntas={item.totalPerguntas}
               dataConclusao={item.dataConclusao}
-              thumbnail={getThumbnail(item.disciplina)}
-              acertos={item.pontuacao}
+              thumbnail={item.thumbnail ?? DEFAULT_THUMBNAIL}
+              onClick={() =>
+  router.push(`/disciplinas/${item.disciplinaId}?openQuiz=${item.contentId}`) // ✅
+}
             />
           ))
         ) : (
-          <p className="py-8 text-sm font-medium text-slate-600">
+          <p className="py-8 text-sm font-medium text-slate-600 dark:text-slate-400">
             Ainda não fizeste nenhum questionário.
           </p>
         )}

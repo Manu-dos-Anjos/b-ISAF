@@ -16,6 +16,7 @@ export type ContentRow = {
   file_key: string | null;
   order_index: number;
   time_limit_seconds: number | null;
+  duration_seconds: number | null; // ✅ NOVO
   progress_percent: number;
   completed: boolean;
 };
@@ -62,6 +63,7 @@ type DBTopicContent = {
   file_key: string | null;
   order_index: number;
   time_limit_seconds: number | null;
+  duration_seconds: number | null; // ✅ NOVO
 };
 
 type DBChapterContent = DBTopicContent & {
@@ -120,6 +122,7 @@ function toContentRow(
     file_key: c.file_key,
     order_index: c.order_index,
     time_limit_seconds: c.time_limit_seconds,
+    duration_seconds: c.duration_seconds,
     progress_percent: progressMap.get(c.id)?.progress_percent ?? 0,
     completed: progressMap.get(c.id)?.completed ?? false,
   };
@@ -307,14 +310,14 @@ const DISCIPLINE_SELECT = `
 
       contents (
         id, type, title, file_url, file_key, order_index,
-        time_limit_seconds, topic_id, chapter_id
+        time_limit_seconds, duration_seconds, topic_id, chapter_id
       ),
 
       topics (
         id, title, order_index,
         contents (
           id, type, title, file_url, file_key, order_index,
-          time_limit_seconds
+          time_limit_seconds, duration_seconds
         )
       )
     )

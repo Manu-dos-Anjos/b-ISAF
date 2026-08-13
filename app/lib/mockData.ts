@@ -1,3 +1,10 @@
+export const iconMap = {
+  book: "book",
+  video: "video",
+  star: "star",
+  code: "code",
+} as const;
+
 export type ContentType = "audio" | "slide" | "quiz";
 
 export interface TopicContent {
@@ -6,6 +13,7 @@ export interface TopicContent {
   title: string;
   url?: string;
   timeLimitSeconds?: number | null;
+  durationSeconds?: number | null; // ✅ NOVO
 }
 
 export interface Topic {

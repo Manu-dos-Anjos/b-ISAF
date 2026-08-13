@@ -1,6 +1,7 @@
 // app/components/DisciplineClient.tsx
 "use client";
 
+import { useSearchParams, useRouter as useNavRouter, usePathname } from "next/navigation";
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Image from "next/image";
@@ -406,7 +407,13 @@ function MobileSlideSheet({
       </div>
 
       <div className="relative min-h-0 flex-1 bg-slate-100 dark:bg-black/80">
-        <SlideViewer url={panel.context.content.url ?? ""} title={panel.context.content.title} zoom={zoom} />
+        <SlideViewer
+  url={panel.context.content.url ?? ""}
+  title={panel.context.content.title}
+  zoom={zoom}
+  contentId={panel.context.content.id}
+  estimatedDurationSeconds={panel.context.content.durationSeconds ?? undefined}
+/>
       </div>
     </div>
   );
@@ -420,6 +427,10 @@ export default function DisciplineClient({ discipline }: Props) {
   const chapters = discipline.chapters ?? [];
   const hasCover = !!discipline.coverUrl;
   const { supabase } = useSupabase();
+  const searchParams = useSearchParams();
+const navRouter = useNavRouter();
+const pathname = usePathname();
+const hasAutoOpenedRef = useRef(false);
 
   const heroTitleClass = hasCover ? "text-white" : "text-slate-900 dark:text-white";
   const heroLabelClass = hasCover ? "text-indigo-400" : "text-indigo-600 dark:text-indigo-400";
@@ -505,6 +516,45 @@ export default function DisciplineClient({ discipline }: Props) {
     });
     return () => cleanups.forEach((fn) => fn());
   }, []);
+
+  /* ── Auto-abrir conteúdo vindo da Home (query params) ── */
+useEffect(() => {
+  if (hasAutoOpenedRef.current) return;
+
+  const openSlideId = searchParams.get("openSlide");
+  const openQuizId = searchParams.get("openQuiz");
+
+  if (!openSlideId && !openQuizId) return;
+
+  hasAutoOpenedRef.current = true;
+
+  for (const chapter of chapters) {
+    // Verifica se é o quiz do capítulo
+    if (openQuizId && chapter.quiz?.id === openQuizId) {
+      setActiveChapterId(chapter.id);
+      openQuiz(chapter.quiz, chapter.title);
+      break;
+    }
+
+    // Verifica conteúdos dentro dos tópicos (slide/audio)
+    let found = false;
+    for (const topic of chapter.topics ?? []) {
+      const content = topic.contents?.find((c) => c.id === openSlideId);
+      if (content) {
+        setActiveChapterId(chapter.id);
+        setMobileView("topics");
+        openContent(content, topic.title);
+        found = true;
+        break;
+      }
+    }
+    if (found) break;
+  }
+
+  // Limpa o query param da URL sem recarregar a página
+  navRouter.replace(pathname, { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [searchParams, chapters]);
 
   /* ── Vídeo ── */
   const videoModalRef = useRef<HTMLDivElement | null>(null);
@@ -1574,7 +1624,13 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
               </div>
             </div>
             <div className="relative min-h-0 flex-1 bg-slate-100 dark:bg-black/80">
-              <SlideViewer url={panel.context.content.url ?? ""} title={panel.context.content.title} zoom={zoom} />
+              <SlideViewer
+  url={panel.context.content.url ?? ""}
+  title={panel.context.content.title}
+  zoom={zoom}
+  contentId={panel.context.content.id}
+  estimatedDurationSeconds={panel.context.content.durationSeconds ?? undefined}
+/>
             </div>
           </div>
         );

@@ -1,6 +1,7 @@
 // app/api/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
+import * as mm from "music-metadata"; // ✅ NOVO
 import {
   getR2Client,
   R2_BUCKET,
@@ -45,6 +46,21 @@ export async function POST(request: NextRequest) {
     const key    = getFileKey(folder, disciplineId, file.name);
     const buffer = Buffer.from(await file.arrayBuffer());
 
+    // ── NOVO: extrair duração do áudio antes do upload ──
+    let durationSeconds: number | null = null;
+
+    if (type === "audio") {
+      try {
+        const metadata = await mm.parseBuffer(buffer, file.type);
+        durationSeconds = metadata.format.duration
+          ? Math.round(metadata.format.duration)
+          : null;
+      } catch (error) {
+        console.warn("Não foi possível extrair a duração do áudio:", error);
+        durationSeconds = null;
+      }
+    }
+
     const client = getR2Client();
 
     await client.send(
@@ -58,7 +74,13 @@ export async function POST(request: NextRequest) {
 
     const publicUrl = getPublicUrl(key);
 
-    return NextResponse.json({ publicUrl, key, type, disciplineId });
+    return NextResponse.json({
+      publicUrl,
+      key,
+      type,
+      disciplineId,
+      durationSeconds, // ✅ NOVO
+    });
   } catch (err) {
     console.error("Erro no upload:", err);
     return NextResponse.json(

@@ -202,48 +202,37 @@ export interface Database {
       }
 
       contents: {
-        Row: {
-          id:                 string
-          topic_id:           string
-          chapter_id:         string | null
-          type:               "audio" | "slide" | "quiz"
-          title:              string
-          file_url:           string | null
-          file_key:           string | null
-          time_limit_seconds: number | null
-          order_index:        number
-          is_active:          boolean
-          created_at:         string
-        }
-        Insert: {
-          id?:                 string
-          topic_id:            string
-          chapter_id?:         string | null
-          type:                "audio" | "slide" | "quiz"
-          title:               string
-          file_url?:           string | null
-          file_key?:           string | null
-          time_limit_seconds?: number | null
-          order_index?:        number
-          is_active?:          boolean
-          created_at?:         string
-        }
-        Update: Partial<Database["public"]["Tables"]["contents"]["Insert"]>
-        Relationships: [
-          {
-            foreignKeyName: "contents_topic_id_fkey"
-            columns: ["topic_id"]
-            referencedRelation: "topics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contents_chapter_id_fkey"
-            columns: ["chapter_id"]
-            referencedRelation: "chapters"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
+  Row: {
+    id:                 string
+    topic_id:           string | null  // ✅ null para quizzes
+    chapter_id:         string | null  // ✅ null para áudio/slides
+    type:               "audio" | "slide" | "quiz"
+    title:              string
+    file_url:           string | null
+    file_key:           string | null
+    time_limit_seconds: number | null
+    duration_seconds:   number | null  // ✅ ADICIONAR ESTE CAMPO
+    order_index:        number
+    is_active:          boolean
+    created_at:         string
+  }
+  Insert: {
+    id?:                 string
+    topic_id?:           string | null
+    chapter_id?:         string | null
+    type:                "audio" | "slide" | "quiz"
+    title:               string
+    file_url?:           string | null
+    file_key?:           string | null
+    time_limit_seconds?: number | null
+    duration_seconds?:   number | null  // ✅ ADICIONAR ESTE CAMPO
+    order_index?:        number
+    is_active?:          boolean
+    created_at?:         string
+  }
+  Update: Partial<Database["public"]["Tables"]["contents"]["Insert"]>
+  // ...
+}
 
       student_progress: {
         Row: {
