@@ -1,7 +1,6 @@
-// app/(app)/page.tsx
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react"; // ✅ useState incluído
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -26,10 +25,9 @@ import QuizCard from "@/app/components/home/QuizCard";
 import SectionCarousel from "@/app/components/home/SectionCarousel";
 import { useUser } from "@/app/lib/context/UserContext";
 import { useHomeHistory } from "@/app/lib/hooks/useHomeHistory";
-import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext"; // ✅ novo
+import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
 import type { UserQuizHistory } from "@/app/lib/data/homeHistory";
 
-// ===================== COLLAPSE MOBILE =====================
 type MobileInfoCollapseProps = {
   title: string;
   subtitle?: string;
@@ -47,7 +45,7 @@ function MobileInfoCollapse({
   className = "",
   children,
 }: MobileInfoCollapseProps) {
-  const [open, setOpen] = useState(false); // ✅ agora funciona
+  const [open, setOpen] = useState(false);
 
   return (
     <section
@@ -63,7 +61,6 @@ function MobileInfoCollapse({
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-violet-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-violet-300">
             <Icon size={18} />
           </div>
-
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
@@ -82,13 +79,11 @@ function MobileInfoCollapse({
             )}
           </div>
         </div>
-
         <div className="flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-400">
           <span>{open ? "Recolher" : "Expandir"}</span>
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </button>
-
       {open && (
         <div className="border-t border-slate-200 p-4 dark:border-white/10">
           {children}
@@ -98,7 +93,6 @@ function MobileInfoCollapse({
   );
 }
 
-// ===================== SUMMARY PANEL =====================
 type SummaryPanelBodyProps = {
   latestQuiz: UserQuizHistory | null;
   audioAvgProgress: number;
@@ -113,9 +107,11 @@ function SummaryPanelBody({
   totalQuizzes,
 }: SummaryPanelBodyProps) {
   const latestQuizPct = latestQuiz
-    ? Math.round(
-        (latestQuiz.pontuacao / Math.max(1, latestQuiz.totalPerguntas)) * 100
-      )
+    ? latestQuiz.emAndamento
+      ? latestQuiz.pontuacao
+      : Math.round(
+          (latestQuiz.pontuacao / Math.max(1, latestQuiz.totalPerguntas)) * 100
+        )
     : null;
 
   return (
@@ -125,7 +121,7 @@ function SummaryPanelBody({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-500">
-                Último quiz
+                {latestQuiz.emAndamento ? "Quiz em andamento" : "Último quiz"}
               </p>
               <h3 className="mt-1 line-clamp-2 text-sm font-bold text-slate-900 dark:text-white">
                 {latestQuiz.tituloQuiz}
@@ -142,7 +138,8 @@ function SummaryPanelBody({
           </div>
           {latestQuiz.dataConclusao && (
             <p className="mt-3 text-[11px] text-slate-600 dark:text-slate-500">
-              Concluído {latestQuiz.dataConclusao}
+              {latestQuiz.emAndamento ? "Atualizado " : "Concluído "}
+              {latestQuiz.dataConclusao}
             </p>
           )}
         </div>
@@ -160,7 +157,6 @@ function SummaryPanelBody({
             média de progresso
           </p>
         </div>
-
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60 dark:border-white/10 dark:bg-slate-950/60 dark:shadow-none">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-500">
             Slides
@@ -197,7 +193,6 @@ function SummaryPanelBody({
   );
 }
 
-// ===================== BANNERS =====================
 function ProfileBannerBody() {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -263,7 +258,6 @@ function TutorBannerBody() {
   );
 }
 
-// ===================== HOME PAGE =====================
 export default function HomePage() {
   const router = useRouter();
   const userContext = useUser();
@@ -271,7 +265,7 @@ export default function HomePage() {
   const userLoading =
     (userContext as any).loading ?? (userContext as any).isLoading ?? false;
 
-  const { play } = useAudioPlayer(); // ✅ player real
+  const { play } = useAudioPlayer();
 
   const {
     audios: historicoAudios,
@@ -288,7 +282,7 @@ export default function HomePage() {
   const quizAveragePct = useMemo(() => {
     if (!historicoQuizzes.length) return null;
     const values = historicoQuizzes
-      .filter((q) => q.totalPerguntas > 0)
+      .filter((q) => !q.emAndamento && q.totalPerguntas > 0)
       .map((q) => Math.round((q.pontuacao / q.totalPerguntas) * 100));
     if (!values.length) return null;
     return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
@@ -302,13 +296,13 @@ export default function HomePage() {
     );
   }, [historicoAudios]);
 
-const slideAvgProgress = useMemo(() => {
-  if (!historicoSlides.length) return 0;
-  return Math.round(
-    historicoSlides.reduce((sum, item) => sum + (item.progress ?? 0), 0) /
-      historicoSlides.length
-  );
-}, [historicoSlides]);
+  const slideAvgProgress = useMemo(() => {
+    if (!historicoSlides.length) return 0;
+    return Math.round(
+      historicoSlides.reduce((sum, item) => sum + (item.progress ?? 0), 0) /
+        historicoSlides.length
+    );
+  }, [historicoSlides]);
 
   const totalRecentItems =
     historicoAudios.length + historicoSlides.length + historicoQuizzes.length;
@@ -503,9 +497,7 @@ const slideAvgProgress = useMemo(() => {
                   key={label}
                   className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/60 backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none sm:p-4"
                 >
-                  <div
-                    className={`mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}
-                  >
+                  <div className={`mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}>
                     <Icon size={16} className={color} />
                   </div>
                   <p className={`text-center text-lg font-black tabular-nums ${color}`}>
@@ -658,9 +650,9 @@ const slideAvgProgress = useMemo(() => {
                 play({
                   id: item.contentId,
                   title: item.tema,
-                  url: item.fileUrl,           // ✅ campo correto do AudioTrack
+                  url: item.fileUrl,
                   discipline: item.disciplina,
-                  coverUrl: item.thumbnail ?? DEFAULT_THUMBNAIL, // ✅ campo correto
+                  coverUrl: item.thumbnail ?? DEFAULT_THUMBNAIL,
                 });
               }}
             />
@@ -700,7 +692,7 @@ const slideAvgProgress = useMemo(() => {
       </SectionCarousel>
 
       {/* QUIZZES */}
-      <SectionCarousel title="Questionários em andamento">
+      <SectionCarousel title="Questionários recentes">
         {loading ? (
           <div className="flex items-center gap-2 py-8 text-sm font-medium text-slate-600">
             <Loader2 size={16} className="animate-spin" />
@@ -714,13 +706,14 @@ const slideAvgProgress = useMemo(() => {
               disciplina={item.disciplina}
               tituloQuiz={item.tituloQuiz}
               pontuacao={item.pontuacao}
-              acertos={item.pontuacao}
+              acertos={item.emAndamento ? item.pontuacao : item.pontuacao}
               totalPerguntas={item.totalPerguntas}
               dataConclusao={item.dataConclusao}
               thumbnail={item.thumbnail ?? DEFAULT_THUMBNAIL}
+              emAndamento={item.emAndamento ?? false}
               onClick={() =>
-  router.push(`/disciplinas/${item.disciplinaId}?openQuiz=${item.contentId}`) // ✅
-}
+                router.push(`/disciplinas/${item.disciplinaId}?openQuiz=${item.contentId}`)
+              }
             />
           ))
         ) : (

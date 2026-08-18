@@ -33,6 +33,7 @@ import {
   CheckSquare,
   Maximize2,
   Minimize2,
+  Bookmark,
 } from "lucide-react";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { useUser } from "@/app/lib/context/UserContext";
@@ -42,6 +43,7 @@ import type {
   QuizResultInsert,
   QuizResultDetailInsert,
 } from "@/src/types/database";
+import { saveItem, removeSavedItem } from "@/app/actions/saved";
 
 /* ================================================================
    CONFIG
@@ -338,6 +340,56 @@ export default function QuizPlayer({
 }: Props) {
   const { supabase } = useSupabase();
   const { profile } = useUser();
+
+  const [isSaved, setIsSaved] = useState(false);
+const [savingToggle, setSavingToggle] = useState(false);
+const [shouldSaveOnClose, setShouldSaveOnClose] = useState(false);
+
+// Verifica se o quiz já está guardado
+useEffect(() => {
+  if (!profile?.id || !contentId) return;
+  let cancelled = false;
+
+  (async () => {
+    const { data } = await supabase
+      .from("saved_items")
+      .select("id")
+      .eq("student_id", profile.id)
+      .eq("content_id", contentId)
+      .maybeSingle();
+
+    if (!cancelled) setIsSaved(!!data?.id);
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [profile?.id, contentId, supabase]);
+
+const toggleSave = async () => {
+  if (!profile?.id || !contentId || savingToggle) return;
+  setSavingToggle(true);
+  try {
+    if (isSaved) {
+      const { data } = await supabase
+        .from("saved_items")
+        .select("id")
+        .eq("student_id", profile.id)
+        .eq("content_id", contentId)
+        .maybeSingle();
+
+      if (data?.id) await removeSavedItem(data.id);
+      setIsSaved(false);
+    } else {
+      await saveItem(profile.id, contentId);
+      setIsSaved(true);
+    }
+  } catch (err) {
+    console.error("Erro ao guardar quiz:", err);
+  } finally {
+    setSavingToggle(false);
+  }
+};
 
   /* ── Dados ── */
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -1051,38 +1103,64 @@ export default function QuizPlayer({
         {content}
 
         {showCloseConfirm && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-slate-900">
-              <div className="flex items-center gap-2">
-                <AlertOctagon size={18} className="shrink-0 text-amber-500 dark:text-amber-400" />
-                <p className="text-sm font-bold text-slate-900 dark:text-white">
-                  Sair do questionário?
-                </p>
-              </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Já respondeste a {answeredCount} de {orderedQuestions.length} perguntas. O teu
-                progresso fica guardado e podes continuar mais tarde.
-              </p>
-              <div className="flex gap-2.5">
-                <button
-                  onClick={() => setShowCloseConfirm(false)}
-                  className="flex-1 rounded-xl border border-slate-300 bg-slate-50 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-                >
-                  Continuar a responder
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCloseConfirm(false);
-                    onClose();
-                  }}
-                  className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white transition hover:bg-rose-500"
-                >
-                  Sair
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+  <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+    <div className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-slate-900">
+      <div className="flex items-center gap-2">
+        <AlertOctagon size={18} className="shrink-0 text-amber-500 dark:text-amber-400" />
+        <p className="text-sm font-bold text-slate-900 dark:text-white">
+          Sair do questionário?
+        </p>
+      </div>
+      <p className="text-xs text-slate-600 dark:text-slate-400">
+        Já respondeste a {answeredCount} de {orderedQuestions.length} perguntas. O teu
+        progresso fica guardado e podes continuar mais tarde.
+      </p>
+
+      {/* ✅ Nova opção de guardar */}
+      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+        <input
+          type="checkbox"
+          checked={shouldSaveOnClose}
+          onChange={(e) => setShouldSaveOnClose(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-white/15 dark:bg-white/10"
+        />
+        <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+          <Bookmark
+            size={12}
+            className={isSaved ? "text-amber-600" : "text-slate-400"}
+            fill={isSaved ? "currentColor" : "none"}
+          />
+          Guardar este questionário para mais tarde
+        </span>
+      </label>
+
+      <div className="flex gap-2.5">
+        <button
+          onClick={() => {
+            setShowCloseConfirm(false);
+            setShouldSaveOnClose(false);
+          }}
+          className="flex-1 rounded-xl border border-slate-300 bg-slate-50 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+        >
+          Continuar a responder
+        </button>
+        <button
+          onClick={async () => {
+            setShowCloseConfirm(false);
+            if (shouldSaveOnClose && !isSaved) {
+              await toggleSave();
+            }
+            setShouldSaveOnClose(false);
+            onClose();
+          }}
+          className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white transition hover:bg-rose-500"
+        >
+          {shouldSaveOnClose && !isSaved ? "Guardar e sair" : "Sair"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
         {showSubmitConfirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -1825,14 +1903,34 @@ export default function QuizPlayer({
     <div className="flex flex-col overflow-hidden" style={{ height: "100%" }}>
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
         <div className="flex min-w-0 items-center gap-3">
-          <button
-            onClick={handleRequestClose}
-            className="shrink-0 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
-            aria-label="Fechar questionário"
-          >
-            <X size={16} />
-          </button>
-          <div className="min-w-0">
+  <button
+    onClick={handleRequestClose}
+    className="shrink-0 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+    aria-label="Fechar questionário"
+  >
+    <X size={16} />
+  </button>
+
+  {/* ✅ BOTÃO DE GUARDAR QUIZ */}
+  <button
+    onClick={() => void toggleSave()}
+    disabled={savingToggle || !profile?.id}
+    className={`rounded-xl p-2 transition disabled:opacity-40 ${
+      isSaved
+        ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
+        : "text-slate-400 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-amber-400"
+    }`}
+    aria-label={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+    title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+  >
+    {savingToggle ? (
+      <Loader2 size={14} className="animate-spin" />
+    ) : (
+      <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
+    )}
+  </button>
+
+  <div className="min-w-0">
             <p className="truncate text-xs text-slate-500 dark:text-slate-500">
               {disciplineName} · {chapterTitle}
             </p>

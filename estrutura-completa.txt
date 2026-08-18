@@ -1,108 +1,148 @@
-Listagem completa do projeto (relativa à raiz):
+Árvore completa do projeto (relativa à raiz):
 
-tailwind.configure.ts
-package.json
-proxy.ts
-postcss.config.mjs
-AGENTS.md
-next.config.ts
-README.md
-.github/workflows/keep-alive.yml
-eslint.config.mjs
-.vscode/settings.json
-STRUCTURE.txt
-package-lock.json
-CLAUDE.md
-tsconfig.json
-app/providers.tsx
-app/actions/saved.ts
-app/actions/quiz-stats.ts
-public/sw.js
-public/globe.svg
-public/next.svg
-public/file.svg
-public/manifest.json
-public/videos/fundamentos-intro.mp4
-public/window.svg
-app/lib/quizPendingSync.ts
-public/images/login-bg.jpg
-app/lib/mockData.ts
-public/slides/fsi.pdf
-app/lib/context/UserContext.tsx
-public/slides/o-que-a-comunica-o-?.md
-app/lib/context/AudioPlayerContext.tsx
-app/lib/context/SupabaseContext.tsx
-public/audios/fundamentos-organigrama.MP3
-app/lib/supabase/server.ts
-app/lib/supabase/client.ts
-public/icons/icon-192x192.png
-public/icons/icon-512x512.png
-public/logo_dark.svg
-public/vercel.svg
-app/globals.css
-app/lib/data/homeHistory.ts
-app/lib/data/disciplines.ts
-src/types/database.ts
+.github/
+	workflows/
+		keep-alive.yml
+.vscode/
+	settings.json
+app/
+	(app)/
+		(dashboard)/
+			page_avaliacoes_mock.tsx
+			avaliacoes/
+				AvaliacoesClient.tsx
+				mockAvaliacoes.ts
+				page.tsx
+		disciplinas/
+			DisciplineCard.tsx
+			page.tsx
+			[id]/
+				DisciplineClient.tsx
+				page.tsx
+		eventos/
+			page.tsx
+		guardados/
+			GuardadosClient.tsx
+			page.tsx
+		meu-curso/
+			page.tsx
+		page.tsx
+		layout.tsx
+	actions/
+		saved.ts
+		quiz-stats.ts
+	api/
+		upload/
+			route.ts
+		profile/
+			route.ts
+			avatar/
+				route.ts
+	components/
+		ServiceWorkerRegister.tsx
+		ErrorBoundary.tsx
+		Sidebar.tsx
+		AppShell.tsx
+		audio/
+			MiniPlayer.tsx
+		header/
+			Breadcrumbs.tsx
+			Header.tsx
+		home/
+			AudioCard.tsx
+			QuizCard.tsx
+			SectionCarousel.tsx
+			SlideCard.tsx
+		meu-curso/
+			MeuCursoPage.tsx
+			MeuCursoPageWrapper.tsx
+		quiz/
+			QuizHost.tsx
+			QuizModalShell.tsx
+			QuizPlayer.tsx
+			QuizReview.tsx
+			QuizStats.tsx
+		slides/
+			SlideViewer.tsx
+	lib/
+		progressPendingSync.ts
+		quizPendingSync.ts
+		safeLocalStorage.ts
+		audioPersistedSchema.ts
+		mockData.ts
+		curriculum.ts
+		r2.ts
+		supabase/
+			client.ts
+			server.ts
+		context/
+			AudioPlayerContext.tsx
+			SupabaseContext.tsx
+			UserContext.tsx
+		data/
+			disciplines.ts
+			homeHistory.ts
+		hooks/
+			useBreadcrumbDiscipline.ts
+			useDisciplines.ts
+			useDisciplineStudyPlan.ts
+			useFileUpload.ts
+			useHomeHistory.ts
+			useLocalStorageState.ts
+			useProfileMutations.ts
+			useQuizSession.ts
+			useSchedule.ts
+			useScheduleInfo.ts
+			useScheduleReset.ts
+			useTheme.ts
+	layout.tsx
+	globals.css
+	topo.css
+	providers.tsx
+	favicon.ico
+	login/
+		layout.tsx
+		page.tsx
+data/
+	disciplinaImages.ts
+public/
+	sw.js
+	globe.svg
+	next.svg
+	file.svg
+	manifest.json
+	videos/
+		fundamentos-intro.mp4
+	window.svg
+	images/
+		login-bg.jpg
+	slides/
+		fsi.pdf
+		o-que-a-comunica-o-?.md
+	vercel.svg
+	audios/
+		fundamentos-organigrama.MP3
+	icons/
+		icon-192x192.png
+		icon-512x512.png
+	logo_dark.svg
+scripts/
+	keep-alive.js
+src/
+	types/
+		database.ts
 .gitignore
-data/disciplinaImages.ts
-app/lib/hooks/useDisciplineStudyPlan.ts
-app/lib/hooks/useBreadcrumbDiscipline.ts
-app/lib/hooks/useSchedule.ts
-app/lib/hooks/useDisciplines.ts
-app/lib/hooks/useScheduleInfo.ts
-app/lib/hooks/useHomeHistory.ts
-app/lib/hooks/useFileUpload.ts
-app/lib/hooks/useTheme.ts
-app/lib/hooks/useLocalStorageState.ts
-app/lib/hooks/useScheduleReset.ts
-app/lib/hooks/useQuizSession.ts
-app/lib/curriculum.ts
-app/lib/r2.ts
-app/layout.tsx
-app/topo.css
-app/favicon.ico
-scripts/keep-alive.js
-app/login/layout.tsx
-app/login/page.tsx
-app/api/upload/route.ts
-app/components/home/AudioCard.tsx
-app/components/home/SlideCard.tsx
-app/components/home/QuizCard.tsx
-app/components/home/SectionCarousel.tsx
-app/(app)/eventos/page.tsx
-app/(app)/page.tsx
-app/components/quiz/QuizModalShell.tsx
-app/components/quiz/QuizStats.tsx
-app/components/quiz/QuizHost.tsx
-app/components/quiz/QuizPlayer.tsx
-app/components/quiz/QuizReview.tsx
-app/components/header/Breadcrumbs.tsx
-app/components/header/Header.tsx
-app/(app)/(dashboard)/page_avaliacoes_mock.tsx
-app/components/AppShell.tsx
-app/components/Sidebar.tsx
-app/components/meu-curso/MeuCursoPageWrapper.tsx
-app/components/meu-curso/MeuCursoPage.tsx
-app/(app)/(dashboard)/avaliacoes/page.tsx
-app/(app)/(dashboard)/avaliacoes/mockAvaliacoes.ts
-app/(app)/(dashboard)/avaliacoes/AvaliacoesClient.tsx
-app/components/slides/SlideViewer.tsx
-app/components/ServiceWorkerRegister.tsx
-app/(app)/guardados/page.tsx
-app/(app)/guardados/GuardadosClient.tsx
-app/components/audio/MiniPlayer.tsx
-app/(app)/layout.tsx
-app/(app)/meu-curso/page.tsx
-app/(app)/disciplinas/[id]/DisciplineClient.tsx
-app/(app)/disciplinas/[id]/page.tsx
-app/(app)/disciplinas/DisciplineCard.tsx
-app/(app)/disciplinas/page.tsx
-app/(app)/disciplinas/page.tsx
-app/components/home/WelcomeBanner.tsx
-app/components/meu-curso/MeuCursoPage.tsx
-app/components/meu-curso/MeuCursoPageWrapper.tsx
-app/lib/hooks/useLocalStorageState.ts
-src/hooks/useFileUpload.ts
-src/types/database.ts
+AGENTS.md
+CLAUDE.md
+README.md
+estrutura-completa.txt
+eslint.config.mjs
+postcss.config.mjs
+tailwind.configure.ts
+next.config.ts
+tsconfig.json
+package.json
+package-lock.json
+proxy.ts
 
 Fim da listagem.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { useUser } from "@/app/lib/context/UserContext";
 
@@ -102,9 +102,15 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Guarda a referência do userId para evitar efeitos repetidos
+  const userIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user?.id]);
+
+  // Carrega ou cria a sessão
   useEffect(() => {
     setIsLoading(true);
-
     const existing = readSession(contentId);
     if (existing) {
       setSession(existing);
@@ -113,7 +119,6 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
       setSession(fresh);
       writeSession(contentId, fresh);
     }
-
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentId]);
@@ -129,6 +134,55 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
     },
     [contentId, timeLimitSeconds]
   );
+
+  // Nova função para gravar progresso parcial no Supabase
+  const savePartialProgress = useCallback(async (currentSession?: QuizSessionState | null) => {
+    const userId = userIdRef.current;
+    if (!userId || !contentId || !currentSession) return;
+
+    const total = currentSession.questionIds.length;
+    if (total === 0) return;
+
+    const answered = Object.keys(currentSession.answers).length;
+    const progressPercent = Math.min(100, Math.round((answered / total) * 100));
+
+    try {
+      const { error } = await supabase.from("student_progress").upsert(
+        {
+          student_id: userId,
+          content_id: contentId,
+          progress_percent: progressPercent,
+          last_position_seconds: 0,
+          completed: false,
+          completed_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "student_id,content_id" }
+      );
+      if (error) console.error("Erro ao gravar progresso parcial do quiz:", error);
+    } catch (err) {
+      console.error("Falha na gravação de progresso parcial do quiz:", err);
+    }
+  }, [supabase, contentId]);
+
+  const savePartialProgressRef = useRef(savePartialProgress);
+  useEffect(() => {
+    savePartialProgressRef.current = savePartialProgress;
+  }, [savePartialProgress]);
+
+  // Grava progresso ao sair da página ou desmontar
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (session) void savePartialProgressRef.current(session);
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Limpa ao desmontar? Não remove a sessão, apenas grava.
+      if (session) void savePartialProgressRef.current(session);
+    };
+  }, [session]);
 
   const loadSession = useCallback(async () => {
     const existing = readSession(contentId);
@@ -166,13 +220,18 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
             : [...current, answerId]
           : [answerId];
 
-        return {
+        const next = {
           ...prev,
           answers: { ...prev.answers, [questionId]: nextForQuestion },
         };
+
+        // Grava progresso após cada resposta
+        void savePartialProgressRef.current(next);
+
+        return next;
       });
     },
-    [persist]
+    [persist, savePartialProgressRef]
   );
 
   const tickTimer = useCallback(() => {
@@ -194,15 +253,14 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
     setSession(null);
   }, [contentId]);
 
-  // ===================== SUBMISSÃO REAL (NOVO) =====================
+  // ===================== SUBMISSÃO REAL =====================
   const submitQuiz = useCallback(async (): Promise<SubmitQuizResult | null> => {
-    if (!session || !user?.id || session.questionIds.length === 0) return null;
+    if (!session || !userIdRef.current || session.questionIds.length === 0) return null;
 
     setIsSubmitting(true);
     try {
       const { questionIds, answers, attemptStartedAt } = session;
 
-      // Busca todas as respostas corretas das perguntas envolvidas
       const { data: answerRows, error: answersError } = await supabase
         .from("quiz_answers")
         .select("id, question_id, is_correct")
@@ -253,7 +311,7 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
       const { data: resultRow, error: resultError } = await supabase
         .from("quiz_results")
         .insert({
-          student_id: user.id,
+          student_id: userIdRef.current,
           content_id: contentId,
           score: scorePct,
           total_questions: totalQuestions,
@@ -280,6 +338,13 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
         console.error("Erro ao gravar detalhes do quiz:", detailsError);
       }
 
+      // Remove o progresso parcial do student_progress (se existir)
+      await supabase
+        .from("student_progress")
+        .delete()
+        .eq("student_id", userIdRef.current)
+        .eq("content_id", contentId);
+
       await clearSession();
 
       return {
@@ -294,7 +359,7 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
     } finally {
       setIsSubmitting(false);
     }
-  }, [session, user?.id, contentId, supabase, clearSession]);
+  }, [session, supabase, contentId, clearSession]);
 
   return {
     session,
@@ -307,6 +372,6 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
     clearSession,
     resetSession,
     loadSession,
-    submitQuiz, // NOVO
+    submitQuiz,
   };
 }

@@ -1,5 +1,10 @@
 // app/lib/data/homeHistory.ts
+
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+/* =========================================================
+   TIPOS
+========================================================= */
 
 export type UserAudioHistory = {
   id: string;
@@ -34,45 +39,102 @@ export type UserQuizHistory = {
   totalPerguntas: number;
   dataConclusao: string;
   thumbnail: string | null;
+
+  /**
+   * Indica se o quiz ainda está em andamento.
+   *
+   * Atualmente é calculado com base nos dados disponíveis
+   * em quiz_results.
+   */
+  emAndamento: boolean;
 };
 
+/* =========================================================
+   HELPERS
+========================================================= */
+
 function formatDuration(seconds?: number | null): string {
-  if (seconds == null) return "--:--";
+  if (seconds == null || !Number.isFinite(seconds)) {
+    return "--:--";
+  }
+
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
+
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 function formatRelative(iso?: string | null): string {
   if (!iso) return "";
-  const diffMs = Date.now() - new Date(iso).getTime();
+
+  const date = new Date(iso);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const diffMs = Date.now() - date.getTime();
   const diffH = Math.round(diffMs / 36e5);
-  if (diffH < 1) return "Agora mesmo";
-  if (diffH < 24) return `Há ${diffH}h`;
+
+  if (diffH < 1) {
+    return "Agora mesmo";
+  }
+
+  if (diffH < 24) {
+    return `Há ${diffH}h`;
+  }
+
   const diffD = Math.round(diffH / 24);
-  if (diffD < 7) return `${diffD}d atrás`;
-  return new Date(iso).toLocaleDateString("pt-PT");
+
+  if (diffD < 7) {
+    return `${diffD}d atrás`;
+  }
+
+  return date.toLocaleDateString("pt-PT");
 }
+
+/* =========================================================
+   ÁUDIOS
+========================================================= */
 
 export async function fetchAudioHistory(
   supabase: SupabaseClient,
   studentId: string,
   limit = 10
 ): Promise<UserAudioHistory[]> {
-  // 1. Busca os content_ids de tipo audio com progresso
+  /*
+   * 1. Busca os progressos do estudante.
+   *
+   * Não filtramos type aqui porque student_progress
+   * não possui o tipo do conteúdo.
+   */
   const { data: progressRows, error: progressError } = await supabase
     .from("student_progress")
-    .select("id, content_id, progress_percent, updated_at")
+    .select(`
+      id,
+      content_id,
+      progress_percent,
+      updated_at
+    `)
     .eq("student_id", studentId)
     .order("updated_at", { ascending: false })
-    .limit(50); // busca mais para depois filtrar por tipo
+    .limit(50);
 
-  if (progressError) throw progressError;
-  if (!progressRows || progressRows.length === 0) return [];
+  if (progressError) {
+    throw progressError;
+  }
 
-  const contentIds = progressRows.map((r: any) => r.content_id);
+  if (!progressRows || progressRows.length === 0) {
+    return [];
+  }
 
-  // 2. Busca os conteúdos com o join completo, filtrando por tipo
+  const contentIds = progressRows.map(
+    (row: { content_id: string }) => row.content_id
+  );
+
+  /*
+   * 2. Busca somente conteúdos do tipo audio.
+   */
   const { data: contents, error: contentsError } = await supabase
     .from("contents")
     .select(`
@@ -85,7 +147,9 @@ export async function fetchAudioHistory(
       topic:topics (
         chapter:chapters (
           discipline:disciplines (
-            id, name, cover_image_url
+            id,
+            name,
+            cover_image_url
           )
         )
       )
@@ -94,130 +158,274 @@ export async function fetchAudioHistory(
     .eq("type", "audio")
     .eq("is_active", true);
 
-  if (contentsError) throw contentsError;
-  if (!contents || contents.length === 0) return [];
+  if (contentsError) {
+    throw contentsError;
+  }
 
-  // 3. Combina os dados
+  if (!contents || contents.length === 0) {
+    return [];
+  }
+
+  /*
+   * 3. Cria mapa content_id -> progresso.
+   */
   const progressMap = new Map(
-    progressRows.map((r: any) => [r.content_id, r])
+    progressRows.map((row: any) => [
+      row.content_id,
+      row,
+    ])
   );
 
+  /*
+   * 4. Junta conteúdo + progresso.
+   */
   return contents
-    .filter((c: any) => c.topic?.chapter?.discipline)
-    .map((c: any) => {
-      const progress = progressMap.get(c.id);
-      const disciplina = c.topic.chapter.discipline;
+    .filter(
+      (content: any) =>
+        content.topic?.chapter?.discipline
+    )
+    .map((content: any) => {
+      const progress = progressMap.get(content.id);
+      const disciplina = content.topic.chapter.discipline;
+
       return {
-        id: progress?.id ?? c.id,
-        contentId: c.id,
+        id: progress?.id ?? content.id,
+
+        contentId: content.id,
+
         disciplinaId: disciplina.id,
+
         disciplina: disciplina.name,
-        tema: c.title,
-        duracao: formatDuration(c.duration_seconds),
-        progress: progress?.progress_percent ?? 0,
-        thumbnail: disciplina.cover_image_url ?? null,
-        fileUrl: c.file_url ?? null,
+
+        tema: content.title,
+
+        duracao: formatDuration(
+          content.duration_seconds
+        ),
+
+        progress:
+          progress?.progress_percent ?? 0,
+
+        thumbnail:
+          disciplina.cover_image_url ?? null,
+
+        fileUrl:
+          content.file_url ?? null,
       };
     })
     .sort((a, b) => {
-      const pa = progressMap.get(a.contentId);
-      const pb = progressMap.get(b.contentId);
-      return new Date(pb?.updated_at ?? 0).getTime() -
-             new Date(pa?.updated_at ?? 0).getTime();
+      const progressA = progressMap.get(
+        a.contentId
+      );
+
+      const progressB = progressMap.get(
+        b.contentId
+      );
+
+      return (
+        new Date(
+          progressB?.updated_at ?? 0
+        ).getTime() -
+        new Date(
+          progressA?.updated_at ?? 0
+        ).getTime()
+      );
     })
     .slice(0, limit);
 }
+
+/* =========================================================
+   SLIDES
+========================================================= */
 
 export async function fetchSlideHistory(
   supabase: SupabaseClient,
   studentId: string,
   limit = 10
 ): Promise<UserSlideHistory[]> {
-  // 1. Busca progresso
-  const { data: progressRows, error: progressError } = await supabase
-    .from("student_progress")
-    .select("id, content_id, progress_percent, updated_at")
-    .eq("student_id", studentId)
-    .order("updated_at", { ascending: false })
-    .limit(50);
+  /*
+   * 1. Busca os progressos.
+   */
+  const { data: progressRows, error: progressError } =
+    await supabase
+      .from("student_progress")
+      .select(`
+        id,
+        content_id,
+        progress_percent,
+        updated_at
+      `)
+      .eq("student_id", studentId)
+      .order("updated_at", { ascending: false })
+      .limit(50);
 
-  if (progressError) throw progressError;
-  if (!progressRows || progressRows.length === 0) return [];
+  if (progressError) {
+    throw progressError;
+  }
 
-  const contentIds = progressRows.map((r: any) => r.content_id);
+  if (!progressRows || progressRows.length === 0) {
+    return [];
+  }
 
-  // 2. Busca slides com join
-  const { data: contents, error: contentsError } = await supabase
-    .from("contents")
-    .select(`
-      id,
-      title,
-      type,
-      is_active,
-      topic:topics (
-        chapter:chapters (
-          discipline:disciplines (
-            id, name, cover_image_url
-          )
-        )
-      )
-    `)
-    .in("id", contentIds)
-    .eq("type", "slide")
-    .eq("is_active", true);
-
-  if (contentsError) throw contentsError;
-  if (!contents || contents.length === 0) return [];
-
-  const progressMap = new Map(
-    progressRows.map((r: any) => [r.content_id, r])
+  const contentIds = progressRows.map(
+    (row: { content_id: string }) => row.content_id
   );
 
+  /*
+   * 2. Busca somente slides.
+   */
+  const { data: contents, error: contentsError } =
+    await supabase
+      .from("contents")
+      .select(`
+        id,
+        title,
+        type,
+        is_active,
+        topic:topics (
+          chapter:chapters (
+            discipline:disciplines (
+              id,
+              name,
+              cover_image_url
+            )
+          )
+        )
+      `)
+      .in("id", contentIds)
+      .eq("type", "slide")
+      .eq("is_active", true);
+
+  if (contentsError) {
+    throw contentsError;
+  }
+
+  if (!contents || contents.length === 0) {
+    return [];
+  }
+
+  /*
+   * 3. Mapa dos progressos.
+   */
+  const progressMap = new Map(
+    progressRows.map((row: any) => [
+      row.content_id,
+      row,
+    ])
+  );
+
+  /*
+   * 4. Combina conteúdo + progresso.
+   */
   return contents
-    .filter((c: any) => c.topic?.chapter?.discipline)
-    .map((c: any) => {
-      const progress = progressMap.get(c.id);
-      const disciplina = c.topic.chapter.discipline;
+    .filter(
+      (content: any) =>
+        content.topic?.chapter?.discipline
+    )
+    .map((content: any) => {
+      const progress = progressMap.get(content.id);
+      const disciplina = content.topic.chapter.discipline;
+
       return {
-        id: progress?.id ?? c.id,
-        contentId: c.id,
+        id: progress?.id ?? content.id,
+
+        contentId: content.id,
+
         disciplinaId: disciplina.id,
+
         disciplina: disciplina.name,
-        tituloSlide: c.title,
-        progress: progress?.progress_percent ?? 0,
-        ultimaVisualizacao: formatRelative(progress?.updated_at),
-        thumbnail: disciplina.cover_image_url ?? null,
+
+        tituloSlide: content.title,
+
+        progress:
+          progress?.progress_percent ?? 0,
+
+        ultimaVisualizacao:
+          formatRelative(
+            progress?.updated_at
+          ),
+
+        thumbnail:
+          disciplina.cover_image_url ?? null,
       };
     })
     .sort((a, b) => {
-      const pa = progressMap.get(a.contentId);
-      const pb = progressMap.get(b.contentId);
-      return new Date(pb?.updated_at ?? 0).getTime() -
-             new Date(pa?.updated_at ?? 0).getTime();
+      const progressA = progressMap.get(
+        a.contentId
+      );
+
+      const progressB = progressMap.get(
+        b.contentId
+      );
+
+      return (
+        new Date(
+          progressB?.updated_at ?? 0
+        ).getTime() -
+        new Date(
+          progressA?.updated_at ?? 0
+        ).getTime()
+      );
     })
     .slice(0, limit);
 }
+
+/* =========================================================
+   QUIZZES
+========================================================= */
 
 export async function fetchQuizHistory(
   supabase: SupabaseClient,
   studentId: string,
   limit = 10
 ): Promise<UserQuizHistory[]> {
-  // 1. Busca resultados de quiz
-  const { data: results, error: resultsError } = await supabase
-    .from("quiz_results")
-    .select("id, content_id, correct_answers, total_questions, attempted_at")
-    .eq("student_id", studentId)
-    .order("attempted_at", { ascending: false })
-    .limit(limit);
+  /*
+   * 1. Busca os resultados dos quizzes.
+   */
+  const { data: results, error: resultsError } =
+    await supabase
+      .from("quiz_results")
+      .select(`
+        id,
+        content_id,
+        correct_answers,
+        total_questions,
+        attempted_at
+      `)
+      .eq("student_id", studentId)
+      .order("attempted_at", {
+        ascending: false,
+      })
+      .limit(limit);
 
-  if (resultsError) throw resultsError;
-  if (!results || results.length === 0) return [];
+  if (resultsError) {
+    throw resultsError;
+  }
 
-  const contentIds = [...new Set(results.map((r: any) => r.content_id))];
+  if (!results || results.length === 0) {
+    return [];
+  }
 
-  // 2. Busca conteúdos (quiz liga a chapter diretamente, não a topic)
-  const { data: contents, error: contentsError } = await supabase
+  /*
+   * Remove content_ids duplicados.
+   */
+  const contentIds = [
+    ...new Set(
+      results.map(
+        (result: any) => result.content_id
+      )
+    ),
+  ];
+
+  /*
+   * 2. Busca os conteúdos dos quizzes.
+   *
+   * Aqui o quiz liga diretamente ao chapter.
+   */
+  const {
+    data: contents,
+    error: contentsError,
+  } = await supabase
     .from("contents")
     .select(`
       id,
@@ -225,36 +433,102 @@ export async function fetchQuizHistory(
       type,
       chapter:chapters (
         discipline:disciplines (
-          id, name, cover_image_url
+          id,
+          name,
+          cover_image_url
         )
       )
     `)
     .in("id", contentIds)
     .eq("type", "quiz");
 
-  if (contentsError) throw contentsError;
-  if (!contents || contents.length === 0) return [];
+  if (contentsError) {
+    throw contentsError;
+  }
 
+  if (!contents || contents.length === 0) {
+    return [];
+  }
+
+  /*
+   * 3. Mapa dos conteúdos.
+   */
   const contentsMap = new Map(
-    (contents as any[]).map((c) => [c.id, c])
+    (contents as any[]).map(
+      (content) => [
+        content.id,
+        content,
+      ]
+    )
   );
 
+  /*
+   * 4. Combina resultados + conteúdos.
+   */
   return results
-    .map((r: any) => {
-      const content = contentsMap.get(r.content_id);
-      if (!content?.chapter?.discipline) return null;
-      const disciplina = content.chapter.discipline;
+    .map((result: any) => {
+      const content = contentsMap.get(
+        result.content_id
+      );
+
+      if (
+        !content?.chapter?.discipline
+      ) {
+        return null;
+      }
+
+      const disciplina =
+        content.chapter.discipline;
+
+      const correctAnswers = Number(
+        result.correct_answers ?? 0
+      );
+
+      const totalQuestions = Math.max(
+        1,
+        Number(result.total_questions ?? 0)
+      );
+
+      /*
+       * Não existe atualmente um campo "completed"
+       * na query de quiz_results.
+       *
+       * Portanto, consideramos em andamento quando
+       * o resultado ainda não atingiu todas as perguntas.
+       */
+      const emAndamento =
+        correctAnswers < totalQuestions;
+
       return {
-        id: r.id,
-        contentId: r.content_id,
+        id: result.id,
+
+        contentId: result.content_id,
+
         disciplinaId: disciplina.id,
+
         disciplina: disciplina.name,
+
         tituloQuiz: content.title,
-        pontuacao: r.correct_answers,
-        totalPerguntas: r.total_questions,
-        dataConclusao: formatRelative(r.attempted_at),
-        thumbnail: disciplina.cover_image_url ?? null,
+
+        pontuacao: correctAnswers,
+
+        totalPerguntas: totalQuestions,
+
+        dataConclusao:
+          formatRelative(
+            result.attempted_at
+          ),
+
+        thumbnail:
+          disciplina.cover_image_url ?? null,
+
+        emAndamento,
       };
     })
-    .filter(Boolean) as UserQuizHistory[];
+    .filter(
+      (
+        item
+      ): item is UserQuizHistory =>
+        item !== null
+    );
 }

@@ -21,7 +21,7 @@ export type SavedItem = {
   chapterTitle: string;
   topicTitle: string;
   fileUrl: string | null;
-  durationSeconds: number | null; // ✅ NOVO
+  durationSeconds: number | null;
   savedAt: string;
 };
 
@@ -37,7 +37,8 @@ type ContentRow = {
   type: string;
   file_url: string | null;
   topic_id: string | null;
-  duration_seconds: number | null; // ✅ NOVO
+  chapter_id: string | null; // ✅ ADICIONADO
+  duration_seconds: number | null;
 };
 
 type TopicRow = {
@@ -74,12 +75,12 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
   const rows = (savedRows ?? []) as SavedRow[];
   if (rows.length === 0) return [];
 
-  // 2) Conteúdos associados
+  // 2) Conteúdos associados (inclui chapter_id)
   const contentIds = [...new Set(rows.map((r) => r.content_id))];
 
   const { data: contentRows, error: contentErr } = await supabase
     .from("contents")
-    .select("id, title, type, file_url, topic_id, duration_seconds") // ✅ adicionado duration_seconds
+    .select("id, title, type, file_url, topic_id, chapter_id, duration_seconds")
     .in("id", contentIds);
 
   if (contentErr) {
@@ -89,9 +90,13 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
   const contents = (contentRows ?? []) as ContentRow[];
   const contentsMap = new Map(contents.map((c) => [c.id, c]));
 
-  // 3) Tópicos (contents.topic_id → topics)
+  // 3) Tópicos (apenas para áudio/slide, que têm topic_id)
   const topicIds = [
-    ...new Set(contents.map((c) => c.topic_id).filter((id): id is string => !!id)),
+    ...new Set(
+      contents
+        .filter((c) => c.type !== "quiz" && c.topic_id)
+        .map((c) => c.topic_id as string)
+    ),
   ];
 
   let topics: TopicRow[] = [];
@@ -108,9 +113,14 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
   }
   const topicsMap = new Map(topics.map((t) => [t.id, t]));
 
-  // 4) Capítulos (topics.chapter_id → chapters)
+  // 4) Capítulos — recolhe IDs de tópicos E de quizzes
   const chapterIds = [
-    ...new Set(topics.map((t) => t.chapter_id).filter((id): id is string => !!id)),
+    ...new Set([
+      ...topics.map((t) => t.chapter_id).filter((id): id is string => !!id),
+      ...contents
+        .filter((c) => c.type === "quiz" && c.chapter_id)
+        .map((c) => c.chapter_id as string),
+    ]),
   ];
 
   let chapters: ChapterRow[] = [];
@@ -127,7 +137,7 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
   }
   const chaptersMap = new Map(chapters.map((c) => [c.id, c]));
 
-  // 5) Disciplinas (chapters.discipline_id → disciplines) — inclui a capa
+  // 5) Disciplinas
   const disciplineIds = [
     ...new Set(chapters.map((c) => c.discipline_id).filter((id): id is string => !!id)),
   ];
@@ -146,12 +156,30 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
   }
   const disciplinesMap = new Map(disciplinesRows.map((d) => [d.id, d]));
 
-  // 6) Montagem final — percorre a cadeia completa
+  // 6) Montagem final — percorre a cadeia correta para cada tipo
   return rows.map((row) => {
-    const content    = contentsMap.get(row.content_id);
-    const topic      = content?.topic_id ? topicsMap.get(content.topic_id) : undefined;
-    const chapter    = topic?.chapter_id ? chaptersMap.get(topic.chapter_id) : undefined;
-    const discipline = chapter?.discipline_id ? disciplinesMap.get(chapter.discipline_id) : undefined;
+    const content = contentsMap.get(row.content_id);
+
+    let topic: TopicRow | undefined;
+    let chapter: ChapterRow | undefined;
+    let discipline: DisciplineRow | undefined;
+
+    if (content) {
+      if (content.type === "quiz" && content.chapter_id) {
+        // Quiz ligado directamente ao capítulo
+        chapter = chaptersMap.get(content.chapter_id);
+      } else if (content.topic_id) {
+        // Áudio/slide ligado ao tópico
+        topic = topicsMap.get(content.topic_id);
+        if (topic?.chapter_id) {
+          chapter = chaptersMap.get(topic.chapter_id);
+        }
+      }
+
+      if (chapter?.discipline_id) {
+        discipline = disciplinesMap.get(chapter.discipline_id);
+      }
+    }
 
     return {
       savedId: row.id,
@@ -164,7 +192,7 @@ export async function getSavedItems(studentId: string): Promise<SavedItem[]> {
       chapterTitle: chapter?.title ?? "Sem capítulo",
       topicTitle: topic?.title ?? "",
       fileUrl: content?.file_url ?? null,
-      durationSeconds: content?.duration_seconds ?? null, // ✅ NOVO
+      durationSeconds: content?.duration_seconds ?? null,
       savedAt: row.saved_at,
     };
   });

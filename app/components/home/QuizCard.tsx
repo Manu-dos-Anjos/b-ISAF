@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Trophy, Calendar, CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import { Trophy, Calendar, CheckCircle2, XCircle, ArrowRight, Clock } from "lucide-react";
 
 type QuizCardProps = {
   id: string | number;
@@ -12,6 +12,7 @@ type QuizCardProps = {
   totalPerguntas: number;
   dataConclusao?: string;
   thumbnail: string;
+  emAndamento?: boolean; // NOVO
   onClick?: () => void;
 };
 
@@ -61,12 +62,25 @@ export default function QuizCard({
   totalPerguntas,
   dataConclusao,
   thumbnail,
+  emAndamento = false,
   onClick,
 }: QuizCardProps) {
-  const percentual =
-    totalPerguntas > 0 ? Math.round((acertos / totalPerguntas) * 100) : 0;
+  const percentual = emAndamento
+    ? acertos // acertos será a percentagem (0-100)
+    : totalPerguntas > 0
+    ? Math.round((acertos / totalPerguntas) * 100)
+    : 0;
 
-  const palette = getScorePalette(percentual);
+  const palette = emAndamento
+    ? {
+        bar: "from-blue-400 to-indigo-400",
+        label: "text-blue-700 dark:text-blue-400",
+        bg: "bg-blue-100 dark:bg-blue-500/10",
+        icon: <Clock size={14} className="text-blue-600 dark:text-blue-500" />,
+        status: "Em andamento",
+      }
+    : getScorePalette(percentual);
+
   const dataFormatada = formatDate(dataConclusao);
 
   return (
@@ -110,10 +124,9 @@ export default function QuizCard({
 
         <div className="flex items-center justify-between">
           <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 ${palette.bg}`}>
-            <Trophy size={13} className={palette.label} />
+            {palette.icon}
             <span className={`text-xs font-bold ${palette.label}`}>
-              {acertos}
-              <span className="font-normal opacity-70"> / {totalPerguntas}</span>
+              {emAndamento ? `${percentual}%` : `${acertos}/${totalPerguntas}`}
             </span>
           </div>
 
@@ -138,7 +151,9 @@ export default function QuizCard({
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-500">Desempenho</p>
+            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-500">
+              {emAndamento ? "Progresso" : "Desempenho"}
+            </p>
             <p className={`text-[10px] font-semibold ${palette.label}`}>{percentual}%</p>
           </div>
 
@@ -151,9 +166,9 @@ export default function QuizCard({
         </div>
 
         <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-500">
-          <span>Histórico recente</span>
+          <span>{emAndamento ? "Continuar questionário" : "Histórico recente"}</span>
           <span className="inline-flex items-center gap-1 font-semibold text-slate-700 transition-colors group-hover:text-blue-600 dark:text-slate-400 dark:group-hover:text-blue-400">
-            Rever <ArrowRight size={11} />
+            {emAndamento ? "Retomar" : "Rever"} <ArrowRight size={11} />
           </span>
         </div>
       </div>
