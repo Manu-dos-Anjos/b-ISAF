@@ -1,6 +1,7 @@
+// app/components/Sidebar.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -12,6 +13,7 @@ import {
   X,
   Calendar,
   Headphones,
+  Loader2,
 } from "lucide-react";
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
 
@@ -43,7 +45,6 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
 
   return (
     <>
-      {/* Overlay mobile */}
       {mobileOpen && (
         <div
           aria-hidden="true"
@@ -52,19 +53,14 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
         />
       )}
 
-      {/* ═══════════════════════════════════
-          DESKTOP SIDEBAR
-          ═══════════════════════════════════ */}
+      {/* Desktop */}
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-[72px] flex-col border-r border-slate-300 bg-slate-200 dark:border-white/8 dark:bg-[#13152A] md:flex">
-
-        {/* Logo */}
         <div className="flex h-16 shrink-0 items-center justify-center">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600">
             <Image src="/logo_dark.svg" alt="b-ISAF" width={20} height={20} />
           </div>
         </div>
 
-        {/* Nav — ocupa o espaço restante e centraliza verticalmente */}
         <nav className="flex flex-1 flex-col items-center justify-center gap-0 py-2">
           {navItems.map((item) => {
             const active = isActive(item.path);
@@ -78,10 +74,7 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                 aria-current={active ? "page" : undefined}
                 className="group flex w-full flex-col items-center justify-center py-[6px] outline-none"
               >
-                {/* Linha do ícone + indicador */}
                 <div className="relative flex w-full items-center justify-center">
-
-                  {/* Indicador lateral — alinhado com o container do ícone */}
                   <span
                     className={`
                       absolute left-0 w-[3px] rounded-r-full transition-all duration-200
@@ -90,8 +83,6 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                         : "h-0 group-hover:h-6 group-hover:bg-slate-400/50 dark:group-hover:bg-white/25"}
                     `}
                   />
-
-                  {/* Ícone — container maior */}
                   <span
                     className={`
                       flex h-11 w-11 items-center justify-center rounded-xl
@@ -104,8 +95,6 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                     <Icon size={24} strokeWidth={active ? 2.3 : 2.1} />
                   </span>
                 </div>
-
-                {/* Label — fora da div do ícone */}
                 <span
                   className={`
                     mt-[4px] w-full text-center text-[10px] font-semibold
@@ -122,15 +111,12 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
           })}
         </nav>
 
-        {/* Rodapé */}
         <div className="flex shrink-0 flex-col items-center border-t border-slate-300 py-3 dark:border-white/8">
           <LastAudioButton />
         </div>
       </aside>
 
-      {/* ═══════════════════════════════════
-          MOBILE SIDEBAR — drawer
-          ═══════════════════════════════════ */}
+      {/* Mobile */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 flex w-72 flex-col
@@ -139,7 +125,6 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-white/10">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600">
@@ -156,7 +141,6 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex flex-1 flex-col gap-[2px] overflow-y-auto px-2 py-3">
           {navItems.map((item) => {
             const active = isActive(item.path);
@@ -176,7 +160,6 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                     : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-white/70 dark:hover:bg-white/6 dark:hover:text-white"}
                 `}
               >
-                {/* Indicador lateral */}
                 <span
                   className={`
                     absolute left-0 top-1/2 -translate-y-1/2
@@ -184,8 +167,6 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                     ${active ? "h-7 bg-violet-500 dark:bg-violet-400" : "h-0"}
                   `}
                 />
-
-                {/* Ícone */}
                 <span
                   className={`
                     flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
@@ -197,14 +178,12 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
                 >
                   <Icon size={19} strokeWidth={active ? 2.3 : 2.1} />
                 </span>
-
                 <span className="text-sm font-medium">{item.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Rodapé */}
         <div className="border-t border-slate-200 p-3 dark:border-white/10">
           <LastAudioButton mobile />
         </div>
@@ -213,32 +192,101 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
   );
 }
 
-/* ═══════════════════════════════════════════════════
-   LAST AUDIO BUTTON
-   ═══════════════════════════════════════════════════ */
+/* ================================================================
+   LAST AUDIO BUTTON — totalmente funcional
+================================================================ */
 function LastAudioButton({ mobile = false }: { mobile?: boolean }) {
-  const audio   = useAudioPlayer();
+  const audio = useAudioPlayer();
   const [hasLast, setHasLast] = useState(false);
+  const [lastTrack, setLastTrack] = useState<{
+    id: string;
+    title: string;
+    url: string;
+    discipline?: string;
+    chapter?: string;
+    topic?: string;
+    coverUrl?: string;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const playLast = () => {
-    if (typeof (audio as any).playLast === "function") (audio as any).playLast();
-  };
-
-  useEffect(() => {
+  const loadLastTrack = useCallback(() => {
     try {
-      setHasLast(!!localStorage.getItem("b-isaf:lastTrack"));
+      const raw = localStorage.getItem("b-isaf:audio:player:v1");
+      if (!raw) {
+        setHasLast(false);
+        setLastTrack(null);
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      const track = parsed?.track;
+
+      if (track && typeof track.id === "string" && typeof track.url === "string" && /^https?:\/\//.test(track.url)) {
+        setHasLast(true);
+        setLastTrack({
+          id: track.id,
+          title: track.title || "Áudio",
+          url: track.url,
+          discipline: track.discipline,
+          chapter: track.chapter,
+          topic: track.topic,
+          coverUrl: track.coverUrl,
+        });
+      } else {
+        setHasLast(false);
+        setLastTrack(null);
+      }
     } catch {
       setHasLast(false);
+      setLastTrack(null);
     }
   }, []);
+
+  useEffect(() => {
+    loadLastTrack();
+
+    // Atualiza quando o storage muda (outra aba, etc.)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "b-isaf:audio:player:v1") loadLastTrack();
+    };
+    window.addEventListener("storage", onStorage);
+
+    // Atualiza periodicamente (a cada 5s) para apanhar mudanças locais
+    const interval = setInterval(loadLastTrack, 5000);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      clearInterval(interval);
+    };
+  }, [loadLastTrack]);
+
+  const playLast = async () => {
+    if (!lastTrack || !hasLast) return;
+    setIsLoading(true);
+    try {
+      await audio.play({
+        id: lastTrack.id,
+        title: lastTrack.title,
+        url: lastTrack.url,
+        discipline: lastTrack.discipline,
+        chapter: lastTrack.chapter,
+        topic: lastTrack.topic,
+        coverUrl: lastTrack.coverUrl,
+      });
+    } catch (err) {
+      console.error("Erro ao reproduzir último áudio:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   /* Mobile */
   if (mobile) {
     return (
       <button
-        onClick={playLast}
-        disabled={!hasLast}
-        title={hasLast ? "Reproduzir o último áudio" : "Nenhum áudio recente"}
+        onClick={() => void playLast()}
+        disabled={!hasLast || isLoading}
+        title={hasLast ? `Reproduzir: ${lastTrack?.title ?? "Último áudio"}` : "Nenhum áudio recente"}
         className={`
           flex w-full items-center justify-center gap-2
           rounded-xl px-4 py-[10px] text-sm font-medium
@@ -248,18 +296,22 @@ function LastAudioButton({ mobile = false }: { mobile?: boolean }) {
             : "cursor-not-allowed bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-white/30"}
         `}
       >
-        <Headphones size={17} />
-        Último áudio
+        {isLoading ? (
+          <Loader2 size={17} className="animate-spin" />
+        ) : (
+          <Headphones size={17} />
+        )}
+        {isLoading ? "A carregar..." : "Último áudio"}
       </button>
     );
   }
 
-  /* Desktop — mesmo padrão visual dos nav items */
+  /* Desktop */
   return (
     <button
-      onClick={playLast}
-      disabled={!hasLast}
-      title={hasLast ? "Reproduzir o último áudio" : "Nenhum áudio recente"}
+      onClick={() => void playLast()}
+      disabled={!hasLast || isLoading}
+      title={hasLast ? `Reproduzir: ${lastTrack?.title ?? "Último áudio"}` : "Nenhum áudio recente"}
       aria-label={hasLast ? "Reproduzir último áudio" : "Nenhum áudio recente"}
       className="group flex w-full flex-col items-center justify-center py-[6px] outline-none"
     >
@@ -272,7 +324,11 @@ function LastAudioButton({ mobile = false }: { mobile?: boolean }) {
             : "bg-slate-300/50 text-slate-400 dark:bg-white/5 dark:text-white/25"}
         `}
       >
-        <Headphones size={19} strokeWidth={2.1} />
+        {isLoading ? (
+          <Loader2 size={19} className="animate-spin" />
+        ) : (
+          <Headphones size={19} strokeWidth={2.1} />
+        )}
       </span>
       <span
         className={`

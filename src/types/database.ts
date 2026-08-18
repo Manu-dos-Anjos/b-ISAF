@@ -12,48 +12,48 @@ export interface Database {
   public: {
     Tables: {
       profiles: {
-        Row: {
-          id:                string
-          full_name:         string
-          email:             string
-          student_number:    string | null
-          avatar_url:        string | null
-          bio:               string | null
-          role:              "student" | "professor" | "admin" | "superadmin"
-          course_id:         string | null
-          current_year:      number
-          current_semester:  number
-          is_active:         boolean
-          created_at:        string
-          updated_at:        string
-          schedule_reset_at: string | null
-        }
-        Insert: {
-          id:                 string
-          full_name:          string
-          email:              string
-          student_number?:    string | null
-          avatar_url?:        string | null
-          bio?:               string | null
-          role?:              "student" | "professor" | "admin" | "superadmin"
-          course_id?:         string | null
-          current_year?:      number
-          current_semester?:  number
-          is_active?:         boolean
-          created_at?:        string
-          updated_at?:        string
-          schedule_reset_at?: string | null
-        }
-        Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>
-        Relationships: [
-          {
-            foreignKeyName: "profiles_course_id_fkey"
-            columns: ["course_id"]
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
+  Row: {
+    id: string
+    full_name: string
+    email: string
+    student_number: string | null
+    avatar_url: string | null
+    bio: string | null
+    role: "student" | "professor" | "admin" | "superadmin"
+    course_id: string | null
+    current_year: number
+    current_semester: number
+    is_active: boolean
+    created_at: string
+    updated_at: string
+    schedule_reset_at: string | null
+  }
+  Insert: {
+    id: string
+    full_name: string
+    email: string
+    student_number?: string | null
+    avatar_url?: string | null
+    bio?: string | null
+    role?: "student" | "professor" | "admin" | "superadmin"
+    course_id?: string | null
+    current_year?: number
+    current_semester?: number
+    is_active?: boolean
+    created_at?: string
+    updated_at?: string
+    schedule_reset_at?: string | null
+  }
+  Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>
+  Relationships: [
+    {
+      foreignKeyName: "profiles_course_id_fkey"
+      columns: ["course_id"]
+      referencedRelation: "courses"
+      referencedColumns: ["id"]
+    }
+  ]
+}
 
       courses: {
         Row: {
@@ -201,38 +201,51 @@ export interface Database {
         ]
       }
 
-      contents: {
-  Row: {
-    id:                 string
-    topic_id:           string | null  // ✅ null para quizzes
-    chapter_id:         string | null  // ✅ null para áudio/slides
-    type:               "audio" | "slide" | "quiz"
-    title:              string
-    file_url:           string | null
-    file_key:           string | null
-    time_limit_seconds: number | null
-    duration_seconds:   number | null  // ✅ ADICIONAR ESTE CAMPO
-    order_index:        number
-    is_active:          boolean
-    created_at:         string
-  }
-  Insert: {
-    id?:                 string
-    topic_id?:           string | null
-    chapter_id?:         string | null
-    type:                "audio" | "slide" | "quiz"
-    title:               string
-    file_url?:           string | null
-    file_key?:           string | null
-    time_limit_seconds?: number | null
-    duration_seconds?:   number | null  // ✅ ADICIONAR ESTE CAMPO
-    order_index?:        number
-    is_active?:          boolean
-    created_at?:         string
-  }
-  Update: Partial<Database["public"]["Tables"]["contents"]["Insert"]>
-  // ...
-}
+            contents: {
+        Row: {
+          id:                 string
+          topic_id:           string | null
+          chapter_id:         string | null
+          type:               "audio" | "slide" | "quiz"
+          title:              string
+          file_url:           string | null
+          file_key:           string | null
+          time_limit_seconds: number | null
+          duration_seconds:   number | null
+          order_index:        number
+          is_active:          boolean
+          created_at:         string
+        }
+        Insert: {
+          id?:                 string
+          topic_id?:           string | null
+          chapter_id?:         string | null
+          type:                "audio" | "slide" | "quiz"
+          title:               string
+          file_url?:           string | null
+          file_key?:           string | null
+          time_limit_seconds?: number | null
+          duration_seconds?:   number | null
+          order_index?:        number
+          is_active?:          boolean
+          created_at?:         string
+        }
+        Update: Partial<Database["public"]["Tables"]["contents"]["Insert"]>
+        Relationships: [
+          {
+            foreignKeyName: "contents_topic_id_fkey"
+            columns: ["topic_id"]
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contents_chapter_id_fkey"
+            columns: ["chapter_id"]
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
 
       student_progress: {
         Row: {

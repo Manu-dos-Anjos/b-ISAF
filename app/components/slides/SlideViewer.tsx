@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, ExternalLink, Loader2, RotateCw } from "lucide-react";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
+import { writeProgressPayload, flushProgressQueue } from "@/app/lib/progressPendingSync";
 
 type Props = {
   url: string;
@@ -50,33 +51,18 @@ export default function SlideViewer({
   const timeoutRef = useRef<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // ===================== TRACKING DE PROGRESSO =====================
   const { supabase } = useSupabase();
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Busca o userId diretamente do Supabase Auth
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.id) {
         setUserId(data.user.id);
-        console.log("✅ SlideViewer: userId obtido:", data.user.id);
-      } else {
-        console.warn("⚠️ SlideViewer: sem user autenticado");
       }
     });
   }, [supabase]);
 
   const durationSeconds = estimatedDurationSeconds ?? DEFAULT_DURATION_SECONDS;
-
-  console.log("🔍 SlideViewer tracking:", {
-    contentId,
-    userId,
-    estimatedDurationSeconds,
-    durationSeconds,
-    status,
-    mode,
-  });
-
   const savedSecondsRef = useRef(0);
   const sessionSecondsRef = useRef(0);
   const hasLoadedInitialRef = useRef(false);
@@ -97,6 +83,9 @@ export default function SlideViewer({
         if (data?.last_position_seconds) {
           savedSecondsRef.current = data.last_position_seconds;
         }
+      })
+      .catch((err: unknown) => {
+        console.error("Erro ao carregar progresso anterior do slide:", err);
       });
   }, [contentId, userId, supabase]);
 
@@ -105,10 +94,14 @@ export default function SlideViewer({
     if (!contentId || mode !== "iframe") return;
 
     const onMessage = (e: MessageEvent) => {
-      if (e.data?.type !== "slide-progress") return;
-      const pct = e.data.pct;
-      if (typeof pct === "number") {
-        scrollPctRef.current = pct;
+      try {
+        if (e.data?.type !== "slide-progress") return;
+        const pct = e.data.pct;
+        if (typeof pct === "number") {
+          scrollPctRef.current = pct;
+        }
+      } catch (err) {
+        console.error("Erro ao processar mensagem de progresso do slide:", err);
       }
     };
 
@@ -116,7 +109,7 @@ export default function SlideViewer({
     return () => window.removeEventListener("message", onMessage);
   }, [contentId, mode]);
 
-  // Contabiliza tempo apenas quando visível e carregado
+  // Contabiliza tempo apenas quando visivel e carregado
   useEffect(() => {
     if (!contentId || !userId || status !== "ready") return;
 
@@ -129,20 +122,10 @@ export default function SlideViewer({
     return () => window.clearInterval(interval);
   }, [contentId, userId, status]);
 
-  // Prioriza scroll %, fallback por tempo
+  // Prioriza scroll %, fallback por tempo. Usa a fila partilhada de
+  // retentativas para nunca perder progresso por falha de rede.
   const saveProgress = useCallback(async () => {
-    console.log("📊 SlideViewer.saveProgress chamado:", {
-      contentId,
-      userId,
-      status,
-      scrollPct: scrollPctRef.current,
-      sessionSeconds: sessionSecondsRef.current,
-    });
-
-    if (!contentId || !userId) {
-      console.warn("⚠️ saveProgress sem contentId/userId:", { contentId, userId });
-      return;
-    }
+    if (!contentId || !userId) return;
 
     let pct: number;
 
@@ -155,44 +138,64 @@ export default function SlideViewer({
 
     const completed = pct >= COMPLETE_THRESHOLD_PCT;
 
-    console.log("📊 saveProgress:", { contentId, userId, pct, completed });
-
-    try {
-      await supabase.from("student_progress").upsert(
-        {
-          student_id: userId,
-          content_id: contentId,
-          progress_percent: pct,
-          last_position_seconds: savedSecondsRef.current + sessionSecondsRef.current,
-          completed,
-          completed_at: completed ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "student_id,content_id" }
-      );
-      console.log("✅ Progresso gravado com sucesso!");
-    } catch (err) {
-      console.error("❌ Erro ao guardar progresso do slide:", err);
-    }
+    await writeProgressPayload(supabase, {
+      student_id: userId,
+      content_id: contentId,
+      progress_percent: pct,
+      last_position_seconds: savedSecondsRef.current + sessionSecondsRef.current,
+      completed,
+      completed_at: completed ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    });
   }, [contentId, userId, durationSeconds, supabase]);
 
-  // Grava periodicamente + ao sair da página
+  const saveProgressRef = useRef(saveProgress);
+  useEffect(() => { saveProgressRef.current = saveProgress; }, [saveProgress]);
+
+  // Grava periodicamente + ao sair da pagina
   useEffect(() => {
     if (!contentId || !userId) return;
 
-    const interval = window.setInterval(saveProgress, SAVE_INTERVAL_MS);
-    const onBeforeUnload = () => saveProgress();
+    const interval = window.setInterval(() => saveProgressRef.current?.(), SAVE_INTERVAL_MS);
+    const onBeforeUnload = () => saveProgressRef.current?.();
 
     window.addEventListener("beforeunload", onBeforeUnload);
 
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("beforeunload", onBeforeUnload);
-      saveProgress();
+      saveProgressRef.current?.();
     };
-  }, [contentId, userId, saveProgress]);
+  }, [contentId, userId]);
 
-  // ===================== LÓGICA ORIGINAL (inalterada) =====================
+  // Grava tambem ao esconder a aba, e reenvia a fila pendente
+  // quando a ligacao volta ou o utilizador fica disponivel.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        saveProgressRef.current?.();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    flushProgressQueue(supabase);
+
+    const interval = setInterval(() => flushProgressQueue(supabase), 30000);
+    const onOnline = () => flushProgressQueue(supabase);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [userId, supabase]);
+
+  // ===================== LOGICA ORIGINAL (inalterada) =====================
 
   const sendZoom = (z: number) => {
     try {
