@@ -44,12 +44,16 @@ import type {
   QuizResultDetailInsert,
 } from "@/src/types/database";
 import { saveItem, removeSavedItem } from "@/app/actions/saved";
+import { MathText } from "@/app/components/quiz/MathText";
+
+import { GraphSVG } from "@/app/components/quiz/GraphSVG";
+import type { GraphConfig } from "@/app/components/quiz/GraphSVG";
 
 /* ================================================================
    CONFIG
    ================================================================ */
 
-const QUESTIONS_PER_ATTEMPT = 25;
+const QUESTIONS_PER_ATTEMPT = 20;
 const HISTORY_LOOKBACK = 50;
 
 /* ================================================================
@@ -62,6 +66,13 @@ export type QuizAnswerOption = {
   is_correct: boolean;
   order_index: number;
   feedback: string | null;
+  metadata: AnswerMetadata | null; // 👈 novo
+};
+
+// Novo tipo (pode ser importado de GraphViewer)
+export type AnswerMetadata = {
+  graph?: GraphConfig;
+  image_url?: string;
 };
 
 export type QuizQuestionType =
@@ -70,12 +81,18 @@ export type QuizQuestionType =
   | "association"
   | "integrative";
 
+export type QuestionMetadata = {
+  graph?: GraphConfig;
+  image_url?: string;
+};
+
 export type QuizQuestion = {
   id: string;
   question_text: string;
   order_index: number;
   explanation: string | null;
   question_type: QuizQuestionType;
+  metadata: QuestionMetadata | null;
   answers: QuizAnswerOption[];
 };
 
@@ -171,18 +188,12 @@ function shuffleArray<T>(array: T[]): T[] {
   return arr;
 }
 
-/**
- * Gera um UUID v4 de forma robusta, com fallbacks progressivos:
- * 1) crypto.randomUUID() — exige contexto seguro (HTTPS/localhost)
- * 2) crypto.getRandomValues() — funciona em qualquer contexto com Web Crypto
- * 3) Math.random() — último recurso
- */
 function generateUUID(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     try {
       return crypto.randomUUID();
     } catch {
-      // cai para o próximo método
+      // fallback
     }
   }
 
@@ -202,7 +213,6 @@ function generateUUID(): string {
   });
 }
 
-/** Classifica a pergunta: directa (1 certa), V/F, ou múltipla escolha (N certas) */
 function getQuestionKind(q: QuizQuestion): QuestionKindInfo {
   const correctCount = q.answers.reduce((n, a) => n + (a.is_correct ? 1 : 0), 0);
 
@@ -342,35 +352,14 @@ export default function QuizPlayer({
   const { profile } = useUser();
 
   const [isSaved, setIsSaved] = useState(false);
-const [savingToggle, setSavingToggle] = useState(false);
-const [shouldSaveOnClose, setShouldSaveOnClose] = useState(false);
+  const [savingToggle, setSavingToggle] = useState(false);
+  const [shouldSaveOnClose, setShouldSaveOnClose] = useState(false);
 
-// Verifica se o quiz já está guardado
-useEffect(() => {
-  if (!profile?.id || !contentId) return;
-  let cancelled = false;
+  useEffect(() => {
+    if (!profile?.id || !contentId) return;
+    let cancelled = false;
 
-  (async () => {
-    const { data } = await supabase
-      .from("saved_items")
-      .select("id")
-      .eq("student_id", profile.id)
-      .eq("content_id", contentId)
-      .maybeSingle();
-
-    if (!cancelled) setIsSaved(!!data?.id);
-  })();
-
-  return () => {
-    cancelled = true;
-  };
-}, [profile?.id, contentId, supabase]);
-
-const toggleSave = async () => {
-  if (!profile?.id || !contentId || savingToggle) return;
-  setSavingToggle(true);
-  try {
-    if (isSaved) {
+    (async () => {
       const { data } = await supabase
         .from("saved_items")
         .select("id")
@@ -378,26 +367,44 @@ const toggleSave = async () => {
         .eq("content_id", contentId)
         .maybeSingle();
 
-      if (data?.id) await removeSavedItem(data.id);
-      setIsSaved(false);
-    } else {
-      await saveItem(profile.id, contentId);
-      setIsSaved(true);
-    }
-  } catch (err) {
-    console.error("Erro ao guardar quiz:", err);
-  } finally {
-    setSavingToggle(false);
-  }
-};
+      if (!cancelled) setIsSaved(!!data?.id);
+    })();
 
-  /* ── Dados ── */
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, contentId, supabase]);
+
+  const toggleSave = async () => {
+    if (!profile?.id || !contentId || savingToggle) return;
+    setSavingToggle(true);
+    try {
+      if (isSaved) {
+        const { data } = await supabase
+          .from("saved_items")
+          .select("id")
+          .eq("student_id", profile.id)
+          .eq("content_id", contentId)
+          .maybeSingle();
+
+        if (data?.id) await removeSavedItem(data.id);
+        setIsSaved(false);
+      } else {
+        await saveItem(profile.id, contentId);
+        setIsSaved(true);
+      }
+    } catch (err) {
+      console.error("Erro ao guardar quiz:", err);
+    } finally {
+      setSavingToggle(false);
+    }
+  };
+
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("playing");
 
-  /* ── Sessão ── */
   const {
     session,
     isLoading: sessionLoading,
@@ -410,43 +417,29 @@ const toggleSave = async () => {
     loadSession,
   } = useQuizSession(contentId, timeLimitSeconds);
 
-  /* ── Resultados ── */
   const [stats, setStats] = useState<QuizStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  /* ── Resultado final local ── */
   const [finalResult, setFinalResult] = useState<FinalResult | null>(null);
   const [submittedDetails, setSubmittedDetails] = useState<SubmittedDetail[]>([]);
   const [submissionPending, setSubmissionPending] = useState(false);
 
-  /* ── Narração ── */
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  /* ── Timer ── */
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  /* ── Feedback (auto-scroll) ── */
   const feedbackRef = useRef<HTMLDivElement | null>(null);
 
-  /* ── Múltipla escolha: perguntas cuja resposta já foi revelada ── */
   const [confirmedQuestions, setConfirmedQuestions] = useState<Set<string>>(new Set());
-
-  /* ── Diálogos de confirmação ── */
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
-
-  /* ── Estado de rede ── */
   const [isOnline, setIsOnline] = useState(true);
-
-  /* ── Preferências de UI (desktop: ampliar / ecrã completo) ── */
   const [isWide, setIsWide] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const resumeCheckRef = useRef(false);
   const submittingRef = useRef(false);
 
-  /* ── Carregar preferências de UI ── */
   useEffect(() => {
     const prefs = readUiPrefs(contentId);
     setIsWide(prefs.isWide);
@@ -457,7 +450,6 @@ const toggleSave = async () => {
     writeUiPrefs(contentId, { isWide, isFullscreen });
   }, [contentId, isWide, isFullscreen]);
 
-  /* ── Bloquear scroll do body ── */
   useEffect(() => {
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -466,7 +458,6 @@ const toggleSave = async () => {
     };
   }, []);
 
-  /* ── Monitor de rede ── */
   useEffect(() => {
     setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
     const goOnline = () => setIsOnline(true);
@@ -479,12 +470,8 @@ const toggleSave = async () => {
     };
   }, []);
 
-  /* ────────────────────────────────────────────────────────────
-     Carregar / seleccionar perguntas
-     ──────────────────────────────────────────────────────────── */
   useEffect(() => {
     if (sessionLoading) return;
-
     let cancelled = false;
 
     async function load() {
@@ -498,6 +485,7 @@ const toggleSave = async () => {
           order_index: number;
           explanation: string | null;
           question_type: string | null;
+          metadata: QuestionMetadata | null;
         };
 
         type QuizAnswerRow = {
@@ -507,6 +495,7 @@ const toggleSave = async () => {
           is_correct: boolean;
           order_index: number;
           feedback: string | null;
+          metadata: AnswerMetadata | null;
         };
 
         let selectedIds: string[] = session?.questionIds ?? [];
@@ -584,7 +573,7 @@ const toggleSave = async () => {
         const { data: questionRows, error: questionError } = selectedIds.length
           ? await supabase
               .from("quiz_questions")
-              .select("id, question_text, order_index, explanation, question_type")
+              .select("id, question_text, order_index, explanation, question_type, metadata")
               .in("id", selectedIds)
           : { data: [] as QuizQuestionRow[], error: null };
 
@@ -597,7 +586,7 @@ const toggleSave = async () => {
         const { data: answerRows, error: answerError } = questionIds.length
           ? await supabase
               .from("quiz_answers")
-              .select("id, question_id, answer_text, is_correct, order_index, feedback")
+.select("id, question_id, answer_text, is_correct, order_index, feedback, metadata")
               .in("question_id", questionIds)
               .eq("is_active", true)
               .order("order_index")
@@ -617,6 +606,7 @@ const toggleSave = async () => {
             is_correct: answer.is_correct,
             order_index: answer.order_index,
             feedback: answer.feedback,
+            metadata: answer.metadata ?? null,
           });
           answersByQuestion.set(answer.question_id, list);
         }
@@ -628,6 +618,7 @@ const toggleSave = async () => {
             order_index: q.order_index,
             explanation: q.explanation,
             question_type: (q.question_type as QuizQuestionType) ?? "multiple_choice",
+            metadata: q.metadata ?? null,
             answers: (answersByQuestion.get(q.id) ?? []).sort(
               (a, b) => a.order_index - b.order_index
             ),
@@ -653,10 +644,8 @@ const toggleSave = async () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, contentId, profile, sessionLoading, session?.attemptStartedAt]);
 
-  /* ── Verificar sessão activa ── */
   useEffect(() => {
     if (loading || sessionLoading || resumeCheckRef.current) return;
-
     resumeCheckRef.current = true;
 
     async function check() {
@@ -677,7 +666,6 @@ const toggleSave = async () => {
     resumeCheckRef.current = false;
   }, [contentId]);
 
-  /* ── Timer ── */
   useEffect(() => {
     if (phase !== "playing" || !timeLimitSeconds || sessionLoading) return;
 
@@ -699,7 +687,6 @@ const toggleSave = async () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, session?.timeRemainingSeconds, timeLimitSeconds]);
 
-  /* ── Narração ── */
   const speak = useCallback((text: string) => {
     if (!window.speechSynthesis) return;
 
@@ -717,7 +704,6 @@ const toggleSave = async () => {
     setIsSpeaking(false);
   }, []);
 
-  /* ── Ordem das perguntas (estável ao longo da sessão) ── */
   const orderedQuestions = useMemo(() => {
     if (questions.length === 0) return [];
 
@@ -742,7 +728,6 @@ const toggleSave = async () => {
     speak(text);
   }, [session, orderedQuestions, speak]);
 
-  /* ── Persistência de submissões falhadas ── */
   const persistSubmission = useCallback(
     async (payload: PendingSubmission) => {
       if (!profile) return;
@@ -814,7 +799,6 @@ const toggleSave = async () => {
     return () => window.removeEventListener("online", handleOnline);
   }, [flushPendingQueue]);
 
-  /* ── Submeter quiz (pontuação por igualdade de conjuntos) ── */
   const submitQuiz = useCallback(async () => {
     if (submittingRef.current) return;
     submittingRef.current = true;
@@ -924,7 +908,6 @@ const toggleSave = async () => {
     enqueuePendingSubmission,
   ]);
 
-  /* ── Reiniciar ── */
   const restart = async () => {
     stopSpeech();
     setFinalResult(null);
@@ -935,7 +918,6 @@ const toggleSave = async () => {
     setPhase("playing");
   };
 
-  /* ── Estatísticas ── */
   const loadStats = async () => {
     setStatsLoading(true);
     setPhase("stats");
@@ -947,7 +929,6 @@ const toggleSave = async () => {
     }
   };
 
-  /* ── Computed ── */
   const currentIndex = session?.currentQuestionIndex ?? 0;
   const currentQ = orderedQuestions[currentIndex] ?? null;
   const selectedIds: string[] = currentQ ? session?.answers[currentQ.id] ?? [] : [];
@@ -961,6 +942,14 @@ const toggleSave = async () => {
 
   const questionKind = currentQ ? getQuestionKind(currentQ) : null;
   const isMultiSelect = questionKind?.kind === "multiple_select";
+
+  // 🔒 Uma vez escolhida uma opção (pergunta directa / V-F), a resposta fica bloqueada.
+  // Para seleção múltipla, o bloqueio só acontece depois de "Confirmar respostas".
+  const isOptionsLocked = currentQ
+    ? isMultiSelect
+      ? confirmedQuestions.has(currentQ.id)
+      : selectedIds.length > 0
+    : false;
 
   const currentCorrectAnswers = currentQ ? currentQ.answers.filter((a) => a.is_correct) : [];
 
@@ -982,7 +971,6 @@ const toggleSave = async () => {
 
   const finalSummary = finalResult;
 
-  /* ── Auto-scroll para o feedback ── */
   useEffect(() => {
     if (!showFeedback || !feedbackRef.current) return;
     const t = setTimeout(() => {
@@ -991,19 +979,16 @@ const toggleSave = async () => {
     return () => clearTimeout(t);
   }, [showFeedback]);
 
-  /* ── Fechar com confirmação ── */
   const handleRequestClose = useCallback(() => {
     if (phase === "playing" && answeredCount > 0) setShowCloseConfirm(true);
     else onClose();
   }, [phase, answeredCount, onClose]);
 
-  /* ── Submeter com confirmação ── */
   const requestSubmit = useCallback(() => {
     if (unansweredCount > 0) setShowSubmitConfirm(true);
     else void submitQuiz();
   }, [unansweredCount, submitQuiz]);
 
-  /* ── Navegação por teclado ── */
   useEffect(() => {
     if (phase !== "playing" || !currentQ) return;
 
@@ -1045,6 +1030,8 @@ const toggleSave = async () => {
         return;
       }
 
+      if (isOptionsLocked) return;
+
       const numIdx = "123456789".indexOf(e.key);
       if (numIdx >= 0 && currentQ.answers[numIdx]) {
         e.preventDefault();
@@ -1060,6 +1047,7 @@ const toggleSave = async () => {
     currentIndex,
     isLast,
     isMultiSelect,
+    isOptionsLocked,
     showCloseConfirm,
     showSubmitConfirm,
     handleRequestClose,
@@ -1068,9 +1056,6 @@ const toggleSave = async () => {
     saveAnswer,
   ]);
 
-  /* ================================================================
-     OVERLAY WRAPPER
-     ================================================================ */
   const overlay = (content: ReactNode) => (
     <div
       role="dialog"
@@ -1103,64 +1088,63 @@ const toggleSave = async () => {
         {content}
 
         {showCloseConfirm && (
-  <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-    <div className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-slate-900">
-      <div className="flex items-center gap-2">
-        <AlertOctagon size={18} className="shrink-0 text-amber-500 dark:text-amber-400" />
-        <p className="text-sm font-bold text-slate-900 dark:text-white">
-          Sair do questionário?
-        </p>
-      </div>
-      <p className="text-xs text-slate-600 dark:text-slate-400">
-        Já respondeste a {answeredCount} de {orderedQuestions.length} perguntas. O teu
-        progresso fica guardado e podes continuar mais tarde.
-      </p>
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-slate-900">
+              <div className="flex items-center gap-2">
+                <AlertOctagon size={18} className="shrink-0 text-amber-500 dark:text-amber-400" />
+                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                  Sair do questionário?
+                </p>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Já respondeste a {answeredCount} de {orderedQuestions.length} perguntas. O teu
+                progresso fica guardado e podes continuar mais tarde.
+              </p>
 
-      {/* ✅ Nova opção de guardar */}
-      <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
-        <input
-          type="checkbox"
-          checked={shouldSaveOnClose}
-          onChange={(e) => setShouldSaveOnClose(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-white/15 dark:bg-white/10"
-        />
-        <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
-          <Bookmark
-            size={12}
-            className={isSaved ? "text-amber-600" : "text-slate-400"}
-            fill={isSaved ? "currentColor" : "none"}
-          />
-          Guardar este questionário para mais tarde
-        </span>
-      </label>
+              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+                <input
+                  type="checkbox"
+                  checked={shouldSaveOnClose}
+                  onChange={(e) => setShouldSaveOnClose(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-white/15 dark:bg-white/10"
+                />
+                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                  <Bookmark
+                    size={12}
+                    className={isSaved ? "text-amber-600" : "text-slate-400"}
+                    fill={isSaved ? "currentColor" : "none"}
+                  />
+                  Guardar este questionário para mais tarde
+                </span>
+              </label>
 
-      <div className="flex gap-2.5">
-        <button
-          onClick={() => {
-            setShowCloseConfirm(false);
-            setShouldSaveOnClose(false);
-          }}
-          className="flex-1 rounded-xl border border-slate-300 bg-slate-50 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-        >
-          Continuar a responder
-        </button>
-        <button
-          onClick={async () => {
-            setShowCloseConfirm(false);
-            if (shouldSaveOnClose && !isSaved) {
-              await toggleSave();
-            }
-            setShouldSaveOnClose(false);
-            onClose();
-          }}
-          className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white transition hover:bg-rose-500"
-        >
-          {shouldSaveOnClose && !isSaved ? "Guardar e sair" : "Sair"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => {
+                    setShowCloseConfirm(false);
+                    setShouldSaveOnClose(false);
+                  }}
+                  className="flex-1 rounded-xl border border-slate-300 bg-slate-50 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                >
+                  Continuar a responder
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowCloseConfirm(false);
+                    if (shouldSaveOnClose && !isSaved) {
+                      await toggleSave();
+                    }
+                    setShouldSaveOnClose(false);
+                    onClose();
+                  }}
+                  className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white transition hover:bg-rose-500"
+                >
+                  {shouldSaveOnClose && !isSaved ? "Guardar e sair" : "Sair"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showSubmitConfirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
@@ -1199,7 +1183,6 @@ const toggleSave = async () => {
     </div>
   );
 
-  /* ── Botões de ampliar / ecrã completo (reutilizáveis nos cabeçalhos) ── */
   const sizeControls = (
     <div className="hidden shrink-0 items-center gap-1 sm:flex">
       <button
@@ -1220,10 +1203,6 @@ const toggleSave = async () => {
       </button>
     </div>
   );
-
-  /* ================================================================
-     FASES
-     ================================================================ */
 
   if (loadError) {
     return overlay(
@@ -1436,13 +1415,19 @@ const toggleSave = async () => {
                           {detail.kindLabel}
                         </p>
                         <p className="mt-0.5 text-xs font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-                          {idx + 1}. {detail.questionText}
+                          {idx + 1}. <MathText text={detail.questionText} />
                         </p>
 
                         <div className="mt-1 space-y-1">
                           {detail.selectedAnswerTexts.length > 0 ? (
                             <p className="text-[11px] text-rose-600 dark:text-rose-400">
-                              A tua resposta: {detail.selectedAnswerTexts.join(" • ")}
+                              A tua resposta:{" "}
+                              {detail.selectedAnswerTexts.map((text, i) => (
+                                <span key={i}>
+                                  <MathText text={text} />
+                                  {i < detail.selectedAnswerTexts.length - 1 ? " • " : ""}
+                                </span>
+                              ))}
                             </p>
                           ) : (
                             <p className="text-[11px] text-slate-500 dark:text-slate-500">
@@ -1452,7 +1437,13 @@ const toggleSave = async () => {
 
                           {!detail.isCorrect && (
                             <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                              Resposta correcta: {detail.correctAnswerTexts.join(" • ") || "—"}
+                              Resposta correcta:{" "}
+                              {detail.correctAnswerTexts.map((text, i) => (
+                                <span key={i}>
+                                  <MathText text={text} />
+                                  {i < detail.correctAnswerTexts.length - 1 ? " • " : ""}
+                                </span>
+                              )) || "—"}
                             </p>
                           )}
                         </div>
@@ -1464,7 +1455,9 @@ const toggleSave = async () => {
                             </p>
                             <div className="mt-1 space-y-1 leading-relaxed">
                               {detail.selectedAnswerFeedbacks.map((fb, i) => (
-                                <p key={i}>{fb}</p>
+                                <p key={i}>
+                                  <MathText text={fb} />
+                                </p>
                               ))}
                             </div>
                           </div>
@@ -1475,7 +1468,9 @@ const toggleSave = async () => {
                             <p className="font-semibold uppercase tracking-wider text-blue-700/80 dark:text-blue-200/80">
                               Explicação
                             </p>
-                            <p className="mt-1 leading-relaxed">{detail.questionExplanation}</p>
+                            <p className="mt-1 leading-relaxed">
+                              <MathText text={detail.questionExplanation} />
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1572,7 +1567,7 @@ const toggleSave = async () => {
                     className="space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900"
                   >
                     <p className="text-xs font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
-                      {idx + 1}. {qs.questionText}
+                      {idx + 1}. <MathText text={qs.questionText} />
                     </p>
 
                     <div className="flex items-center gap-3">
@@ -1613,7 +1608,9 @@ const toggleSave = async () => {
                     {qs.topWrongAnswer && (
                       <p className="text-[11px] text-slate-500 dark:text-slate-500">
                         Resposta errada mais escolhida:{" "}
-                        <span className="text-rose-600 dark:text-rose-400">{qs.topWrongAnswer}</span>
+                        <span className="text-rose-600 dark:text-rose-400">
+                          <MathText text={qs.topWrongAnswer} />
+                        </span>
                       </p>
                     )}
                   </div>
@@ -1637,14 +1634,10 @@ const toggleSave = async () => {
       </div>
     );
 
-  /* ================================================================
-     FASE PLAYING
-     ================================================================ */
-
   const showSidebar = isWide || isFullscreen;
 
   const questionContent = (
-    <div key={currentQ.id} className="space-y-4 p-4 pb-24 sm:space-y-5 sm:p-5 sm:pb-6 lg:p-6">
+    <div key={currentQ.id} className="space-y-4 overflow-visible p-4 pb-24 sm:space-y-5 sm:p-5 sm:pb-6 lg:p-6">
       {questionKind && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <QuestionKindBadge info={questionKind} />
@@ -1656,19 +1649,36 @@ const toggleSave = async () => {
         </div>
       )}
 
-      <h2 className="text-base font-semibold leading-relaxed text-slate-900 dark:text-white sm:text-lg lg:text-xl">
-        {currentQ.question_text}
-      </h2>
+      {/* Cartão da pergunta — destaca o enunciado e dá mais espaço a fórmulas/matrizes */}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
+        <h2 className="break-words text-base font-semibold leading-relaxed text-slate-900 [&_.katex-display]:my-2 [&_.katex]:text-[1.05em] dark:text-white sm:text-lg lg:text-xl">
+          <MathText text={currentQ.question_text} />
+        </h2>
+
+        {currentQ.metadata?.graph && (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950">
+            <GraphSVG config={currentQ.metadata.graph} />
+          </div>
+        )}
+
+        {currentQ.metadata?.image_url && (
+          <img
+            src={currentQ.metadata.image_url}
+            alt="Diagrama da pergunta"
+            className="mt-4 max-h-80 w-full rounded-xl border border-slate-200 bg-white object-contain p-2 dark:border-white/10 dark:bg-slate-950"
+          />
+        )}
+      </div>
 
       <div
-        className="space-y-2 sm:space-y-2.5"
+        className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3"
         role={isMultiSelect ? "group" : "radiogroup"}
         aria-label="Opções de resposta"
       >
         {currentQ.answers.map((ans, idx) => {
           const isSelected = selectedIds.includes(ans.id);
           const isCorrectAnswer = ans.is_correct;
-          const isLocked = isMultiSelect && confirmedQuestions.has(currentQ.id);
+          const isLocked = isOptionsLocked;
 
           let optionClasses =
             "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-white/20 dark:hover:bg-white/[0.06]";
@@ -1702,28 +1712,44 @@ const toggleSave = async () => {
               aria-checked={isSelected}
               disabled={isLocked}
               onClick={() => saveAnswer(currentQ.id, ans.id, { multiple: isMultiSelect })}
-              className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm transition-all active:scale-[0.99] disabled:cursor-not-allowed sm:px-4 sm:py-3.5 lg:text-base ${optionClasses}`}
+              className={`flex min-h-[3.25rem] w-full items-start gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm transition-all active:scale-[0.99] disabled:cursor-not-allowed sm:px-4 sm:py-3.5 lg:text-base ${optionClasses}`}
             >
               {isMultiSelect ? (
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${badgeClasses}`}>
+                <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${badgeClasses}`}>
                   {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
                 </span>
               ) : (
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border text-[11px] font-bold transition ${badgeClasses}`}
+                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border text-[11px] font-bold transition ${badgeClasses}`}
                 >
                   {String.fromCharCode(65 + idx)}
                 </span>
               )}
-              <span className="flex-1 leading-snug">{ans.answer_text}</span>
+              <span className="min-w-0 flex-1 self-center break-words leading-snug [&_.katex-display]:my-1 [&_.katex]:text-[1.05em]">
+                <MathText text={ans.answer_text} />
+
+                {ans.metadata?.graph && (
+                  <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950">
+                    <GraphSVG config={ans.metadata.graph} />
+                  </div>
+                )}
+
+                {ans.metadata?.image_url && (
+                  <img
+                    src={ans.metadata.image_url}
+                    alt="Diagrama da resposta"
+                    className="mt-2 max-h-40 w-full rounded-xl border border-slate-200 object-contain dark:border-white/10"
+                  />
+                )}
+              </span>
               {showFeedback && isCorrectAnswer && (
-                <CheckCircle2 size={15} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
               )}
               {showFeedback && isSelected && !isCorrectAnswer && (
-                <XCircle size={15} className="shrink-0 text-rose-600 dark:text-rose-400" />
+                <XCircle size={15} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
               )}
               {!showFeedback && !isMultiSelect && isSelected && (
-                <Check size={15} className="shrink-0 text-blue-600 dark:text-blue-400" />
+                <Check size={15} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
               )}
             </button>
           );
@@ -1783,8 +1809,8 @@ const toggleSave = async () => {
           </div>
 
           {!isMultiSelect && currentSelectedOption?.feedback && (
-            <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-              {currentSelectedOption.feedback}
+            <p className="mt-2 overflow-x-auto text-sm text-slate-700 [&_.katex]:text-[1.05em] dark:text-slate-300">
+              <MathText text={currentSelectedOption.feedback} />
             </p>
           )}
 
@@ -1793,17 +1819,22 @@ const toggleSave = async () => {
               {currentQ.answers
                 .filter((a) => a.feedback && (a.is_correct || selectedIds.includes(a.id)))
                 .map((a) => (
-                  <li key={a.id} className="leading-relaxed">
-                    <span className="font-semibold">{a.answer_text}:</span> {a.feedback}
+                  <li key={a.id} className="overflow-x-auto leading-relaxed [&_.katex]:text-[1.05em]">
+                    <span className="font-semibold">
+                      <MathText text={a.answer_text} />
+                    </span>
+                    : <MathText text={a.feedback as string} />
                   </li>
                 ))}
             </ul>
           )}
 
           {currentQ.explanation && (
-            <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
+            <div className="mt-3 overflow-x-auto rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 [&_.katex]:text-[1.05em] dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
               <p className="font-semibold">Explicação</p>
-              <p className="mt-1 leading-relaxed">{currentQ.explanation}</p>
+              <p className="mt-1 leading-relaxed">
+                <MathText text={currentQ.explanation} />
+              </p>
             </div>
           )}
         </div>
@@ -1903,34 +1934,33 @@ const toggleSave = async () => {
     <div className="flex flex-col overflow-hidden" style={{ height: "100%" }}>
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
         <div className="flex min-w-0 items-center gap-3">
-  <button
-    onClick={handleRequestClose}
-    className="shrink-0 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
-    aria-label="Fechar questionário"
-  >
-    <X size={16} />
-  </button>
+          <button
+            onClick={handleRequestClose}
+            className="shrink-0 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+            aria-label="Fechar questionário"
+          >
+            <X size={16} />
+          </button>
 
-  {/* ✅ BOTÃO DE GUARDAR QUIZ */}
-  <button
-    onClick={() => void toggleSave()}
-    disabled={savingToggle || !profile?.id}
-    className={`rounded-xl p-2 transition disabled:opacity-40 ${
-      isSaved
-        ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
-        : "text-slate-400 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-amber-400"
-    }`}
-    aria-label={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
-    title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
-  >
-    {savingToggle ? (
-      <Loader2 size={14} className="animate-spin" />
-    ) : (
-      <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
-    )}
-  </button>
+          <button
+            onClick={() => void toggleSave()}
+            disabled={savingToggle || !profile?.id}
+            className={`rounded-xl p-2 transition disabled:opacity-40 ${
+              isSaved
+                ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
+                : "text-slate-400 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-amber-400"
+            }`}
+            aria-label={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+            title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
+          >
+            {savingToggle ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
+            )}
+          </button>
 
-  <div className="min-w-0">
+          <div className="min-w-0">
             <p className="truncate text-xs text-slate-500 dark:text-slate-500">
               {disciplineName} · {chapterTitle}
             </p>
