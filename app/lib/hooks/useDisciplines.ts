@@ -439,6 +439,8 @@ export function useDiscipline(disciplineId: string) {
       return;
     }
 
+    const resolvedStudentId = studentId;
+
     let cancelled = false;
 
     async function load() {
@@ -463,7 +465,7 @@ export function useDiscipline(disciplineId: string) {
 
         const progressMap = await fetchProgressMap(
           supabase,
-          studentId,
+          resolvedStudentId,
           ids.contentIds,
           ids.quizIds
         );

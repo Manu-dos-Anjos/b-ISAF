@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 
@@ -222,7 +223,7 @@ export function AudioPlayerProvider({
       data: authListener,
     } =
       supabase.auth.onAuthStateChange(
-        (_event, session) => {
+        (_event: AuthChangeEvent, session: Session | null) => {
           if (!mounted) {
             return;
           }
