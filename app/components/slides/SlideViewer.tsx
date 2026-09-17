@@ -55,7 +55,9 @@ export default function SlideViewer({
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({
+      data,
+    }: { data: { user: { id: string } | null } | null }) => {
       if (data?.user?.id) {
         setUserId(data.user.id);
       }
