@@ -1,6 +1,5 @@
 // app/components/meu-curso/MeuCursoPage.tsx
 "use client";
-
 import {
   useState,
   useMemo,
@@ -41,15 +40,10 @@ import {
   ArrowLeft,
   ListTree,
 } from "lucide-react";
-
 import { useDisciplineStudyPlan } from "@/app/lib/hooks/useDisciplineStudyPlan";
 import { useSchedule } from "@/app/lib/hooks/useSchedule";
 import { useScheduleReset } from "@/app/lib/hooks/useScheduleReset";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
-
-/* ================================================================
-   SCROLLBAR CLASSES
-================================================================ */
 
 const SCROLLBAR_X = [
   "scrollbar-thin",
@@ -62,9 +56,6 @@ const SCROLLBAR_X = [
   "hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/70",
   "dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60",
 ].join(" ");
-/* ================================================================
-   TIPOS
-================================================================ */
 
 export type CourseId =
   | "informatica-gestao-financeira"
@@ -110,10 +101,6 @@ export type WeeklySlot = {
   type: "Teórica" | "Prática" | "Teórico-Prática";
 };
 
-/* ================================================================
-   HORÁRIOS FIXOS DO ISAF
-================================================================ */
-
 type FixedPeriod = {
   key: string;
   startTime: string;
@@ -145,10 +132,6 @@ const FIXED_PERIODS: FixedPeriod[] = [
 function getPeriodByKey(key: string): FixedPeriod | undefined {
   return FIXED_PERIODS.find((p) => p.key === key);
 }
-
-/* ================================================================
-   MAPA DE SLUGS
-================================================================ */
 
 const DISCIPLINE_SLUGS: Record<string, string> = {
   "igf-1-1-cpe": "comunicacao-pessoal-e-empresarial",
@@ -236,7 +219,6 @@ const DISCIPLINE_SLUGS: Record<string, string> = {
   "gbs-1-1-mi": "metodologias-de-investigacao-cientifica",
   "gbs-1-1-ii": "introducao-a-informatica",
   "gbs-1-1-mat1": "matematica-i",
-  "gbs-1-2-cpe": "comunicacao-pessoal-e-empresarial",
   "gbs-1-2-li2": "lingua-inglesa-ii",
   "gbs-1-2-iog": "introducao-as-organizacoes-e-a-gestao",
   "gbs-1-2-cg1": "contabilidade-geral-i",
@@ -277,389 +259,240 @@ function getDisciplineSlug(id: string): string {
   return DISCIPLINE_SLUGS[id] ?? id;
 }
 
-/* ================================================================
-   DADOS CURRICULARES
-================================================================ */
-
 const CURRICULUM: Record<CourseId, CourseData> = {
   "informatica-gestao-financeira": {
     id: "informatica-gestao-financeira",
     name: "Informática de Gestão Financeira",
     years: [
-      {
-        year: 1,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "igf-1-1-cpe",  name: "Comunicação Pessoal e Empresarial" },
-              { id: "igf-1-1-li1",  name: "Língua Inglesa I" },
-              { id: "igf-1-1-mi",   name: "Métodos de Investigação Científica" },
-              { id: "igf-1-1-fsi",  name: "Fundamentos de Sistemas de Informação" },
-              { id: "igf-1-1-mat1", name: "Matemática I" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "igf-1-2-cg1",  name: "Contabilidade Geral I" },
-              { id: "igf-1-2-li2",  name: "Língua Inglesa II" },
-              { id: "igf-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
-              { id: "igf-1-2-arq",  name: "Arquitetura de Computadores" },
-              { id: "igf-1-2-mat2", name: "Matemática II" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 2,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "igf-2-1-cg2",   name: "Contabilidade Geral II" },
-              { id: "igf-2-1-prog1", name: "Programação I" },
-              { id: "igf-2-1-sd",    name: "Sistemas Digitais" },
-              { id: "igf-2-1-cof",   name: "Cálculo e Operações Financeiras" },
-              { id: "igf-2-1-ie",    name: "Introdução à Economia" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "igf-2-2-co",    name: "Comportamento Organizacional" },
-              { id: "igf-2-2-prog2", name: "Programação II" },
-              { id: "igf-2-2-bd1",   name: "Base de Dados I" },
-              { id: "igf-2-2-cant",  name: "Contabilidade Analítica" },
-              { id: "igf-2-2-pe",    name: "Probabilidades e Estatística" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 3,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "igf-3-1-mdsi", name: "Metodologia de Desenvolvimento de Sistemas de Informação" },
-              { id: "igf-3-1-fe",   name: "Finanças Empresariais" },
-              { id: "igf-3-1-bd2",  name: "Base de Dados II" },
-              { id: "igf-3-1-rc",   name: "Redes de Computadores" },
-              { id: "igf-3-1-so1",  name: "Sistemas Operativos I" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "igf-3-2-qsi", name: "Qualidade de Sistemas de Informação" },
-              { id: "igf-3-2-grn", name: "Gestão de Redes Informáticas" },
-              { id: "igf-3-2-ds",  name: "Desenvolvimento de Software" },
-              { id: "igf-3-2-ltw", name: "Linguagens e Tecnologias Web" },
-              { id: "igf-3-2-so2", name: "Sistemas Operativos II" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 4,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 1216,
-            disciplines: [
-              { id: "igf-4-1-di",   name: "Direito Informático" },
-              { id: "igf-4-1-sirn", name: "Segurança Informática em Redes de Sistemas" },
-              { id: "igf-4-1-tm",   name: "Tecnologias Multimédia" },
-              { id: "igf-4-1-fisc", name: "Fiscalidade" },
-              { id: "igf-4-1-tfc",  name: "Trabalho Final de Curso", annual: true },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 1216,
-            disciplines: [
-              { id: "igf-4-2-ai",  name: "Auditoria Informática" },
-              { id: "igf-4-2-ce",  name: "Comércio Electrónico" },
-              { id: "igf-4-2-md",  name: "Marketing Digital" },
-              { id: "igf-4-2-grh", name: "Gestão de Recursos Humanos" },
-              { id: "igf-4-2-tfc", name: "Trabalho Final de Curso", annual: true },
-            ],
-          },
-        ],
-      },
+      { year: 1, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "igf-1-1-cpe", name: "Comunicação Pessoal e Empresarial" },
+          { id: "igf-1-1-li1", name: "Língua Inglesa I" },
+          { id: "igf-1-1-mi", name: "Métodos de Investigação Científica" },
+          { id: "igf-1-1-fsi", name: "Fundamentos de Sistemas de Informação" },
+          { id: "igf-1-1-mat1", name: "Matemática I" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "igf-1-2-cg1", name: "Contabilidade Geral I" },
+          { id: "igf-1-2-li2", name: "Língua Inglesa II" },
+          { id: "igf-1-2-iog", name: "Introdução às Organizações e à Gestão" },
+          { id: "igf-1-2-arq", name: "Arquitetura de Computadores" },
+          { id: "igf-1-2-mat2", name: "Matemática II" },
+        ]},
+      ]},
+      { year: 2, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "igf-2-1-cg2", name: "Contabilidade Geral II" },
+          { id: "igf-2-1-prog1", name: "Programação I" },
+          { id: "igf-2-1-sd", name: "Sistemas Digitais" },
+          { id: "igf-2-1-cof", name: "Cálculo e Operações Financeiras" },
+          { id: "igf-2-1-ie", name: "Introdução à Economia" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "igf-2-2-co", name: "Comportamento Organizacional" },
+          { id: "igf-2-2-prog2", name: "Programação II" },
+          { id: "igf-2-2-bd1", name: "Base de Dados I" },
+          { id: "igf-2-2-cant", name: "Contabilidade Analítica" },
+          { id: "igf-2-2-pe", name: "Probabilidades e Estatística" },
+        ]},
+      ]},
+      { year: 3, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "igf-3-1-mdsi", name: "Metodologia de Desenvolvimento de Sistemas de Informação" },
+          { id: "igf-3-1-fe", name: "Finanças Empresariais" },
+          { id: "igf-3-1-bd2", name: "Base de Dados II" },
+          { id: "igf-3-1-rc", name: "Redes de Computadores" },
+          { id: "igf-3-1-so1", name: "Sistemas Operativos I" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "igf-3-2-qsi", name: "Qualidade de Sistemas de Informação" },
+          { id: "igf-3-2-grn", name: "Gestão de Redes Informáticas" },
+          { id: "igf-3-2-ds", name: "Desenvolvimento de Software" },
+          { id: "igf-3-2-ltw", name: "Linguagens e Tecnologias Web" },
+          { id: "igf-3-2-so2", name: "Sistemas Operativos II" },
+        ]},
+      ]},
+      { year: 4, semesters: [
+        { number: 1, totalHours: 1216, disciplines: [
+          { id: "igf-4-1-di", name: "Direito Informático" },
+          { id: "igf-4-1-sirn", name: "Segurança Informática em Redes de Sistemas" },
+          { id: "igf-4-1-tm", name: "Tecnologias Multimédia" },
+          { id: "igf-4-1-fisc", name: "Fiscalidade" },
+          { id: "igf-4-1-tfc", name: "Trabalho Final de Curso", annual: true },
+        ]},
+        { number: 2, totalHours: 1216, disciplines: [
+          { id: "igf-4-2-ai", name: "Auditoria Informática" },
+          { id: "igf-4-2-ce", name: "Comércio Electrónico" },
+          { id: "igf-4-2-md", name: "Marketing Digital" },
+          { id: "igf-4-2-grh", name: "Gestão de Recursos Humanos" },
+          { id: "igf-4-2-tfc", name: "Trabalho Final de Curso", annual: true },
+        ]},
+      ]},
     ],
   },
-
   "contabilidade-financas": {
     id: "contabilidade-financas",
     name: "Contabilidade e Finanças",
     years: [
-      {
-        year: 1,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "cf-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "cf-1-1-li1",  name: "Língua Inglesa I" },
-              { id: "cf-1-1-mi",   name: "Metodologias de Investigação Científica" },
-              { id: "cf-1-1-ii",   name: "Introdução à Informática" },
-              { id: "cf-1-1-mat1", name: "Matemática I" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "cf-1-2-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "cf-1-2-li2",  name: "Língua Inglesa II" },
-              { id: "cf-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
-              { id: "cf-1-2-cg1",  name: "Contabilidade Geral I" },
-              { id: "cf-1-2-mat2", name: "Matemática II" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 2,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "cf-2-1-cg2",  name: "Contabilidade Geral II" },
-              { id: "cf-2-1-li3",  name: "Língua Inglesa III" },
-              { id: "cf-2-1-me1",  name: "Microeconomia I" },
-              { id: "cf-2-1-cof",  name: "Cálculo e Operações Financeiras" },
-              { id: "cf-2-1-est1", name: "Estatística I" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "cf-2-2-ca",   name: "Contabilidade Analítica" },
-              { id: "cf-2-2-li4",  name: "Língua Inglesa IV" },
-              { id: "cf-2-2-me2",  name: "Microeconomia II" },
-              { id: "cf-2-2-de",   name: "Direito das Empresas" },
-              { id: "cf-2-2-est2", name: "Estatística II" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 3,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "cf-3-1-cpco", name: "Contabilidade, Planeamento e Controlo Orçamental" },
-              { id: "cf-3-1-mac1", name: "Macroeconomia I" },
-              { id: "cf-3-1-dc",   name: "Direito Comercial" },
-              { id: "cf-3-1-fin1", name: "Finanças I" },
-              { id: "cf-3-1-mkt1", name: "Marketing I" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "cf-3-2-fisc", name: "Fiscalidade" },
-              { id: "cf-3-2-mac2", name: "Macroeconomia II" },
-              { id: "cf-3-2-epe",  name: "Estratégia e Planeamento da Empresa" },
-              { id: "cf-3-2-fin2", name: "Finanças II" },
-              { id: "cf-3-2-mkt2", name: "Marketing II" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 4,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 1216,
-            disciplines: [
-              { id: "cf-4-1-he",  name: "História Económica" },
-              { id: "cf-4-1-grh", name: "Gestão de Recursos Humanos" },
-              { id: "cf-4-1-mpf", name: "Mercados e Produtos Financeiros" },
-              { id: "cf-4-1-caa", name: "Contabilidade Analítica Avançada" },
-              { id: "cf-4-1-tfc", name: "Trabalho Final de Curso", annual: true },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 1216,
-            disciplines: [
-              { id: "cf-4-2-aef", name: "Análise Económico-Financeira" },
-              { id: "cf-4-2-aud", name: "Auditoria" },
-              { id: "cf-4-2-eci", name: "Economia e Comércio Internacionais" },
-              { id: "cf-4-2-scg", name: "Sistemas de Controlo de Gestão" },
-              { id: "cf-4-2-tfc", name: "Trabalho Final de Curso", annual: true },
-            ],
-          },
-        ],
-      },
+      { year: 1, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "cf-1-1-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
+          { id: "cf-1-1-li1", name: "Língua Inglesa I" },
+          { id: "cf-1-1-mi", name: "Metodologias de Investigação Científica" },
+          { id: "cf-1-1-ii", name: "Introdução à Informática" },
+          { id: "cf-1-1-mat1", name: "Matemática I" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "cf-1-2-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
+          { id: "cf-1-2-li2", name: "Língua Inglesa II" },
+          { id: "cf-1-2-iog", name: "Introdução às Organizações e à Gestão" },
+          { id: "cf-1-2-cg1", name: "Contabilidade Geral I" },
+          { id: "cf-1-2-mat2", name: "Matemática II" },
+        ]},
+      ]},
+      { year: 2, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "cf-2-1-cg2", name: "Contabilidade Geral II" },
+          { id: "cf-2-1-li3", name: "Língua Inglesa III" },
+          { id: "cf-2-1-me1", name: "Microeconomia I" },
+          { id: "cf-2-1-cof", name: "Cálculo e Operações Financeiras" },
+          { id: "cf-2-1-est1", name: "Estatística I" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "cf-2-2-ca", name: "Contabilidade Analítica" },
+          { id: "cf-2-2-li4", name: "Língua Inglesa IV" },
+          { id: "cf-2-2-me2", name: "Microeconomia II" },
+          { id: "cf-2-2-de", name: "Direito das Empresas" },
+          { id: "cf-2-2-est2", name: "Estatística II" },
+        ]},
+      ]},
+      { year: 3, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "cf-3-1-cpco", name: "Contabilidade, Planeamento e Controlo Orçamental" },
+          { id: "cf-3-1-mac1", name: "Macroeconomia I" },
+          { id: "cf-3-1-dc", name: "Direito Comercial" },
+          { id: "cf-3-1-fin1", name: "Finanças I" },
+          { id: "cf-3-1-mkt1", name: "Marketing I" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "cf-3-2-fisc", name: "Fiscalidade" },
+          { id: "cf-3-2-mac2", name: "Macroeconomia II" },
+          { id: "cf-3-2-epe", name: "Estratégia e Planeamento da Empresa" },
+          { id: "cf-3-2-fin2", name: "Finanças II" },
+          { id: "cf-3-2-mkt2", name: "Marketing II" },
+        ]},
+      ]},
+      { year: 4, semesters: [
+        { number: 1, totalHours: 1216, disciplines: [
+          { id: "cf-4-1-he", name: "História Económica" },
+          { id: "cf-4-1-grh", name: "Gestão de Recursos Humanos" },
+          { id: "cf-4-1-mpf", name: "Mercados e Produtos Financeiros" },
+          { id: "cf-4-1-caa", name: "Contabilidade Analítica Avançada" },
+          { id: "cf-4-1-tfc", name: "Trabalho Final de Curso", annual: true },
+        ]},
+        { number: 2, totalHours: 1216, disciplines: [
+          { id: "cf-4-2-aef", name: "Análise Económico-Financeira" },
+          { id: "cf-4-2-aud", name: "Auditoria" },
+          { id: "cf-4-2-eci", name: "Economia e Comércio Internacionais" },
+          { id: "cf-4-2-scg", name: "Sistemas de Controlo de Gestão" },
+          { id: "cf-4-2-tfc", name: "Trabalho Final de Curso", annual: true },
+        ]},
+      ]},
     ],
   },
-
   "gestao-bancaria-seguros": {
     id: "gestao-bancaria-seguros",
     name: "Gestão Bancária & Seguros",
     years: [
-      {
-        year: 1,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "gbs-1-1-cpe",  name: "Comunicação Pessoal e Empresarial", annual: true },
-              { id: "gbs-1-1-li1",  name: "Língua Inglesa I" },
-              { id: "gbs-1-1-mi",   name: "Metodologias de Investigação Científica" },
-              { id: "gbs-1-1-ii",   name: "Introdução à Informática" },
-              { id: "gbs-1-1-mat1", name: "Matemática I" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "gbs-1-2-li2",  name: "Língua Inglesa II" },
-              { id: "gbs-1-2-iog",  name: "Introdução às Organizações e à Gestão" },
-              { id: "gbs-1-2-cg1",  name: "Contabilidade Geral I" },
-              { id: "gbs-1-2-mat2", name: "Matemática II" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 2,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "gbs-2-1-cg2", name: "Contabilidade Geral II" },
-              { id: "gbs-2-1-li3", name: "Língua Inglesa III" },
-              { id: "gbs-2-1-est", name: "Estatística" },
-              { id: "gbs-2-1-cof", name: "Cálculo e Operações Financeiras" },
-              { id: "gbs-2-1-tsi", name: "Tecnologias e Sistemas de Informação" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "gbs-2-2-ca",  name: "Contabilidade Analítica" },
-              { id: "gbs-2-2-li4", name: "Língua Inglesa IV" },
-              { id: "gbs-2-2-co",  name: "Comportamento Organizacional" },
-              { id: "gbs-2-2-mpf", name: "Mercados e Produtos Financeiros" },
-              { id: "gbs-2-2-irs", name: "Introdução ao Risco e Seguro" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 3,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 768,
-            disciplines: [
-              { id: "gbs-3-1-cpco", name: "Contabilidade, Planeamento e Controlo Orçamental" },
-              { id: "gbs-3-1-fe",   name: "Finanças Empresariais" },
-              { id: "gbs-3-1-dab",  name: "Direito na Actividade Bancária" },
-              { id: "gbs-3-1-agr",  name: "Análise e Gestão de Risco" },
-              { id: "gbs-3-1-fcb",  name: "Financiamento e Crédito Bancário" },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 768,
-            disciplines: [
-              { id: "gbs-3-2-das",  name: "Direito na Actividade Seguradora" },
-              { id: "gbs-3-2-opb",  name: "Operações e Prática Bancária" },
-              { id: "gbs-3-2-fpf",  name: "Fiscalidade de Produtos Financeiros" },
-              { id: "gbs-3-2-aef",  name: "Análise Económico-Financeira" },
-              { id: "gbs-3-2-svsa", name: "Seguro de Vida, Saúde e Acidentes" },
-            ],
-          },
-        ],
-      },
-      {
-        year: 4,
-        semesters: [
-          {
-            number: 1,
-            totalHours: 1216,
-            disciplines: [
-              { id: "gbs-4-1-ops",  name: "Operações e Prática Seguradora" },
-              { id: "gbs-4-1-grh",  name: "Gestão de Recursos Humanos" },
-              { id: "gbs-4-1-eai",  name: "Economia Angolana e Internacional" },
-              { id: "gbs-4-1-spnv", name: "Seguros de Propriedade e Não-Vida" },
-              { id: "gbs-4-1-tfc",  name: "Trabalho Final de Curso", annual: true },
-            ],
-          },
-          {
-            number: 2,
-            totalHours: 1216,
-            disciplines: [
-              { id: "gbs-4-2-afbs", name: "Auditoria Financeira Banca e Seguros" },
-              { id: "gbs-4-2-msf",  name: "Marketing de Serviços Financeiros" },
-              { id: "gbs-4-2-gapf", name: "Gestão de Activos, Passivos e Fundos de Pensões" },
-              { id: "gbs-4-2-scg",  name: "Sistemas de Controlo de Gestão" },
-              { id: "gbs-4-2-tfc",  name: "Trabalho Final de Curso", annual: true },
-            ],
-          },
-        ],
-      },
+      { year: 1, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "gbs-1-1-cpe", name: "Comunicação Pessoal e Empresarial", annual: true },
+          { id: "gbs-1-1-li1", name: "Língua Inglesa I" },
+          { id: "gbs-1-1-mi", name: "Metodologias de Investigação Científica" },
+          { id: "gbs-1-1-ii", name: "Introdução à Informática" },
+          { id: "gbs-1-1-mat1", name: "Matemática I" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "gbs-1-2-li2", name: "Língua Inglesa II" },
+          { id: "gbs-1-2-iog", name: "Introdução às Organizações e à Gestão" },
+          { id: "gbs-1-2-cg1", name: "Contabilidade Geral I" },
+          { id: "gbs-1-2-mat2", name: "Matemática II" },
+        ]},
+      ]},
+      { year: 2, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "gbs-2-1-cg2", name: "Contabilidade Geral II" },
+          { id: "gbs-2-1-li3", name: "Língua Inglesa III" },
+          { id: "gbs-2-1-est", name: "Estatística" },
+          { id: "gbs-2-1-cof", name: "Cálculo e Operações Financeiras" },
+          { id: "gbs-2-1-tsi", name: "Tecnologias e Sistemas de Informação" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "gbs-2-2-ca", name: "Contabilidade Analítica" },
+          { id: "gbs-2-2-li4", name: "Língua Inglesa IV" },
+          { id: "gbs-2-2-co", name: "Comportamento Organizacional" },
+          { id: "gbs-2-2-mpf", name: "Mercados e Produtos Financeiros" },
+          { id: "gbs-2-2-irs", name: "Introdução ao Risco e Seguro" },
+        ]},
+      ]},
+      { year: 3, semesters: [
+        { number: 1, totalHours: 768, disciplines: [
+          { id: "gbs-3-1-cpco", name: "Contabilidade, Planeamento e Controlo Orçamental" },
+          { id: "gbs-3-1-fe", name: "Finanças Empresariais" },
+          { id: "gbs-3-1-dab", name: "Direito na Actividade Bancária" },
+          { id: "gbs-3-1-agr", name: "Análise e Gestão de Risco" },
+          { id: "gbs-3-1-fcb", name: "Financiamento e Crédito Bancário" },
+        ]},
+        { number: 2, totalHours: 768, disciplines: [
+          { id: "gbs-3-2-das", name: "Direito na Actividade Seguradora" },
+          { id: "gbs-3-2-opb", name: "Operações e Prática Bancária" },
+          { id: "gbs-3-2-fpf", name: "Fiscalidade de Produtos Financeiros" },
+          { id: "gbs-3-2-aef", name: "Análise Económico-Financeira" },
+          { id: "gbs-3-2-svsa", name: "Seguro de Vida, Saúde e Acidentes" },
+        ]},
+      ]},
+      { year: 4, semesters: [
+        { number: 1, totalHours: 1216, disciplines: [
+          { id: "gbs-4-1-ops", name: "Operações e Prática Seguradora" },
+          { id: "gbs-4-1-grh", name: "Gestão de Recursos Humanos" },
+          { id: "gbs-4-1-eai", name: "Economia Angolana e Internacional" },
+          { id: "gbs-4-1-spnv", name: "Seguros de Propriedade e Não-Vida" },
+          { id: "gbs-4-1-tfc", name: "Trabalho Final de Curso", annual: true },
+        ]},
+        { number: 2, totalHours: 1216, disciplines: [
+          { id: "gbs-4-2-afbs", name: "Auditoria Financeira Banca e Seguros" },
+          { id: "gbs-4-2-msf", name: "Marketing de Serviços Financeiros" },
+          { id: "gbs-4-2-gapf", name: "Gestão de Activos, Passivos e Fundos de Pensões" },
+          { id: "gbs-4-2-scg", name: "Sistemas de Controlo de Gestão" },
+          { id: "gbs-4-2-tfc", name: "Trabalho Final de Curso", annual: true },
+        ]},
+      ]},
     ],
   },
 };
 
-/* ================================================================
-   CONSTANTES
-================================================================ */
-
 const DAYS_ORDER = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"] as const;
 
 const TYPE_COLORS: Record<WeeklySlot["type"], string> = {
-  Teórica:
-    "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
-  Prática:
-    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300",
-  "Teórico-Prática":
-    "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300",
+  Teórica: "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
+  Prática: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300",
+  "Teórico-Prática": "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300",
 };
 
 const DAY_LABELS: Record<WeeklySlot["day"], string> = {
   Segunda: "Segunda-Feira",
-  Terça:   "Terça-Feira",
-  Quarta:  "Quarta-Feira",
-  Quinta:  "Quinta-Feira",
-  Sexta:   "Sexta-Feira",
-  Sábado:  "Sábado",
+  Terça: "Terça-Feira",
+  Quarta: "Quarta-Feira",
+  Quinta: "Quinta-Feira",
+  Sexta: "Sexta-Feira",
+  Sábado: "Sábado",
 };
 
 const COURSE_UUIDS: Record<CourseId, string> = {
   "informatica-gestao-financeira": "60313e51-2b89-4c1d-9737-6606c9d5e999",
-  "contabilidade-financas":        "4c41b444-b985-40e0-8449-bdf3156cf3ab",
-  "gestao-bancaria-seguros":       "724e59d4-8acb-4235-9698-18a325f4ffe5",
+  "contabilidade-financas": "4c41b444-b985-40e0-8449-bdf3156cf3ab",
+  "gestao-bancaria-seguros": "724e59d4-8acb-4235-9698-18a325f4ffe5",
 };
-
-/* ================================================================
-   HELPERS
-================================================================ */
 
 function getDisciplineCodeFromId(id: string): string {
   const parts = id.split("-");
@@ -773,10 +606,8 @@ function getDisciplineShortName(name: string) {
     "desenvolvimento de software": "Dev. Software",
     "linguagens e tecnologias web": "LTW",
   };
-
   if (overrides[normalized]) return overrides[normalized];
   if (name.length <= 16) return name;
-
   const stopWords = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "as", "os"]);
   const roman = /^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$/i;
   const words = name.split(/[\s,/-]+/).filter(Boolean);
@@ -784,7 +615,6 @@ function getDisciplineShortName(name: string) {
     .filter((w) => !stopWords.has(normalizeText(w)))
     .map((w) => (roman.test(w) ? w.toUpperCase() : w[0].toUpperCase()))
     .join("");
-
   if (initials.length >= 2) return initials;
   return `${name.slice(0, 12)}…`;
 }
@@ -794,7 +624,7 @@ function resolveDisciplineSlugFromScheduleName(name: string, course: CourseData)
   for (const year of course.years) {
     for (const sem of year.semesters) {
       for (const disc of sem.disciplines) {
-        const full  = normalizeText(disc.name);
+        const full = normalizeText(disc.name);
         const short = normalizeText(getDisciplineShortName(disc.name));
         if (
           normalizedName === full ||
@@ -810,11 +640,7 @@ function resolveDisciplineSlugFromScheduleName(name: string, course: CourseData)
   return null;
 }
 
-function getCellSlot(
-  mySchedule: WeeklySlot[],
-  day: WeeklySlot["day"],
-  period: FixedPeriod
-) {
+function getCellSlot(mySchedule: WeeklySlot[], day: WeeklySlot["day"], period: FixedPeriod) {
   const daySlots = mySchedule.filter((slot) => slot.day === day);
   const exact = daySlots.find(
     (slot) => slot.startTime === period.startTime && slot.endTime === period.endTime
@@ -832,13 +658,8 @@ function getActivePeriods(mySchedule: WeeklySlot[]): FixedPeriod[] {
   });
 }
 
-/* ================================================================
-   TABS / TIPOS INTERNOS
-================================================================ */
-
 type Tab = "curriculo" | "horario" | "regulamentos";
 type ScheduleMode = "view" | "manual";
-
 type GridCell = {
   disciplineId: string;
   room: string;
@@ -855,10 +676,6 @@ type Props = {
   studentNumber?: string | null;
 };
 
-/* ================================================================
-   COMPONENTE PRINCIPAL
-================================================================ */
-
 export default function MeuCursoPage({
   courseId = "informatica-gestao-financeira",
   currentYear = 1,
@@ -867,19 +684,16 @@ export default function MeuCursoPage({
   studentNumber,
 }: Props) {
   useScheduleReset();
-
   const course = CURRICULUM[courseId] ?? CURRICULUM["informatica-gestao-financeira"];
   const { supabase, user: authUser } = useSupabase();
-  const router    = useRouter();
-  const pathname  = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  /* ── URL state ────────────────────────────────────────────── */
-  const tabFromUrl  = (searchParams.get("tab") as Tab) ?? "curriculo";
-  const modeParam   = searchParams.get("mode");
-  const modeFromUrl : ScheduleMode = modeParam === "manual" ? "manual" : "view";
-
-  const [activeTab,    setActiveTabState]    = useState<Tab>(tabFromUrl);
+  const tabFromUrl = (searchParams.get("tab") as Tab) ?? "curriculo";
+  const modeParam = searchParams.get("mode");
+  const modeFromUrl: ScheduleMode = modeParam === "manual" ? "manual" : "view";
+  const [activeTab, setActiveTabState] = useState<Tab>(tabFromUrl);
   const [scheduleMode, setScheduleModeState] = useState<ScheduleMode>(modeFromUrl);
 
   const setActiveTab = (tab: Tab) => {
@@ -897,52 +711,38 @@ export default function MeuCursoPage({
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  /* ── Currículo state ──────────────────────────────────────── */
   const [selectedDisciplineId, setSelectedDisciplineId] = useState<string | null>(null);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([currentYear]));
   const disciplinePanelRef = useRef<HTMLDivElement | null>(null);
 
-  /* ── Extras — carregados do Supabase ─────────────────────── */
   const [extraIds, setExtraIds] = useState<Set<string>>(new Set());
   const [extrasLoading, setExtrasLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-
     const load = async () => {
       setExtrasLoading(true);
-
-      // Tenta Supabase primeiro
       if (authUser) {
         try {
           const { data, error } = await supabase
             .from("student_extra_disciplines")
             .select("discipline_id")
             .eq("student_id", authUser.id);
-
           if (!error && data && active) {
             setExtraIds(new Set((data as Array<{ discipline_id: string }>).map((r) => r.discipline_id)));
             setExtrasLoading(false);
             return;
           }
-        } catch {
-          // fallthrough para localStorage
-        }
+        } catch {}
       }
-
-      // Fallback: localStorage
       try {
         const raw = localStorage.getItem("b-isaf:extraDisciplines");
         if (raw && active) {
           setExtraIds(new Set(JSON.parse(raw) as string[]));
         }
-      } catch {
-        // ignore
-      }
-
+      } catch {}
       if (active) setExtrasLoading(false);
     };
-
     void load();
     return () => { active = false; };
   }, [authUser, supabase]);
@@ -952,25 +752,22 @@ export default function MeuCursoPage({
     [extraIds]
   );
 
-  /* ── Horário ──────────────────────────────────────────────── */
   const {
-    schedule:  mySchedule,
+    schedule: mySchedule,
     isLoading: scheduleLoading,
-    isSaving:  scheduleSaving,
-    error:     scheduleError,
+    isSaving: scheduleSaving,
+    error: scheduleError,
     saveSchedule,
   } = useSchedule();
 
-  /* ── Editor manual ───────────────────────────────────────── */
-  const [manualGrid,        setManualGrid]        = useState<Record<GridKey, GridCell>>({});
-  const [globalRoom,        setGlobalRoom]        = useState<string>("S.03");
+  const [manualGrid, setManualGrid] = useState<Record<GridKey, GridCell>>({});
+  const [globalRoom, setGlobalRoom] = useState<string>("S.03");
   const [manualPeriodGroup, setManualPeriodGroup] = useState<FixedPeriod["group"]>("tarde");
 
-  /* ── Disciplinas do semestre actual ───────────────────────── */
   const currentSemesterDisciplines = useMemo(() => {
     const yearData = course.years.find((y) => y.year === currentYear);
     if (!yearData) return [];
-    const semData  = yearData.semesters.find((s) => s.number === currentSemester);
+    const semData = yearData.semesters.find((s) => s.number === currentSemester);
     return semData?.disciplines ?? [];
   }, [course, currentYear, currentSemester]);
 
@@ -979,7 +776,6 @@ export default function MeuCursoPage({
     [manualPeriodGroup]
   );
 
-  /* ── Disciplina seleccionada ──────────────────────────────── */
   const selectedDiscipline = useMemo(() => {
     if (!selectedDisciplineId) return null;
     for (const year of course.years) {
@@ -1003,7 +799,6 @@ export default function MeuCursoPage({
     return () => window.clearTimeout(id);
   }, [selectedDiscipline]);
 
-  /* ── Helpers currículo ────────────────────────────────────── */
   const toggleYear = (year: number) => {
     setExpandedYears((prev) => {
       const next = new Set(prev);
@@ -1012,10 +807,6 @@ export default function MeuCursoPage({
     });
   };
 
-  /**
-   * Calcula o status de uma disciplina.
-   * Se for extra, retorna "extra" independentemente do ano/semestre.
-   */
   const getDisciplineStatus = useCallback(
     (disciplineId: string, year: number, semester: number): DisciplineStatus => {
       if (isExtra(disciplineId)) return "extra";
@@ -1028,23 +819,19 @@ export default function MeuCursoPage({
   );
 
   const statusIcon = (status: DisciplineStatus) => {
-  switch (status) {
-    case "completed":
-      return <CheckCircle2 size={14} className="shrink-0 text-emerald-500 dark:text-emerald-400" />;
-    case "current":
-      return <Circle size={14} className="shrink-0 fill-blue-500/30 text-blue-500 dark:fill-blue-400/30 dark:text-blue-400" />;
-    case "extra":
-      return <Sparkles size={14} className="shrink-0 text-violet-500 dark:text-violet-400" />;
-    case "upcoming":
-      return <Circle size={14} className="shrink-0 text-slate-600 dark:text-slate-500" />;
-  }
-};
+    switch (status) {
+      case "completed": return <CheckCircle2 size={14} className="shrink-0 text-emerald-500 dark:text-emerald-400" />;
+      case "current": return <Circle size={14} className="shrink-0 fill-blue-500/30 text-blue-500 dark:fill-blue-400/30 dark:text-blue-400" />;
+      case "extra": return <Sparkles size={14} className="shrink-0 text-violet-500 dark:text-violet-400" />;
+      case "upcoming": return <Circle size={14} className="shrink-0 text-slate-600 dark:text-slate-500" />;
+    }
+  };
 
   const statusLabel: Record<DisciplineStatus, string> = {
     completed: "Concluída",
-    current:   "Em curso",
-    upcoming:  "A frequentar",
-    extra:     "Cadeira extra",
+    current: "Em curso",
+    upcoming: "A frequentar",
+    extra: "Cadeira extra",
   };
 
   const goToDiscipline = (disciplineId: string, topicId?: string) => {
@@ -1059,7 +846,6 @@ export default function MeuCursoPage({
     if (resolved) router.push(`/disciplinas/${resolved}`);
   };
 
-  /* ── Grid helpers ─────────────────────────────────────────── */
   const getGridCell = (day: string, periodKey: string): GridCell => {
     const key: GridKey = `${day}|${periodKey}`;
     return manualGrid[key] ?? { disciplineId: "", room: globalRoom, professor: "", type: "Teórica" };
@@ -1101,7 +887,6 @@ export default function MeuCursoPage({
     });
   };
 
-  /* ── Guardar horário ─────────────────────────────────────── */
   const saveManual = async () => {
     const slots: WeeklySlot[] = [];
     let counter = 0;
@@ -1109,30 +894,27 @@ export default function MeuCursoPage({
       if (!cell.disciplineId) continue;
       const [day, periodKey] = key.split("|");
       const period = getPeriodByKey(periodKey);
-      const disc   = currentSemesterDisciplines.find((d) => d.id === cell.disciplineId);
+      const disc = currentSemesterDisciplines.find((d) => d.id === cell.disciplineId);
       if (!period || !disc) continue;
       slots.push({
-        id:             `manual-${counter++}`,
-        day:            day as WeeklySlot["day"],
-        startTime:      period.startTime,
-        endTime:        period.endTime,
-        discipline:     disc.name,
+        id: `manual-${counter++}`,
+        day: day as WeeklySlot["day"],
+        startTime: period.startTime,
+        endTime: period.endTime,
+        discipline: disc.name,
         disciplineSlug: getDisciplineSlug(disc.id),
-        room:           cell.room || globalRoom,
-        professor:      cell.professor,
-        type:           cell.type,
+        room: cell.room || globalRoom,
+        professor: cell.professor,
+        type: cell.type,
       });
     }
     try {
       await saveSchedule(slots);
       setScheduleMode("view");
-    } catch {
-      // scheduleError já contém a mensagem
-    }
+    } catch {}
   };
 
-  /* ── Computed ─────────────────────────────────────────────── */
-  const activePeriods  = useMemo(() => getActivePeriods(mySchedule), [mySchedule]);
+  const activePeriods = useMemo(() => getActivePeriods(mySchedule), [mySchedule]);
 
   const scheduleProfessors = useMemo(() => {
     const map = new Map<string, { discipline: string; professor: string; room?: string }>();
@@ -1147,76 +929,66 @@ export default function MeuCursoPage({
   const progress = Math.round((((currentYear - 1) * 2 + (currentSemester - 1)) / 8) * 100);
   const filledCellCount = Object.values(manualGrid).filter((c) => c.disciplineId).length;
 
-  /* ── Estilos partilhados ──────────────────────────────────── */
   const selectSm =
-  "w-full appearance-none rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 " +
-  "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200 transition " +
-  "dark:border-white/15 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40";
+    "w-full appearance-none rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 " +
+    "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200 transition " +
+    "dark:border-white/15 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-indigo-500/40";
 
-const SelectWrap = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
-  <div className={`relative ${className}`}>
-    {children}
-    <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-400" />
-  </div>
-);
+  const SelectWrap = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
+    <div className={`relative ${className}`}>
+      {children}
+      <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-400" />
+    </div>
+  );
 
-  /* ==============================================================
-     RENDER
-  ============================================================== */
   return (
-  <div className="space-y-4 sm:space-y-6">
-
-          {scheduleError && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-          <AlertCircle size={15} className="shrink-0" />
+    <div className="space-y-4 sm:space-y-6 md:space-y-5">
+      {scheduleError && (
+        <div className="flex items-center gap-2 rounded-xl md:rounded-lg border border-rose-300 bg-rose-50 px-4 md:px-3 py-3 md:py-2 text-sm md:text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+          <AlertCircle size={15} className="shrink-0 md:h-3.5 md:w-3.5" />
           <span>{scheduleError}</span>
         </div>
       )}
 
-      {/* ── Cabeçalho ── */}
-      <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-slate-950/50 dark:shadow-none sm:rounded-2xl sm:p-5 md:p-6">
+      <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-slate-950/50 dark:shadow-none sm:rounded-2xl sm:p-5 md:p-4">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-50 dark:from-indigo-950/60 dark:via-slate-950/80 dark:to-slate-950" />
 
-        {/* Título + progresso — linha única no mobile */}
-        <div className="relative z-10 flex items-center justify-between gap-3">
+        <div className="relative z-10 flex items-center justify-between gap-3 md:gap-2.5">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 sm:text-xs">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 sm:text-xs md:text-[11px]">
               Meu Curso
             </p>
-            <h1 className="mt-0.5 truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl md:text-3xl">
+            <h1 className="mt-0.5 truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl md:text-xl">
               {course.name}
             </h1>
-            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400 sm:mt-1 sm:text-sm">
+            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400 sm:mt-1 sm:text-sm md:text-xs">
               {studentName}
             </p>
           </div>
-
           <div className="flex shrink-0 flex-col items-end text-right">
-            <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl">
+            <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl md:text-2xl">
               {progress}
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400 sm:text-base">%</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400 sm:text-base md:text-sm">%</span>
             </p>
-            <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px]">
+            <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px] md:text-[10px]">
               Progresso
             </p>
           </div>
         </div>
 
-        {/* Meta (ano/semestre/número) — abaixo, mais discreto no mobile */}
-        <div className="relative z-10 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 sm:mt-2 sm:text-sm">
+        <div className="relative z-10 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 sm:mt-2 sm:text-sm md:text-xs">
           <span className="flex items-center gap-1.5">
-            <GraduationCap size={13} className="text-indigo-500 dark:text-indigo-400 sm:size-[14px]" />
+            <GraduationCap size={13} className="text-indigo-500 dark:text-indigo-400 sm:size-[14px] md:size-[13px]" />
             {currentYear}º Ano · {currentSemester}º Semestre
           </span>
           {studentNumber && (
             <span className="flex items-center gap-1.5">
-              <FileText size={13} className="text-indigo-500 dark:text-indigo-400 sm:size-[14px]" />
+              <FileText size={13} className="text-indigo-500 dark:text-indigo-400 sm:size-[14px] md:size-[13px]" />
               Nº {studentNumber}
             </span>
           )}
         </div>
 
-        {/* Barra de progresso — visível e compacta no mobile */}
         <div className="relative z-10 mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10 sm:hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
@@ -1224,22 +996,21 @@ const SelectWrap = ({ children, className = "" }: { children: ReactNode; classNa
           />
         </div>
 
-        {/* Tabs */}
-        <div className={`relative z-10 mt-3 flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 dark:bg-white/5 sm:mt-5 sm:rounded-xl ${SCROLLBAR_X}`}>
+        <div className={`relative z-10 mt-3 flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 dark:bg-white/5 sm:mt-5 md:mt-4 sm:rounded-xl ${SCROLLBAR_X}`}>
           {(["curriculo", "horario", "regulamentos"] as Tab[]).map((tab) => {
             const labels: Record<Tab, string> = {
               curriculo: "Grelha Curricular",
-              horario:   "Horário Semanal",
+              horario: "Horário Semanal",
               regulamentos: "Regulamentos",
             };
             const labelsShort: Record<Tab, string> = {
               curriculo: "Currículo",
-              horario:   "Horário",
+              horario: "Horário",
               regulamentos: "Regulamentos",
             };
             const icons: Record<Tab, ElementType> = {
               curriculo: Layers,
-              horario:   Calendar,
+              horario: Calendar,
               regulamentos: ScrollText,
             };
             const Icon = icons[tab];
@@ -1248,13 +1019,13 @@ const SelectWrap = ({ children, className = "" }: { children: ReactNode; classNa
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-2 text-[11px] font-medium transition sm:gap-2 sm:rounded-lg sm:px-3 sm:text-xs ${
+                className={`flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-2 md:py-1.5 text-[11px] md:text-[10px] font-medium transition sm:gap-2 md:gap-1.5 sm:rounded-lg sm:px-3 md:px-2.5 sm:text-xs md:text-[11px] ${
                   activeTab === tab
                     ? "bg-indigo-600 text-white"
                     : "text-slate-500 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
                 }`}
               >
-                <Icon size={14} />
+                <Icon size={14} className="md:h-3 md:w-3" />
                 <span className="sm:hidden">{labelsShort[tab]}</span>
                 <span className="hidden sm:inline">{labels[tab]}</span>
               </button>
@@ -1263,417 +1034,395 @@ const SelectWrap = ({ children, className = "" }: { children: ReactNode; classNa
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════
-          TAB: GRELHA CURRICULAR
-      ══════════════════════════════════════════ */}
-          {activeTab === "curriculo" && (
-      <div className="space-y-3 sm:space-y-4">
-        {extrasLoading && (
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-500 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500">
-            <Loader2 size={12} className="animate-spin" />
-            A carregar cadeiras extra…
-          </div>
-        )}
+      {activeTab === "curriculo" && (
+        <div className="space-y-3 sm:space-y-4 md:space-y-3">
+          {extrasLoading && (
+            <div className="flex items-center gap-2 rounded-xl md:rounded-lg border border-slate-200 bg-slate-50 px-4 md:px-3 py-2.5 md:py-2 text-xs md:text-[11px] text-slate-500 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500">
+              <Loader2 size={12} className="animate-spin md:h-3 md:w-3" />
+              A carregar cadeiras extra…
+            </div>
+          )}
 
-        {course.years.map((yearData) => {
-          const isCurrentYear = yearData.year === currentYear;
-          const isExpanded    = expandedYears.has(yearData.year);
-          const isCompleted   = yearData.year < currentYear;
-
-          return (
-            <div
-              key={yearData.year}
-              className={`overflow-hidden rounded-xl border transition-all sm:rounded-2xl ${
-                isCurrentYear
-                  ? "border-indigo-300 shadow-md shadow-indigo-100 dark:border-indigo-500/40 dark:shadow-lg dark:shadow-indigo-500/10"
-                  : "border-slate-200 dark:border-white/10"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => toggleYear(yearData.year)}
-                className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition sm:gap-4 sm:px-5 sm:py-4 ${
+          {course.years.map((yearData) => {
+            const isCurrentYear = yearData.year === currentYear;
+            const isExpanded = expandedYears.has(yearData.year);
+            const isCompleted = yearData.year < currentYear;
+            return (
+              <div
+                key={yearData.year}
+                className={`overflow-hidden rounded-xl border transition-all sm:rounded-2xl md:rounded-xl ${
                   isCurrentYear
-                    ? "bg-indigo-50 dark:bg-indigo-950/60"
-                    : isCompleted
-                    ? "bg-emerald-50 dark:bg-emerald-950/20"
-                    : "bg-slate-50 dark:bg-slate-950/40"
+                    ? "border-indigo-300 shadow-md shadow-indigo-100 dark:border-indigo-500/40 dark:shadow-lg dark:shadow-indigo-500/10"
+                    : "border-slate-200 dark:border-white/10"
                 }`}
               >
-                <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 ${
-                      isCurrentYear
-                        ? "bg-indigo-600 text-white"
-                        : isCompleted
-                        ? "bg-emerald-200 text-emerald-700 dark:bg-emerald-600/30 dark:text-emerald-400"
-                        : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-slate-400"
-                    }`}
-                  >
-                    {yearData.year}
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`flex flex-wrap items-center gap-1.5 truncate font-semibold sm:gap-2 ${isCurrentYear ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300"}`}>
-                      {yearData.year}º Ano
-                      {isCurrentYear && (
-                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                          Ano Corrente
-                        </span>
-                      )}
-                      {isCompleted && (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
-                          Concluído
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500">
-                      Carga horária: {yearData.semesters[0].totalHours}h
-                    </p>
-                  </div>
-                </div>
-                {isExpanded
-                  ? <ChevronDown  size={16} className="shrink-0 text-slate-600 dark:text-slate-400" />
-                  : <ChevronRight size={16} className="shrink-0 text-slate-600 dark:text-slate-400" />
-                }
-              </button>
-
-              {isExpanded && (
-                <div className="grid divide-y divide-slate-100 bg-slate-50/50 dark:divide-white/5 dark:bg-slate-950/30 md:grid-cols-2 md:divide-x md:divide-y-0">
-                  {yearData.semesters.map((sem) => {
-                    const semBaseStatus = (() => {
-                      if (yearData.year < currentYear) return "completed";
-                      if (yearData.year === currentYear && sem.number < currentSemester) return "completed";
-                      if (yearData.year === currentYear && sem.number === currentSemester) return "current";
-                      return "upcoming";
-                    })();
-                    const isSemCurrent = semBaseStatus === "current";
-
-                    return (
-                      <div key={sem.number} className="p-3 sm:p-4">
-                        <div
-                          className={`mb-2.5 flex items-center gap-2 border-b pb-2 sm:mb-3 ${
-                            isSemCurrent ? "border-indigo-200 dark:border-indigo-500/30" : "border-slate-200 dark:border-white/5"
-                          }`}
-                        >
-                          <div className={`h-1.5 w-1.5 rounded-full ${isSemCurrent ? "bg-indigo-400" : "bg-slate-300 dark:bg-slate-600"}`} />
-                          <p className={`text-xs font-semibold uppercase tracking-wider ${isSemCurrent ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500 dark:text-slate-500"}`}>
-                            {sem.number}º Semestre
-                          </p>
-                        </div>
-
-                        <div className="space-y-1 sm:space-y-1.5">
-                          {sem.disciplines.map((disc) => {
-                            const discStatus = getDisciplineStatus(disc.id, yearData.year, sem.number);
-                            const isSelected = selectedDisciplineId === disc.id;
-                            const isCurrent  = discStatus === "current";
-                            const isExtraDisc = discStatus === "extra";
-
-                            return (
-                              <button
-                                key={disc.id}
-                                type="button"
-                                onClick={() => setSelectedDisciplineId(isSelected ? null : disc.id)}
-                                className={`group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition-all sm:px-3 sm:py-2.5 ${
-                                  isSelected
-                                    ? isExtraDisc
-                                      ? "bg-violet-100 ring-1 ring-violet-300 dark:bg-violet-600/20 dark:ring-violet-500/40"
-                                      : "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-600/20 dark:ring-indigo-500/40"
-                                    : isExtraDisc
-                                    ? "bg-violet-50 ring-1 ring-violet-200 hover:bg-violet-100 dark:bg-violet-950/30 dark:ring-violet-500/20 dark:hover:bg-violet-950/50"
-                                    : isCurrent
-                                    ? "hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
-                                    : "hover:bg-slate-100 dark:hover:bg-white/5"
-                                }`}
-                              >
-                                {statusIcon(discStatus)}
-
-                                <span
-                                  className={`flex-1 leading-snug ${
-                                    isSelected
-                                      ? isExtraDisc ? "text-violet-800 dark:text-violet-200" : "text-indigo-800 dark:text-indigo-200"
-                                      : isExtraDisc
-                                      ? "text-violet-700 dark:text-violet-200"
-                                      : "text-slate-700 dark:text-slate-300"
-                                  }`}
-                                >
-                                  {disc.name}
-                                  {disc.annual && (
-                                    <span className="ml-1.5 text-[10px] text-slate-500 dark:text-slate-500">(Anual)</span>
-                                  )}
-                                </span>
-
-                                {isExtraDisc && (
-                                  <span className="shrink-0 rounded-full border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-400">
-                                    Extra
-                                  </span>
-                                )}
-
-                                <ChevronRight
-                                  size={12}
-                                  className={`shrink-0 transition-transform ${
-                                    isSelected
-                                      ? isExtraDisc ? "rotate-90 text-violet-500 dark:text-violet-400" : "rotate-90 text-indigo-500 dark:text-indigo-400"
-                                      : "text-slate-600 group-hover:text-slate-700 dark:text-slate-600 dark:group-hover:text-slate-400"
-                                  }`}
-                                />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {isExpanded &&
-                selectedDiscipline &&
-                selectedDiscipline.year === yearData.year && (
-                  <div ref={disciplinePanelRef}>
-                    <DisciplinePanel
-                      discipline={selectedDiscipline.discipline}
-                      year={selectedDiscipline.year}
-                      semester={selectedDiscipline.semester}
-                      status={getDisciplineStatus(
-                        selectedDiscipline.discipline.id,
-                        selectedDiscipline.year,
-                        selectedDiscipline.semester
-                      )}
-                      courseId={courseId}
-                      onClose={() => setSelectedDisciplineId(null)}
-                      onGoToDiscipline={goToDiscipline}
-                    />
-                  </div>
-                )}
-            </div>
-          );
-        })}
-
-        {/* Legenda */}
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] text-slate-500 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500 sm:gap-4">
-          <span className="font-medium text-slate-600 dark:text-slate-400">Legenda:</span>
-          {(["completed", "current", "upcoming", "extra"] as DisciplineStatus[]).map((s) => (
-            <span key={s} className="flex items-center gap-1.5">
-              {statusIcon(s)}
-              <span className={s === "extra" ? "text-violet-600 dark:text-violet-400" : ""}>{statusLabel[s]}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-    )}
-
-      {/* ══════════════════════════════════════════
-          TAB: HORÁRIO SEMANAL
-      ══════════════════════════════════════════ */}
-          {activeTab === "horario" && (
-      <div className="space-y-3 sm:space-y-4">
-        {scheduleLoading ? (
-          <div className="flex items-center justify-center gap-3 py-16">
-            <Loader2 size={20} className="animate-spin text-indigo-500 dark:text-indigo-400" />
-            <p className="text-sm text-slate-500 dark:text-slate-400">A carregar horário…</p>
-          </div>
-        ) : scheduleMode === "view" ? (
-          <>
-            {mySchedule.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none sm:p-10">
-                <Calendar size={40} className="mx-auto mb-4 text-slate-300 dark:text-slate-600 sm:size-12" />
-                <p className="text-base font-semibold text-slate-700 dark:text-slate-300 sm:text-lg">
-                  Ainda não tens horário configurado
-                </p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-500">
-                  Preenche o teu horário manualmente
-                </p>
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={() => { setManualGrid({}); setScheduleMode("manual"); }}
-                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500"
-                  >
-                    <Plus size={16} /> Criar horário manualmente
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      const newGrid: Record<GridKey, GridCell> = {};
-                      for (const slot of mySchedule) {
-                        const periodKey = `${slot.startTime}-${slot.endTime}`;
-                        const key: GridKey = `${slot.day}|${periodKey}`;
-                        const disc = currentSemesterDisciplines.find((d) => d.name === slot.discipline);
-                        newGrid[key] = {
-                          disciplineId: disc?.id ?? "",
-                          room:         slot.room ?? globalRoom,
-                          professor:    slot.professor ?? "",
-                          type:         slot.type,
-                        };
-                      }
-                      setManualGrid(newGrid);
-                      setScheduleMode("manual");
-                    }}
-                    className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-                  >
-                    <Edit3 size={14} /> Editar horário
-                  </button>
-                </div>
-
-                <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/[0.08] dark:text-blue-300">
-                  <Info size={14} className="mt-0.5 shrink-0" />
-                  <span>
-                    <strong>Clica em qualquer aula</strong> para aceder ao conteúdo da disciplina.
-                  </span>
-                </div>
-
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
-                  <div className="border-b border-slate-200 px-4 py-4 dark:border-white/10">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                      <div>
-                        <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg">Horário Semanal</h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-500">Estruturado conforme os horários do ISAF</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{currentYear}º Ano</span>
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{currentSemester}º Semestre</span>
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 dark:border-white/10 dark:bg-white/5">{course.name}</span>
-                      </div>
+                <button
+                  type="button"
+                  onClick={() => toggleYear(yearData.year)}
+                  className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition sm:gap-4 md:gap-3 sm:px-5 md:px-4 sm:py-4 md:py-3 ${
+                    isCurrentYear
+                      ? "bg-indigo-50 dark:bg-indigo-950/60"
+                      : isCompleted
+                      ? "bg-emerald-50 dark:bg-emerald-950/20"
+                      : "bg-slate-50 dark:bg-slate-950/40"
+                  }`}
+                >
+                  <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 md:gap-2.5">
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 md:h-8 md:w-8 ${
+                        isCurrentYear
+                          ? "bg-indigo-600 text-white"
+                          : isCompleted
+                          ? "bg-emerald-200 text-emerald-700 dark:bg-emerald-600/30 dark:text-emerald-400"
+                          : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-slate-400"
+                      }`}
+                    >
+                      {yearData.year}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`flex flex-wrap items-center gap-1.5 truncate font-semibold sm:gap-2 md:gap-1.5 ${isCurrentYear ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300"}`}>
+                        <span className="text-sm md:text-xs">{yearData.year}º Ano</span>
+                        {isCurrentYear && (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] md:text-[9px] font-medium text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                            Ano Corrente
+                          </span>
+                        )}
+                        {isCompleted && (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] md:text-[9px] font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                            Concluído
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
+                        Carga horária: {yearData.semesters[0].totalHours}h
+                      </p>
                     </div>
                   </div>
+                  {isExpanded
+                    ? <ChevronDown size={16} className="shrink-0 text-slate-600 dark:text-slate-400 md:h-4 md:w-4" />
+                    : <ChevronRight size={16} className="shrink-0 text-slate-600 dark:text-slate-400 md:h-4 md:w-4" />
+                  }
+                </button>
 
-                  <div className={`overflow-x-auto ${SCROLLBAR_X}`}>
-                    <table className="min-w-[980px] w-full border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 dark:bg-white/[0.03]">
-                          <th className="w-24 border-b border-r border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:text-slate-500">
-                            Hora
-                          </th>
-                          {DAYS_ORDER.map((day) => (
-                            <th
-                              key={day}
-                              className="border-b border-r border-slate-200 px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-700 dark:border-white/10 dark:text-slate-300 last:border-r-0"
-                            >
-                              {DAY_LABELS[day]}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activePeriods.map((period, idx) => (
-                          <tr key={period.key} className="group">
-                            <td className={`border-b border-r border-slate-200 px-3 py-3 align-middle dark:border-white/10 ${idx % 2 === 0 ? "bg-slate-50 dark:bg-white/[0.02]" : "bg-white dark:bg-white/[0.04]"}`}>
-                              <div className="flex flex-col items-center leading-none">
-                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{period.startTime}</span>
-                                <span className="mt-1 text-xs text-slate-600 dark:text-slate-500">{period.endTime}</span>
-                              </div>
-                            </td>
-                            {DAYS_ORDER.map((day) => {
-                              const slot = getCellSlot(mySchedule, day, period);
+                {isExpanded && (
+                  <div className="grid divide-y divide-slate-100 bg-slate-50/50 dark:divide-white/5 dark:bg-slate-950/30 md:grid-cols-2 md:divide-x md:divide-y-0">
+                    {yearData.semesters.map((sem) => {
+                      const semBaseStatus = (() => {
+                        if (yearData.year < currentYear) return "completed";
+                        if (yearData.year === currentYear && sem.number < currentSemester) return "completed";
+                        if (yearData.year === currentYear && sem.number === currentSemester) return "current";
+                        return "upcoming";
+                      })();
+                      const isSemCurrent = semBaseStatus === "current";
+                      return (
+                        <div key={sem.number} className="p-3 sm:p-4 md:p-3">
+                          <div
+                            className={`mb-2.5 flex items-center gap-2 border-b pb-2 sm:mb-3 md:mb-2.5 ${
+                              isSemCurrent ? "border-indigo-200 dark:border-indigo-500/30" : "border-slate-200 dark:border-white/5"
+                            }`}
+                          >
+                            <div className={`h-1.5 w-1.5 rounded-full ${isSemCurrent ? "bg-indigo-400" : "bg-slate-300 dark:bg-slate-600"}`} />
+                            <p className={`text-xs md:text-[11px] font-semibold uppercase tracking-wider ${isSemCurrent ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500 dark:text-slate-500"}`}>
+                              {sem.number}º Semestre
+                            </p>
+                          </div>
+                          <div className="space-y-1 sm:space-y-1.5 md:space-y-1">
+                            {sem.disciplines.map((disc) => {
+                              const discStatus = getDisciplineStatus(disc.id, yearData.year, sem.number);
+                              const isSelected = selectedDisciplineId === disc.id;
+                              const isCurrent = discStatus === "current";
+                              const isExtraDisc = discStatus === "extra";
                               return (
-                                <td
-                                  key={`${day}-${period.key}`}
-                                  className={`border-b border-r border-slate-200 px-2 py-2 align-middle dark:border-white/10 last:border-r-0 ${idx % 2 === 0 ? "bg-white dark:bg-slate-950/30" : "bg-slate-50/60 dark:bg-slate-950/45"}`}
+                                <button
+                                  key={disc.id}
+                                  type="button"
+                                  onClick={() => setSelectedDisciplineId(isSelected ? null : disc.id)}
+                                  className={`group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm md:text-xs transition-all sm:px-3 md:px-2.5 sm:py-2.5 md:py-2 ${
+                                    isSelected
+                                      ? isExtraDisc
+                                        ? "bg-violet-100 ring-1 ring-violet-300 dark:bg-violet-600/20 dark:ring-violet-500/40"
+                                        : "bg-indigo-100 ring-1 ring-indigo-300 dark:bg-indigo-600/20 dark:ring-indigo-500/40"
+                                      : isExtraDisc
+                                      ? "bg-violet-50 ring-1 ring-violet-200 hover:bg-violet-100 dark:bg-violet-950/30 dark:ring-violet-500/20 dark:hover:bg-violet-950/50"
+                                      : isCurrent
+                                      ? "hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                                      : "hover:bg-slate-100 dark:hover:bg-white/5"
+                                  }`}
                                 >
-                                  {slot ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => goToScheduleDiscipline(slot)}
-                                      className={`flex min-h-[56px] w-full flex-col items-center justify-center rounded-xl border px-2 py-2 text-center transition hover:brightness-105 active:scale-[0.985] dark:hover:brightness-110 ${TYPE_COLORS[slot.type]}`}
-                                      title={slot.discipline}
-                                    >
-                                      <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-slate-800 dark:text-white">
-                                        {getDisciplineShortName(slot.discipline)}
-                                      </span>
-                                      {slot.room && (
-                                        <span className="mt-1 text-[10px] leading-none text-slate-600 dark:text-white/70">{slot.room}</span>
-                                      )}
-                                      <span className="mt-1 inline-flex rounded-full bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-slate-700 dark:bg-black/20 dark:text-white/75">
-                                        {slot.type}
-                                      </span>
-                                    </button>
-                                  ) : (
-                                    <div className="flex min-h-[56px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.015]">
-                                      <span className="text-[10px] text-slate-300 dark:text-slate-700">—</span>
-                                    </div>
+                                  {statusIcon(discStatus)}
+                                  <span
+                                    className={`flex-1 leading-snug ${
+                                      isSelected
+                                        ? isExtraDisc ? "text-violet-800 dark:text-violet-200" : "text-indigo-800 dark:text-indigo-200"
+                                        : isExtraDisc
+                                        ? "text-violet-700 dark:text-violet-200"
+                                        : "text-slate-700 dark:text-slate-300"
+                                    }`}
+                                  >
+                                    {disc.name}
+                                    {disc.annual && (
+                                      <span className="ml-1.5 text-[10px] md:text-[9px] text-slate-500 dark:text-slate-500">(Anual)</span>
+                                    )}
+                                  </span>
+                                  {isExtraDisc && (
+                                    <span className="shrink-0 rounded-full border border-violet-300 bg-violet-100 px-1.5 py-0.5 text-[9px] md:text-[8px] font-semibold uppercase tracking-wider text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-400">
+                                      Extra
+                                    </span>
                                   )}
-                                </td>
+                                  <ChevronRight
+                                    size={12}
+                                    className={`shrink-0 transition-transform ${
+                                      isSelected
+                                        ? isExtraDisc ? "rotate-90 text-violet-500 dark:text-violet-400" : "rotate-90 text-indigo-500 dark:text-indigo-400"
+                                        : "text-slate-600 group-hover:text-slate-700 dark:text-slate-600 dark:group-hover:text-slate-400"
+                                    }`}
+                                  />
+                                </button>
                               );
                             })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 text-[11px] sm:gap-3">
-                  {(Object.entries(TYPE_COLORS) as [WeeklySlot["type"], string][]).map(([type, cls]) => (
-                    <span key={type} className={`flex items-center gap-1.5 rounded-full border px-3 py-1 ${cls}`}>
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {type}
-                    </span>
-                  ))}
-                </div>
-
-                {scheduleProfessors.length > 0 && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
-                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
-                      Professores associados
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {scheduleProfessors.map((item) => (
-                        <div
-                          key={`${item.discipline}-${item.professor}`}
-                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/5 dark:bg-white/[0.02]"
-                        >
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                            {getDisciplineShortName(item.discipline)}
-                          </p>
-                          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
-                            {item.professor}{item.room ? ` · ${item.room}` : ""}
-                          </p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 )}
-              </>
-            )}
-          </>
-        ) : (
-          <ManualScheduleEditor
-            currentYear={currentYear}
-            currentSemester={currentSemester}
-            disciplines={currentSemesterDisciplines}
-            manualGrid={manualGrid}
-            globalRoom={globalRoom}
-            manualPeriodGroup={manualPeriodGroup}
-            filteredPeriods={filteredPeriods}
-            saving={scheduleSaving}
-            filledCellCount={filledCellCount}
-            selectSm={selectSm}
-            SelectWrap={SelectWrap}
-            onUpdateCell={updateGridCell}
-            onGetCell={getGridCell}
-            onGlobalRoomChange={handleGlobalRoomChange}
-            onPeriodGroupChange={setManualPeriodGroup}
-            onApplyBlock={applyBlockToGrid}
-            onSave={saveManual}
-            onCancel={() => setScheduleMode("view")}
-          />
-        )}
-      </div>
-    )}
 
-    {/* TAB: REGULAMENTOS */}
-    {activeTab === "regulamentos" && <RegulamentosSection />}
-  </div>
-);
+                {isExpanded &&
+                  selectedDiscipline &&
+                  selectedDiscipline.year === yearData.year && (
+                    <div ref={disciplinePanelRef}>
+                      <DisciplinePanel
+                        discipline={selectedDiscipline.discipline}
+                        year={selectedDiscipline.year}
+                        semester={selectedDiscipline.semester}
+                        status={getDisciplineStatus(
+                          selectedDiscipline.discipline.id,
+                          selectedDiscipline.year,
+                          selectedDiscipline.semester
+                        )}
+                        courseId={courseId}
+                        onClose={() => setSelectedDisciplineId(null)}
+                        onGoToDiscipline={goToDiscipline}
+                      />
+                    </div>
+                  )}
+              </div>
+            );
+          })}
+
+          <div className="flex flex-wrap items-center gap-3 rounded-xl md:rounded-lg border border-slate-200 bg-slate-50 px-4 md:px-3 py-3 md:py-2.5 text-[11px] md:text-[10px] text-slate-500 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500 sm:gap-4 md:gap-3">
+            <span className="font-medium text-slate-600 dark:text-slate-400">Legenda:</span>
+            {(["completed", "current", "upcoming", "extra"] as DisciplineStatus[]).map((s) => (
+              <span key={s} className="flex items-center gap-1.5">
+                {statusIcon(s)}
+                <span className={s === "extra" ? "text-violet-600 dark:text-violet-400" : ""}>{statusLabel[s]}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "horario" && (
+        <div className="space-y-3 sm:space-y-4 md:space-y-3">
+          {scheduleLoading ? (
+            <div className="flex items-center justify-center gap-3 py-16 md:py-12">
+              <Loader2 size={20} className="animate-spin text-indigo-500 dark:text-indigo-400 md:h-5 md:w-5" />
+              <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">A carregar horário…</p>
+            </div>
+          ) : scheduleMode === "view" ? (
+            <>
+              {mySchedule.length === 0 ? (
+                <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-white p-8 md:p-6 text-center shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none sm:p-10 md:p-8">
+                  <Calendar size={40} className="mx-auto mb-4 text-slate-300 dark:text-slate-600 sm:size-12 md:size-10" />
+                  <p className="text-base font-semibold text-slate-700 dark:text-slate-300 sm:text-lg md:text-base">
+                    Ainda não tens horário configurado
+                  </p>
+                  <p className="mt-1 text-sm md:text-xs text-slate-500 dark:text-slate-500">
+                    Preenche o teu horário manualmente
+                  </p>
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      onClick={() => { setManualGrid({}); setScheduleMode("manual"); }}
+                      className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 md:px-4 py-2.5 md:py-2 text-sm md:text-xs font-medium text-white transition hover:bg-indigo-500"
+                    >
+                      <Plus size={16} className="md:h-3.5 md:w-3.5" /> Criar horário manualmente
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 md:gap-1.5">
+                    <button
+                      onClick={() => {
+                        const newGrid: Record<GridKey, GridCell> = {};
+                        for (const slot of mySchedule) {
+                          const periodKey = `${slot.startTime}-${slot.endTime}`;
+                          const key: GridKey = `${slot.day}|${periodKey}`;
+                          const disc = currentSemesterDisciplines.find((d) => d.name === slot.discipline);
+                          newGrid[key] = {
+                            disciplineId: disc?.id ?? "",
+                            room: slot.room ?? globalRoom,
+                            professor: slot.professor ?? "",
+                            type: slot.type,
+                          };
+                        }
+                        setManualGrid(newGrid);
+                        setScheduleMode("manual");
+                      }}
+                      className="flex items-center gap-2 md:gap-1.5 rounded-lg border border-slate-300 bg-white px-4 md:px-3 py-2 md:py-1.5 text-sm md:text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                    >
+                      <Edit3 size={14} className="md:h-3.5 md:w-3.5" /> Editar horário
+                    </button>
+                  </div>
+                  <div className="flex items-start gap-3 md:gap-2 rounded-xl md:rounded-lg border border-blue-200 bg-blue-50 px-4 md:px-3 py-3 md:py-2 text-xs md:text-[11px] text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/[0.08] dark:text-blue-300">
+                    <Info size={14} className="mt-0.5 shrink-0 md:h-3 md:w-3" />
+                    <span>
+                      <strong>Clica em qualquer aula</strong> para aceder ao conteúdo da disciplina.
+                    </span>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+                    <div className="border-b border-slate-200 px-4 py-4 dark:border-white/10">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                        <div>
+                          <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg md:text-base">Horário Semanal</h2>
+                          <p className="text-xs md:text-[11px] text-slate-500 dark:text-slate-500">Estruturado conforme os horários do ISAF</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 md:gap-1.5 text-[11px] md:text-[10px] text-slate-500 dark:text-slate-400">
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 md:px-2 py-1 dark:border-white/10 dark:bg-white/5">{currentYear}º Ano</span>
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 md:px-2 py-1 dark:border-white/10 dark:bg-white/5">{currentSemester}º Semestre</span>
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 md:px-2 py-1 dark:border-white/10 dark:bg-white/5">{course.name}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`overflow-x-auto ${SCROLLBAR_X}`}>
+                      <table className="min-w-[980px] w-full border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-white/[0.03]">
+                            <th className="w-24 border-b border-r border-slate-200 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-white/10 dark:text-slate-500">
+                              Hora
+                            </th>
+                            {DAYS_ORDER.map((day) => (
+                              <th
+                                key={day}
+                                className="border-b border-r border-slate-200 px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-700 dark:border-white/10 dark:text-slate-300 last:border-r-0"
+                              >
+                                {DAY_LABELS[day]}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activePeriods.map((period, idx) => (
+                            <tr key={period.key} className="group">
+                              <td className={`border-b border-r border-slate-200 px-3 py-3 align-middle dark:border-white/10 ${idx % 2 === 0 ? "bg-slate-50 dark:bg-white/[0.02]" : "bg-white dark:bg-white/[0.04]"}`}>
+                                <div className="flex flex-col items-center leading-none">
+                                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{period.startTime}</span>
+                                  <span className="mt-1 text-xs text-slate-600 dark:text-slate-500">{period.endTime}</span>
+                                </div>
+                              </td>
+                              {DAYS_ORDER.map((day) => {
+                                const slot = getCellSlot(mySchedule, day, period);
+                                return (
+                                  <td
+                                    key={`${day}-${period.key}`}
+                                    className={`border-b border-r border-slate-200 px-2 py-2 align-middle dark:border-white/10 last:border-r-0 ${idx % 2 === 0 ? "bg-white dark:bg-slate-950/30" : "bg-slate-50/60 dark:bg-slate-950/45"}`}
+                                  >
+                                    {slot ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => goToScheduleDiscipline(slot)}
+                                        className={`flex min-h-[56px] w-full flex-col items-center justify-center rounded-xl border px-2 py-2 text-center transition hover:brightness-105 active:scale-[0.985] dark:hover:brightness-110 ${TYPE_COLORS[slot.type]}`}
+                                        title={slot.discipline}
+                                      >
+                                        <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-slate-800 dark:text-white">
+                                          {getDisciplineShortName(slot.discipline)}
+                                        </span>
+                                        {slot.room && (
+                                          <span className="mt-1 text-[10px] leading-none text-slate-600 dark:text-white/70">{slot.room}</span>
+                                        )}
+                                        <span className="mt-1 inline-flex rounded-full bg-black/5 px-1.5 py-0.5 text-[9px] font-medium text-slate-700 dark:bg-black/20 dark:text-white/75">
+                                          {slot.type}
+                                        </span>
+                                      </button>
+                                    ) : (
+                                      <div className="flex min-h-[56px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.015]">
+                                        <span className="text-[10px] text-slate-300 dark:text-slate-700">—</span>
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 md:gap-1.5 text-[11px] md:text-[10px] sm:gap-3 md:gap-2">
+                    {(Object.entries(TYPE_COLORS) as [WeeklySlot["type"], string][]).map(([type, cls]) => (
+                      <span key={type} className={`flex items-center gap-1.5 rounded-full border px-3 md:px-2.5 py-1 ${cls}`}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {type}
+                      </span>
+                    ))}
+                  </div>
+                  {scheduleProfessors.length > 0 && (
+                    <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-white p-4 md:p-3 shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+                      <p className="mb-3 md:mb-2.5 text-[11px] md:text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
+                        Professores associados
+                      </p>
+                      <div className="grid gap-3 md:gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {scheduleProfessors.map((item) => (
+                          <div
+                            key={`${item.discipline}-${item.professor}`}
+                            className="rounded-xl md:rounded-lg border border-slate-200 bg-slate-50 px-3 md:px-2.5 py-2 md:py-1.5 dark:border-white/5 dark:bg-white/[0.02]"
+                          >
+                            <p className="text-sm md:text-xs font-medium text-slate-800 dark:text-slate-200">
+                              {getDisciplineShortName(item.discipline)}
+                            </p>
+                            <p className="mt-0.5 text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
+                              {item.professor}{item.room ? ` · ${item.room}` : ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <ManualScheduleEditor
+              currentYear={currentYear}
+              currentSemester={currentSemester}
+              disciplines={currentSemesterDisciplines}
+              manualGrid={manualGrid}
+              globalRoom={globalRoom}
+              manualPeriodGroup={manualPeriodGroup}
+              filteredPeriods={filteredPeriods}
+              saving={scheduleSaving}
+              filledCellCount={filledCellCount}
+              selectSm={selectSm}
+              SelectWrap={SelectWrap}
+              onUpdateCell={updateGridCell}
+              onGetCell={getGridCell}
+              onGlobalRoomChange={handleGlobalRoomChange}
+              onPeriodGroupChange={setManualPeriodGroup}
+              onApplyBlock={applyBlockToGrid}
+              onSave={saveManual}
+              onCancel={() => setScheduleMode("view")}
+            />
+          )}
+        </div>
+      )}
+
+      {activeTab === "regulamentos" && <RegulamentosSection />}
+    </div>
+  );
 }
-
 /* ================================================================
    MANUAL SCHEDULE EDITOR
 ================================================================ */
-
 type ManualScheduleEditorProps = {
   currentYear: number;
   currentSemester: number;
@@ -1696,28 +1445,13 @@ type ManualScheduleEditorProps = {
 };
 
 function ManualScheduleEditor({
-  currentYear,
-  currentSemester,
-  disciplines,
-  manualGrid,
-  globalRoom,
-  manualPeriodGroup,
-  filteredPeriods,
-  saving,
-  filledCellCount,
-  selectSm,
-  SelectWrap,
-  onUpdateCell,
-  onGetCell,
-  onGlobalRoomChange,
-  onPeriodGroupChange,
-  onApplyBlock,
-  onSave,
-  onCancel,
+  currentYear, currentSemester, disciplines, manualGrid, globalRoom,
+  manualPeriodGroup, filteredPeriods, saving, filledCellCount, selectSm,
+  SelectWrap, onUpdateCell, onGetCell, onGlobalRoomChange, onPeriodGroupChange,
+  onApplyBlock, onSave, onCancel,
 }: ManualScheduleEditorProps) {
   const hasAnyEntry = filledCellCount > 0;
   const [autoBlockSize, setAutoBlockSize] = useState<1 | 2 | 3>(1);
-
   const [profMap, setProfMap] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const cell of Object.values(manualGrid)) {
@@ -1745,9 +1479,9 @@ function ManualScheduleEditor({
     }
     const nextCell: GridCell = {
       disciplineId,
-      room:      currentCell.room || globalRoom,
+      room: currentCell.room || globalRoom,
       professor: profMap[disciplineId] ?? currentCell.professor ?? "",
-      type:      currentCell.type || "Teórica",
+      type: currentCell.type || "Teórica",
     };
     onApplyBlock(day, periodKey, nextCell, autoBlockSize);
   };
@@ -1764,75 +1498,69 @@ function ManualScheduleEditor({
     "dark:border-white/15 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10 sm:px-5 sm:py-4">
+    <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10 sm:px-5 md:px-4 sm:py-4 md:py-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg">Preenchimento Manual</h2>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg md:text-base">Preenchimento Manual</h2>
+          <p className="mt-0.5 text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
             {currentYear}º Ano · {currentSemester}º Semestre — selecciona a disciplina em cada tempo
           </p>
         </div>
         <button type="button" onClick={onCancel} className="rounded-lg p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300">
-          <X size={18} />
+          <X size={18} className="md:h-4 md:w-4" />
         </button>
       </div>
-
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.015] sm:px-5">
-        <div className="flex flex-wrap items-start gap-4 sm:gap-6">
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.015] sm:px-5 md:px-4 md:py-3">
+        <div className="flex flex-wrap items-start gap-4 sm:gap-6 md:gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sala (padrão)</label>
+            <label className="text-[11px] md:text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sala (padrão)</label>
             <input
               type="text"
               value={globalRoom}
               onChange={(e) => onGlobalRoomChange(e.target.value)}
               placeholder="ex: S.03"
-              className={`w-28 sm:w-32 ${inputStyle}`}
+              className={`w-28 sm:w-32 md:w-28 ${inputStyle}`}
             />
           </div>
-
           <div className="hidden h-auto w-px self-stretch bg-slate-200 dark:bg-white/10 md:block" />
-
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Turno</label>
+            <label className="text-[11px] md:text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Turno</label>
             <div className="flex gap-1">
               {([{ key: "manha", label: "Manhã" }, { key: "tarde", label: "Tarde" }, { key: "noite", label: "Noite" }] as { key: FixedPeriod["group"]; label: string }[]).map(({ key, label }) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => onPeriodGroupChange(key)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium transition sm:px-4 ${manualPeriodGroup === key ? "bg-indigo-600 text-white" : "border border-slate-300 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"}`}
+                  className={`rounded-lg px-3 md:px-2.5 py-2 md:py-1.5 text-xs md:text-[11px] font-medium transition sm:px-4 md:px-3 ${manualPeriodGroup === key ? "bg-indigo-600 text-white" : "border border-slate-300 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"}`}
                 >
                   {label}
                 </button>
               ))}
             </div>
           </div>
-
           <div className="hidden h-auto w-px self-stretch bg-slate-200 dark:bg-white/10 md:block" />
-
           <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bloco automático</label>
+            <label className="text-[11px] md:text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bloco automático</label>
             <div className="flex gap-1">
               {([1, 2, 3] as const).map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setAutoBlockSize(n)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium transition sm:px-4 ${autoBlockSize === n ? "bg-emerald-600 text-white" : "border border-slate-300 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"}`}
+                  className={`rounded-lg px-3 md:px-2.5 py-2 md:py-1.5 text-xs md:text-[11px] font-medium transition sm:px-4 md:px-3 ${autoBlockSize === n ? "bg-emerald-600 text-white" : "border border-slate-300 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"}`}
                 >
                   {n === 1 ? "1 tempo" : `${n} tempos`}
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-600">Ao escolher uma disciplina preenche os tempos seguintes</p>
+            <p className="text-[10px] md:text-[9px] text-slate-400 dark:text-slate-600">Ao escolher uma disciplina preenche os tempos seguintes</p>
           </div>
-
           {filledCellCount > 0 && (
             <>
               <div className="hidden h-auto w-px self-stretch bg-slate-200 dark:bg-white/10 md:block" />
-              <div className="flex items-center self-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-500/20 dark:bg-indigo-500/10">
-                <CheckCircle2 size={13} className="text-indigo-500 dark:text-indigo-400" />
-                <span className="text-xs text-indigo-700 dark:text-indigo-300">
+              <div className="flex items-center self-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 md:px-2.5 py-2 md:py-1.5 dark:border-indigo-500/20 dark:bg-indigo-500/10">
+                <CheckCircle2 size={13} className="text-indigo-500 dark:text-indigo-400 md:h-3 md:w-3" />
+                <span className="text-xs md:text-[11px] text-indigo-700 dark:text-indigo-300">
                   {filledCellCount} {filledCellCount === 1 ? "tempo preenchido" : "tempos preenchidos"}
                 </span>
               </div>
@@ -1840,16 +1568,14 @@ function ManualScheduleEditor({
           )}
         </div>
       </div>
-
-      <div className="mx-4 mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/[0.06] dark:text-amber-300 sm:mx-5">
-        <Info size={13} className="mt-0.5 shrink-0" />
+      <div className="mx-4 mt-4 flex items-start gap-3 md:gap-2 rounded-xl md:rounded-lg border border-amber-200 bg-amber-50 px-4 md:px-3 py-3 md:py-2 text-xs md:text-[11px] text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/[0.06] dark:text-amber-300 sm:mx-5 md:mx-4">
+        <Info size={13} className="mt-0.5 shrink-0 md:h-3 md:w-3" />
         <span>
           Selecciona a disciplina em cada célula. Células vazias são ignoradas.
           Com bloco automático activo, os tempos seguintes são preenchidos automaticamente.
         </span>
       </div>
-
-      <div className={`overflow-x-auto p-4 sm:p-5 ${SCROLLBAR_X}`}>
+      <div className={`overflow-x-auto p-4 md:p-3 sm:p-5 md:p-4 ${SCROLLBAR_X}`}>
         <table className="w-full border-collapse" style={{ minWidth: `${80 + 6 * 148}px` }}>
           <thead>
             <tr>
@@ -1867,7 +1593,7 @@ function ManualScheduleEditor({
                   <span className="block text-[11px] text-slate-400 dark:text-slate-500">{period.endTime}</span>
                 </td>
                 {DAYS_ORDER.map((day) => {
-                  const cell    = onGetCell(day, period.key);
+                  const cell = onGetCell(day, period.key);
                   const hasDisc = !!cell.disciplineId;
                   return (
                     <td
@@ -1887,14 +1613,12 @@ function ManualScheduleEditor({
                             ))}
                           </select>
                         </SelectWrap>
-
                         {hasDisc && (() => {
                           const disc = disciplines.find((d) => d.id === cell.disciplineId);
                           return disc ? (
                             <p className="line-clamp-1 px-0.5 text-[9px] leading-tight text-indigo-600/80 dark:text-indigo-300/80" title={disc.name}>{disc.name}</p>
                           ) : null;
                         })()}
-
                         {hasDisc && (
                           <div className="space-y-1">
                             <input
@@ -1941,18 +1665,17 @@ function ManualScheduleEditor({
           </tbody>
         </table>
       </div>
-
       {disciplines.length > 0 && (
-        <div className="border-t border-slate-200 px-4 pb-4 pt-4 dark:border-white/10 sm:px-5">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+        <div className="border-t border-slate-200 px-4 pb-4 pt-4 dark:border-white/10 sm:px-5 md:px-4">
+          <p className="mb-3 md:mb-2.5 text-[11px] md:text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
             Professor por disciplina{" "}
             <span className="font-normal normal-case text-slate-400 dark:text-slate-600">(aplica-se a todas as aulas dessa disciplina)</span>
           </p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 md:gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {disciplines.map((disc) => (
               <div key={disc.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.02]">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[11px] font-semibold text-slate-700 dark:text-slate-300" title={disc.name}>
+                  <p className="truncate text-[11px] md:text-[10px] font-semibold text-slate-700 dark:text-slate-300" title={disc.name}>
                     {getDisciplineShortName(disc.name)}
                   </p>
                   <input
@@ -1968,12 +1691,11 @@ function ManualScheduleEditor({
           </div>
         </div>
       )}
-
-      <div className="flex gap-3 border-t border-slate-200 px-4 py-4 dark:border-white/10 sm:px-5">
+      <div className="flex gap-3 border-t border-slate-200 px-4 py-4 dark:border-white/10 sm:px-5 md:px-4 md:py-3">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+          className="flex-1 rounded-xl md:rounded-lg border border-slate-300 bg-white px-4 md:px-3 py-3 md:py-2 text-sm md:text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
         >
           Cancelar
         </button>
@@ -1981,30 +1703,24 @@ function ManualScheduleEditor({
           type="button"
           onClick={onSave}
           disabled={saving || !hasAnyEntry}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl md:rounded-lg bg-indigo-600 px-4 md:px-3 py-3 md:py-2 text-sm md:text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? (
-            <><Loader2 size={16} className="animate-spin" /> A guardar…</>
+            <><Loader2 size={16} className="animate-spin md:h-3.5 md:w-3.5" /> A guardar…</>
           ) : (
-            <><CheckCircle2 size={16} /> Guardar Horário</>
+            <><CheckCircle2 size={16} className="md:h-3.5 md:w-3.5" /> Guardar Horário</>
           )}
         </button>
       </div>
     </div>
   );
 }
+
 /* ================================================================
    DISCIPLINE PANEL
 ================================================================ */
-
 function DisciplinePanel({
-  discipline,
-  year,
-  semester,
-  status,
-  courseId,
-  onClose,
-  onGoToDiscipline,
+  discipline, year, semester, status, courseId, onClose, onGoToDiscipline,
 }: {
   discipline: Discipline;
   year: number;
@@ -2014,19 +1730,13 @@ function DisciplinePanel({
   onClose: () => void;
   onGoToDiscipline: (disciplineId: string, topicId?: string) => void;
 }) {
-  const courseUUID     = COURSE_UUIDS[courseId];
+  const courseUUID = COURSE_UUIDS[courseId];
   const disciplineCode = getDisciplineCodeFromId(discipline.id);
-
-  // Interactivo se for semestre corrente OU cadeira extra
   const isInteractive = status === "current" || status === "extra";
-  const isExtraPanel  = status === "extra";
+  const isExtraPanel = status === "extra";
 
   const { result, isLoading, error } = useDisciplineStudyPlan({
-    courseUUID,
-    year,
-    semester,
-    disciplineCode,
-    enabled: true,
+    courseUUID, year, semester, disciplineCode, enabled: true,
   });
 
   const chapters = result?.chapters ?? [];
@@ -2049,76 +1759,73 @@ function DisciplinePanel({
 
   const statusColors: Record<DisciplineStatus, string> = {
     completed: "bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-300",
-    current:   "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-300",
-    upcoming:  "bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-400",
-    extra:     "bg-violet-100 border-violet-300 text-violet-700 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-300",
+    current: "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-300",
+    upcoming: "bg-slate-100 border-slate-300 text-slate-600 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-400",
+    extra: "bg-violet-100 border-violet-300 text-violet-700 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-300",
   };
 
-  const statusLabel: Record<DisciplineStatus, string> = {
+  const statusLabelMap: Record<DisciplineStatus, string> = {
     completed: "Concluída",
-    current:   "Em curso",
-    upcoming:  "A frequentar",
-    extra:     "Cadeira extra",
+    current: "Em curso",
+    upcoming: "A frequentar",
+    extra: "Cadeira extra",
   };
 
-  // Tonalidade do painel: violeta para extras, índigo para correntes
-  const panelBg     = isExtraPanel
+  const panelBg = isExtraPanel
     ? "border-violet-200 bg-violet-50 dark:border-violet-500/20 dark:bg-violet-950/30"
     : "border-indigo-200 bg-indigo-50 dark:border-indigo-500/20 dark:bg-indigo-950/30";
-  const accentBg    = isExtraPanel
+  const accentBg = isExtraPanel
     ? "bg-violet-200 text-violet-700 dark:bg-violet-600/20 dark:text-violet-400"
     : "bg-indigo-200 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-400";
-  const chipActive  = isExtraPanel
+  const chipActive = isExtraPanel
     ? "border-violet-300 bg-violet-200/60 text-violet-800 dark:border-violet-500/40 dark:bg-violet-600/15 dark:text-violet-200"
     : "border-indigo-300 bg-indigo-200/60 text-indigo-800 dark:border-indigo-500/40 dark:bg-indigo-600/15 dark:text-indigo-200";
-  const numBadge    = isExtraPanel
+  const numBadge = isExtraPanel
     ? "bg-violet-200 text-violet-700 dark:bg-violet-600/20 dark:text-violet-400"
     : "bg-indigo-200 text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-400";
-  const topicBadge  = isExtraPanel
+  const topicBadge = isExtraPanel
     ? "bg-violet-200/70 text-violet-700 dark:bg-violet-600/15 dark:text-violet-300"
     : "bg-indigo-200/70 text-indigo-700 dark:bg-indigo-600/15 dark:text-indigo-300";
-  const topicHover  = isExtraPanel
+  const topicHover = isExtraPanel
     ? "hover:border-violet-300 hover:bg-violet-100 dark:hover:border-violet-500/30 dark:hover:bg-violet-950/30"
     : "hover:border-indigo-300 hover:bg-indigo-100 dark:hover:border-indigo-500/30 dark:hover:bg-indigo-950/30";
-  const topicArrow  = isExtraPanel ? "text-violet-500 dark:text-violet-400" : "text-indigo-500 dark:text-indigo-400";
-  const btnStyle    = isExtraPanel
+  const topicArrow = isExtraPanel ? "text-violet-500 dark:text-violet-400" : "text-indigo-500 dark:text-indigo-400";
+  const btnStyle = isExtraPanel
     ? "border-violet-300 bg-violet-100 text-violet-700 hover:bg-violet-200 dark:border-violet-500/30 dark:bg-violet-600/10 dark:text-violet-300 dark:hover:bg-violet-600/20"
     : "border-indigo-300 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:border-indigo-500/30 dark:bg-indigo-600/10 dark:text-indigo-300 dark:hover:bg-indigo-600/20";
 
   return (
-    <div className={`border-t px-4 py-4 sm:px-5 sm:py-5 ${panelBg}`}>
-      {/* Cabeçalho */}
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9 ${accentBg}`}>
-            <BookOpen size={16} />
+    <div className={`border-t px-4 py-4 sm:px-5 sm:py-5 md:px-4 md:py-4 ${panelBg}`}>
+      <div className="mb-4 md:mb-3 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 md:gap-2.5">
+          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9 md:h-8 md:w-8 ${accentBg}`}>
+            <BookOpen size={16} className="md:h-3.5 md:w-3.5" />
           </div>
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white sm:text-base">{discipline.name}</h3>
+            <div className="flex flex-wrap items-center gap-2 md:gap-1.5">
+              <h3 className="text-sm md:text-xs font-semibold text-slate-900 dark:text-white sm:text-base md:text-sm">{discipline.name}</h3>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs md:text-[11px] text-slate-500 dark:text-slate-400">
               {year}º Ano · {semester}º Semestre
               {discipline.annual ? " · Anual" : ""}
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusColors[status]}`}>
-            {statusLabel[status]}
+        <div className="flex items-center gap-2 md:gap-1.5">
+          <span className={`rounded-full border px-2.5 md:px-2 py-0.5 text-[10px] md:text-[9px] font-semibold uppercase tracking-wide ${statusColors[status]}`}>
+            {statusLabelMap[status]}
           </span>
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
           >
-            <X size={15} />
+            <X size={15} className="md:h-3.5 md:w-3.5" />
           </button>
         </div>
       </div>
 
-      <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
+      <p className="mb-4 md:mb-3 text-[10px] md:text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
         {isExtraPanel
           ? "Plano de estudo — cadeira extra"
           : isInteractive
@@ -2126,41 +1833,38 @@ function DisciplinePanel({
           : "Plano de estudo — só visualização"}
       </p>
 
-      {/* Estados */}
       {isLoading ? (
-        <div className="flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white/60 p-6 dark:border-white/5 dark:bg-white/[0.02]">
-          <Loader2 size={16} className="animate-spin text-indigo-500 dark:text-indigo-400" />
-          <p className="text-sm text-slate-500 dark:text-slate-400">A carregar plano de estudo…</p>
+        <div className="flex items-center justify-center gap-3 rounded-xl md:rounded-lg border border-slate-200 bg-white/60 p-6 md:p-4 dark:border-white/5 dark:bg-white/[0.02]">
+          <Loader2 size={16} className="animate-spin text-indigo-500 dark:text-indigo-400 md:h-3.5 md:w-3.5" />
+          <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">A carregar plano de estudo…</p>
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
-          <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">Não foi possível carregar o plano</p>
-          <p className="mt-1 text-xs text-rose-600/80 dark:text-rose-200/80">{error}</p>
+        <div className="rounded-xl md:rounded-lg border border-rose-300 bg-rose-50 p-4 md:p-3 dark:border-rose-500/20 dark:bg-rose-500/10">
+          <p className="text-sm md:text-xs font-semibold text-rose-700 dark:text-rose-300">Não foi possível carregar o plano</p>
+          <p className="mt-1 text-xs md:text-[11px] text-rose-600/80 dark:text-rose-200/80">{error}</p>
         </div>
       ) : chapters.length === 0 ? (
-        <div className="space-y-3">
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 p-5 text-center dark:border-white/10 dark:bg-white/[0.02]">
-            <Layers size={24} className="mx-auto mb-2 text-slate-400 dark:text-slate-600" />
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Plano de estudo ainda não disponível</p>
-            <p className="mt-1 text-xs text-slate-600 dark:text-slate-600">Os capítulos e temas serão inseridos brevemente.</p>
+        <div className="space-y-3 md:space-y-2.5">
+          <div className="rounded-xl md:rounded-lg border border-dashed border-slate-300 bg-white/60 p-5 md:p-4 text-center dark:border-white/10 dark:bg-white/[0.02]">
+            <Layers size={24} className="mx-auto mb-2 text-slate-400 dark:text-slate-600 md:h-5 md:w-5" />
+            <p className="text-sm md:text-xs font-medium text-slate-500 dark:text-slate-400">Plano de estudo ainda não disponível</p>
+            <p className="mt-1 text-xs md:text-[11px] text-slate-600 dark:text-slate-600">Os capítulos e temas serão inseridos brevemente.</p>
           </div>
-
           {isInteractive && (
             <button
               type="button"
               onClick={() => openDiscipline()}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${btnStyle}`}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl md:rounded-lg border px-4 md:px-3 py-2.5 md:py-2 text-sm md:text-xs font-medium transition ${btnStyle}`}
             >
-              <BookOpen size={14} />
+              <BookOpen size={14} className="md:h-3.5 md:w-3.5" />
               Ir para a disciplina
-              <ChevronRight size={14} />
+              <ChevronRight size={14} className="md:h-3.5 md:w-3.5" />
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Chips dos capítulos */}
-          <div className={`flex gap-2 overflow-x-auto pb-2 ${SCROLLBAR_X}`}>
+        <div className="space-y-4 md:space-y-3">
+          <div className={`flex gap-2 md:gap-1.5 overflow-x-auto pb-2 ${SCROLLBAR_X}`}>
             {chapters.map((chapter, idx) => {
               const isActive = chapter.id === activeChapter?.id;
               return (
@@ -2168,18 +1872,18 @@ function DisciplinePanel({
                   key={chapter.id}
                   type="button"
                   onClick={() => setActiveChapterId(chapter.id)}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition ${
+                  className={`inline-flex shrink-0 items-center gap-2 md:gap-1.5 rounded-full border px-3 md:px-2.5 py-2 md:py-1.5 text-xs md:text-[11px] font-medium transition ${
                     isActive
                       ? chipActive
                       : "border-slate-200 bg-white/70 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-white/20 dark:hover:bg-white/[0.05] dark:hover:text-slate-200"
                   }`}
                   title={chapter.title}
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px] font-bold dark:bg-black/20">
+                  <span className="flex h-5 md:h-4 w-5 md:w-4 items-center justify-center rounded-full bg-black/10 text-[10px] md:text-[9px] font-bold dark:bg-black/20">
                     {idx + 1}
                   </span>
                   <span className="max-w-[11rem] truncate">{chapter.title}</span>
-                  <span className="rounded-full bg-black/10 px-1.5 py-0.5 text-[10px] text-slate-600 dark:bg-black/20 dark:text-slate-300">
+                  <span className="rounded-full bg-black/10 px-1.5 py-0.5 text-[10px] md:text-[9px] text-slate-600 dark:bg-black/20 dark:text-slate-300">
                     {chapter.topics.length}
                   </span>
                 </button>
@@ -2187,46 +1891,42 @@ function DisciplinePanel({
             })}
           </div>
 
-          {/* Capítulo activo */}
           {activeChapter && (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white/70 dark:border-white/5 dark:bg-white/[0.03]">
+            <div className="overflow-hidden rounded-xl md:rounded-lg border border-slate-200 bg-white/70 dark:border-white/5 dark:bg-white/[0.03]">
               <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/5">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${numBadge}`}>
+                  <div className="flex items-center gap-2 md:gap-1.5">
+                    <span className={`flex h-6 md:h-5 w-6 md:w-5 shrink-0 items-center justify-center rounded-md text-[10px] md:text-[9px] font-bold ${numBadge}`}>
                       {chapters.findIndex((c) => c.id === activeChapter.id) + 1}
                     </span>
-                    <h4 className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200">{activeChapter.title}</h4>
+                    <h4 className="truncate text-sm md:text-xs font-semibold text-slate-800 dark:text-slate-200">{activeChapter.title}</h4>
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
+                  <p className="mt-1 text-[11px] md:text-[10px] text-slate-500 dark:text-slate-500">
                     {activeChapter.status} · {activeChapter.topics.length} tema(s)
                   </p>
                 </div>
-
                 {isInteractive && (
                   <button
                     type="button"
                     onClick={() => openDiscipline()}
-                    className={`shrink-0 rounded-lg border px-3 py-2 text-[11px] font-medium transition ${btnStyle}`}
+                    className={`shrink-0 rounded-lg border px-3 md:px-2.5 py-2 md:py-1.5 text-[11px] md:text-[10px] font-medium transition ${btnStyle}`}
                   >
                     Abrir disciplina
                   </button>
                 )}
               </div>
-
-              {/* Tópicos */}
-              <div className="p-4">
+              <div className="p-4 md:p-3">
                 {activeChapter.topics.length > 0 ? (
-                  <div className="grid gap-2 md:grid-cols-2">
+                  <div className="grid gap-2 md:gap-1.5 md:grid-cols-2">
                     {activeChapter.topics.map((topic, topicIdx) =>
                       isInteractive ? (
                         <button
                           key={topic.id}
                           type="button"
                           onClick={() => openDiscipline(topic.id)}
-                          className={`group flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 transition dark:border-white/5 dark:bg-black/10 dark:text-slate-300 ${topicHover}`}
+                          className={`group flex min-h-[3.25rem] w-full items-start gap-3 md:gap-2 rounded-lg border border-slate-200 bg-white px-3 md:px-2.5 py-2.5 md:py-2 text-left text-sm md:text-xs text-slate-700 transition dark:border-white/5 dark:bg-black/10 dark:text-slate-300 ${topicHover}`}
                         >
-                          <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${topicBadge}`}>
+                          <span className={`mt-0.5 flex h-6 md:h-5 w-6 md:w-5 shrink-0 items-center justify-center rounded-md text-[10px] md:text-[9px] font-bold ${topicBadge}`}>
                             {topicIdx + 1}
                           </span>
                           <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{topic.title}</span>
@@ -2235,9 +1935,9 @@ function DisciplinePanel({
                       ) : (
                         <div
                           key={topic.id}
-                          className="flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500 dark:border-white/5 dark:bg-black/10 dark:text-slate-400"
+                          className="flex min-h-[3.25rem] w-full items-start gap-3 md:gap-2 rounded-lg border border-slate-200 bg-white px-3 md:px-2.5 py-2.5 md:py-2 text-sm md:text-xs text-slate-500 dark:border-white/5 dark:bg-black/10 dark:text-slate-400"
                         >
-                                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-600 dark:bg-white/5 dark:text-slate-600">
+                          <span className="mt-0.5 flex h-6 md:h-5 w-6 md:w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] md:text-[9px] font-bold text-slate-600 dark:bg-white/5 dark:text-slate-600">
                             {topicIdx + 1}
                           </span>
                           <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{topic.title}</span>
@@ -2246,7 +1946,7 @@ function DisciplinePanel({
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-4 py-6 text-center text-xs text-slate-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-500">
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-white/60 px-4 py-6 md:py-4 text-center text-xs md:text-[11px] text-slate-500 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-500">
                     Este capítulo ainda não tem temas registados.
                   </div>
                 )}
@@ -2254,16 +1954,15 @@ function DisciplinePanel({
             </div>
           )}
 
-          {/* Botão de acesso rápido no rodapé */}
           {isInteractive && (
             <button
               type="button"
               onClick={() => openDiscipline()}
-              className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${btnStyle}`}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl md:rounded-lg border px-4 md:px-3 py-2.5 md:py-2 text-sm md:text-xs font-medium transition ${btnStyle}`}
             >
-              <BookOpen size={14} />
+              <BookOpen size={14} className="md:h-3.5 md:w-3.5" />
               Ir para a disciplina completa
-              <ChevronRight size={14} />
+              <ChevronRight size={14} className="md:h-3.5 md:w-3.5" />
             </button>
           )}
         </div>
@@ -2275,7 +1974,6 @@ function DisciplinePanel({
 /* ================================================================
    REGULAMENTOS — MODELO DE DADOS
 ================================================================ */
-
 type ContentBlock =
   | { type: "p"; text: string }
   | { type: "list"; ordered?: boolean; items: string[] }
@@ -2338,9 +2036,6 @@ const REGULATION_CATEGORY_META: Record<
   },
 };
 
-/* ---------------------------------------------------------------
-   HELPERS DE CONSTRUÇÃO
---------------------------------------------------------------- */
 function art(number: string, blocks: ContentBlock[], title?: string): RegArticle {
   return { id: `art-${number}`, number, title, blocks };
 }
@@ -2356,10 +2051,6 @@ function note(text: string): ContentBlock {
 function formula(text: string): ContentBlock {
   return { type: "formula", text };
 }
-
-/* ================================================================
-   DOC 1 — REGULAMENTO DO REGIME ACADÉMICO
-================================================================ */
 
 const REG_ACADEMICO: RegulationDocument = {
   id: "regulamento-regime-academico",
@@ -3389,14 +3080,13 @@ const ALL_REGULATIONS: RegulationDocument[] = [
 /* ================================================================
    RENDER HELPERS
 ================================================================ */
-
 function ContentBlocks({ blocks }: { blocks: ContentBlock[] }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5 md:space-y-2">
       {blocks.map((block, i) => {
         if (block.type === "p") {
           return (
-            <p key={i} className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300">
+            <p key={i} className="text-[13px] md:text-xs leading-relaxed text-slate-700 dark:text-slate-300">
               {block.text}
             </p>
           );
@@ -3406,7 +3096,7 @@ function ContentBlocks({ blocks }: { blocks: ContentBlock[] }) {
           return (
             <Tag
               key={i}
-              className={`space-y-1.5 pl-1 text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 ${
+              className={`space-y-1.5 md:space-y-1 pl-1 text-[13px] md:text-xs leading-relaxed text-slate-700 dark:text-slate-300 ${
                 block.ordered ? "list-decimal marker:text-indigo-500 dark:marker:text-indigo-400" : "list-disc marker:text-slate-400 dark:marker:text-slate-600"
               } ml-4`}
             >
@@ -3420,9 +3110,9 @@ function ContentBlocks({ blocks }: { blocks: ContentBlock[] }) {
           return (
             <div
               key={i}
-              className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] leading-relaxed text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-300"
+              className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 md:px-2.5 py-2.5 md:py-2 text-[12px] md:text-[11px] leading-relaxed text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-300"
             >
-              <Info size={13} className="mt-0.5 shrink-0" />
+              <Info size={13} className="mt-0.5 shrink-0 md:h-3 md:w-3" />
               <span>{block.text}</span>
             </div>
           );
@@ -3431,7 +3121,7 @@ function ContentBlocks({ blocks }: { blocks: ContentBlock[] }) {
           return (
             <div
               key={i}
-              className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-center text-[12px] font-semibold text-indigo-800 dark:border-indigo-500/20 dark:bg-indigo-500/[0.08] dark:text-indigo-300"
+              className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 md:px-2.5 py-2.5 md:py-2 text-center text-[12px] md:text-[11px] font-semibold text-indigo-800 dark:border-indigo-500/20 dark:bg-indigo-500/[0.08] dark:text-indigo-300"
             >
               {block.text}
             </div>
@@ -3440,13 +3130,13 @@ function ContentBlocks({ blocks }: { blocks: ContentBlock[] }) {
         if (block.type === "table") {
           return (
             <div key={i} className={`overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10 ${SCROLLBAR_X}`}>
-              <table className="w-full min-w-[420px] border-collapse text-[12px]">
+              <table className="w-full min-w-[420px] border-collapse text-[12px] md:text-[11px]">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-white/5">
                     {block.headers.map((h, hi) => (
                       <th
                         key={hi}
-                        className="whitespace-pre-line border-b border-slate-200 px-3 py-2 text-left font-semibold text-slate-600 dark:border-white/10 dark:text-slate-300"
+                        className="whitespace-pre-line border-b border-slate-200 px-3 md:px-2 py-2 md:py-1.5 text-left font-semibold text-slate-600 dark:border-white/10 dark:text-slate-300"
                       >
                         {h}
                       </th>
@@ -3459,7 +3149,7 @@ function ContentBlocks({ blocks }: { blocks: ContentBlock[] }) {
                       {row.map((cell, ci) => (
                         <td
                           key={ci}
-                          className="border-b border-slate-100 px-3 py-2 align-top leading-relaxed text-slate-700 dark:border-white/5 dark:text-slate-300"
+                          className="border-b border-slate-100 px-3 md:px-2 py-2 md:py-1.5 align-top leading-relaxed text-slate-700 dark:border-white/5 dark:text-slate-300"
                         >
                           {cell}
                         </td>
@@ -3479,14 +3169,14 @@ function ContentBlocks({ blocks }: { blocks: ContentBlock[] }) {
 
 function ArticleBlock({ article }: { article: RegArticle }) {
   return (
-    <div id={article.id || undefined} className="rounded-xl border border-slate-200 bg-white/70 p-3.5 dark:border-white/5 dark:bg-white/[0.02] sm:p-4">
+    <div id={article.id || undefined} className="rounded-xl md:rounded-lg border border-slate-200 bg-white/70 p-3.5 dark:border-white/5 dark:bg-white/[0.02] sm:p-4 md:p-3">
       {article.number && (
-        <div className="mb-2 flex items-center gap-2">
-          <span className="flex h-6 shrink-0 items-center justify-center rounded-md bg-indigo-100 px-2 text-[11px] font-bold text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-300">
+        <div className="mb-2 md:mb-1.5 flex items-center gap-2 md:gap-1.5">
+          <span className="flex h-6 md:h-5 shrink-0 items-center justify-center rounded-md bg-indigo-100 px-2 md:px-1.5 text-[11px] md:text-[10px] font-bold text-indigo-700 dark:bg-indigo-600/20 dark:text-indigo-300">
             Art. {article.number}
           </span>
           {article.title && (
-            <span className="text-[12px] font-medium text-slate-500 dark:text-slate-500">{article.title}</span>
+            <span className="text-[12px] md:text-[11px] font-medium text-slate-500 dark:text-slate-500">{article.title}</span>
           )}
         </div>
       )}
@@ -3500,34 +3190,32 @@ function ChapterBlock({ chapter, defaultOpen }: { chapter: RegChapter; defaultOp
   const totalArticles =
     (chapter.articles?.length ?? 0) +
     (chapter.sections?.reduce((acc, s) => acc + s.articles.length, 0) ?? 0);
-
   return (
-    <div id={chapter.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+    <div id={chapter.id} className="overflow-hidden rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 bg-slate-50 px-4 py-3.5 text-left transition hover:bg-slate-100 dark:bg-white/[0.03] dark:hover:bg-white/[0.06] sm:px-5"
+        className="flex w-full items-center justify-between gap-3 bg-slate-50 px-4 py-3.5 text-left transition hover:bg-slate-100 dark:bg-white/[0.03] dark:hover:bg-white/[0.06] sm:px-5 md:px-4 md:py-3"
       >
-        <div className="flex min-w-0 items-center gap-2.5">
-          <ListTree size={15} className="shrink-0 text-indigo-500 dark:text-indigo-400" />
-          <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-slate-800 dark:text-slate-200">{chapter.title}</span>
+        <div className="flex min-w-0 items-center gap-2.5 md:gap-2">
+          <ListTree size={15} className="shrink-0 text-indigo-500 dark:text-indigo-400 md:h-3.5 md:w-3.5" />
+          <span className="min-w-0 flex-1 break-words text-sm md:text-xs font-semibold leading-snug text-slate-800 dark:text-slate-200">{chapter.title}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-400">
+        <div className="flex shrink-0 items-center gap-2 md:gap-1.5">
+          <span className="rounded-full bg-slate-200 px-2 md:px-1.5 py-0.5 text-[10px] md:text-[9px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-400">
             {totalArticles} art.
           </span>
-          {open ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
+          {open ? <ChevronDown size={16} className="text-slate-400 md:h-4 md:w-4" /> : <ChevronRight size={16} className="text-slate-400 md:h-4 md:w-4" />}
         </div>
       </button>
-
       {open && (
-        <div className="space-y-4 px-4 py-4 sm:px-5">
+        <div className="space-y-4 md:space-y-3 px-4 py-4 sm:px-5 md:px-4 md:py-3">
           {chapter.sections?.map((section) => (
-            <div key={section.id} className="space-y-2.5">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+            <div key={section.id} className="space-y-2.5 md:space-y-2">
+              <p className="text-[11px] md:text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                 {section.title}
               </p>
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 md:space-y-2">
                 {section.articles.map((a) => (
                   <ArticleBlock key={a.id} article={a} />
                 ))}
@@ -3535,7 +3223,7 @@ function ChapterBlock({ chapter, defaultOpen }: { chapter: RegChapter; defaultOp
             </div>
           ))}
           {chapter.articles?.length ? (
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 md:space-y-2">
               {chapter.articles.map((a) => (
                 <ArticleBlock key={a.id} article={a} />
               ))}
@@ -3550,54 +3238,48 @@ function ChapterBlock({ chapter, defaultOpen }: { chapter: RegChapter; defaultOp
 /* ================================================================
    VIEWER DE UM DOCUMENTO
 ================================================================ */
-
 function RegulationViewer({ doc, onBack }: { doc: RegulationDocument; onBack: () => void }) {
   const meta = REGULATION_CATEGORY_META[doc.category];
   const CatIcon = meta.icon;
-
   const scrollToChapter = (chapterId: string) => {
     const el = document.getElementById(chapterId);
     if (!el) return;
     const top = el.getBoundingClientRect().top + window.scrollY - 96;
     window.scrollTo({ top, behavior: "smooth" });
   };
-
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {/* Header */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
-        <div className="flex items-start gap-3 border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:px-5">
+    <div className="space-y-4 sm:space-y-5 md:space-y-4">
+      <div className="overflow-hidden rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+        <div className="flex items-start gap-3 border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:px-5 md:px-4 md:py-3">
           <button
             type="button"
             onClick={onBack}
-            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-500 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
+            className="mt-0.5 flex h-8 md:h-7 w-8 md:w-7 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-500 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={15} className="md:h-3.5 md:w-3.5" />
           </button>
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-600/15 dark:text-indigo-400">
-            <CatIcon size={17} />
+          <div className="mt-0.5 flex h-9 md:h-8 w-9 md:w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-600/15 dark:text-indigo-400">
+            <CatIcon size={17} className="md:h-4 md:w-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+            <p className="text-[10px] md:text-[9px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
               {meta.label}
             </p>
-            <h2 className="mt-0.5 text-base font-bold text-slate-900 dark:text-white sm:text-lg">{doc.title}</h2>
-            {doc.subtitle && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">{doc.subtitle}</p>}
-            {doc.meta && <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-600">{doc.meta}</p>}
+            <h2 className="mt-0.5 text-base md:text-sm font-bold text-slate-900 dark:text-white sm:text-lg md:text-base">{doc.title}</h2>
+            {doc.subtitle && <p className="mt-0.5 text-xs md:text-[11px] text-slate-500 dark:text-slate-500">{doc.subtitle}</p>}
+            {doc.meta && <p className="mt-1 text-[11px] md:text-[10px] text-slate-400 dark:text-slate-600">{doc.meta}</p>}
           </div>
         </div>
-
-        {/* Índice rápido (chips) */}
         {doc.chapters.length > 1 && (
-          <div className={`flex gap-2 overflow-x-auto px-4 py-3 sm:px-5 ${SCROLLBAR_X}`}>
+          <div className={`flex gap-2 md:gap-1.5 overflow-x-auto px-4 py-3 md:px-3 md:py-2.5 sm:px-5 md:px-4 ${SCROLLBAR_X}`}>
             {doc.chapters.map((ch, idx) => (
               <button
                 key={ch.id}
                 type="button"
                 onClick={() => scrollToChapter(ch.id)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-indigo-500/30 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 md:px-2.5 py-1.5 md:py-1 text-[11px] md:text-[10px] font-medium text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400 dark:hover:border-indigo-500/30 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-300"
               >
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/10 text-[9px] font-bold dark:bg-black/20">
+                <span className="flex h-4 md:h-3.5 w-4 md:w-3.5 items-center justify-center rounded-full bg-black/10 text-[9px] md:text-[8px] font-bold dark:bg-black/20">
                   {idx + 1}
                 </span>
                 <span className="max-w-[18rem] whitespace-normal break-words text-left leading-snug">{ch.title.replace(/^Capítulo [IVX]+\s*—\s*/i, "")}</span>
@@ -3606,44 +3288,37 @@ function RegulationViewer({ doc, onBack }: { doc: RegulationDocument; onBack: ()
           </div>
         )}
       </div>
-
-      {/* Intro */}
       {doc.intro && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none sm:p-5">
+        <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-white p-4 md:p-3 shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none sm:p-5 md:p-4">
           <ContentBlocks blocks={doc.intro} />
         </div>
       )}
-
-      {/* Capítulos */}
-      <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-3 sm:space-y-4 md:space-y-3">
         {doc.chapters.map((ch, idx) => (
           <ChapterBlock key={ch.id} chapter={ch} defaultOpen={idx === 0} />
         ))}
       </div>
-
-      {/* Encerramento / assinatura */}
       {(doc.closing || doc.signature) && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.02] sm:p-5">
+        <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-slate-50 p-4 md:p-3 dark:border-white/10 dark:bg-white/[0.02] sm:p-5 md:p-4">
           {doc.closing && <ContentBlocks blocks={doc.closing} />}
           {doc.signature && (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 md:mt-3 space-y-3 md:space-y-2.5">
               {doc.signature.map((s, i) => (
                 <div key={i} className="text-center">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600">{s.role}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{s.name}</p>
+                  <p className="text-[11px] md:text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600">{s.role}</p>
+                  <p className="mt-1 text-sm md:text-xs font-semibold text-slate-700 dark:text-slate-300">{s.name}</p>
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
-
       <button
         type="button"
         onClick={onBack}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+        className="flex w-full items-center justify-center gap-2 rounded-xl md:rounded-lg border border-slate-300 bg-white px-4 md:px-3 py-3 md:py-2 text-sm md:text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
       >
-        <ArrowLeft size={15} />
+        <ArrowLeft size={15} className="md:h-3.5 md:w-3.5" />
         Voltar à lista de regulamentos
       </button>
     </div>
@@ -3653,11 +3328,9 @@ function RegulationViewer({ doc, onBack }: { doc: RegulationDocument; onBack: ()
 /* ================================================================
    SECÇÃO PRINCIPAL — REGULAMENTOS
 ================================================================ */
-
 function RegulamentosSection() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-
   const selectedDoc = ALL_REGULATIONS.find((d) => d.id === selectedId) ?? null;
 
   useEffect(() => {
@@ -3681,16 +3354,16 @@ function RegulamentosSection() {
     list.push(doc);
     grouped.set(doc.category, list);
   }
+
   const categoryOrder: RegulationCategory[] = ["academico", "avaliacao", "disciplinar"];
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {/* Intro */}
-      <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-4 text-sm text-indigo-800 dark:border-indigo-500/20 dark:bg-indigo-500/[0.08] dark:text-indigo-300">
-        <Info size={16} className="mt-0.5 shrink-0" />
+    <div className="space-y-4 sm:space-y-5 md:space-y-4">
+      <div className="flex items-start gap-3 md:gap-2.5 rounded-xl md:rounded-lg border border-indigo-200 bg-indigo-50 px-4 md:px-3 py-4 md:py-3 text-sm md:text-xs text-indigo-800 dark:border-indigo-500/20 dark:bg-indigo-500/[0.08] dark:text-indigo-300">
+        <Info size={16} className="mt-0.5 shrink-0 md:h-4 md:w-4" />
         <div className="space-y-1">
           <p className="font-semibold">Regulamentos do ISAF</p>
-          <p className="text-xs leading-relaxed text-indigo-700/80 dark:text-indigo-400/80">
+          <p className="text-xs md:text-[11px] leading-relaxed text-indigo-700/80 dark:text-indigo-400/80">
             Consulta aqui, directamente na plataforma, os documentos oficiais que regulam
             a vida académica, a avaliação de conhecimentos e o regime disciplinar dos
             estudantes. A leitura destes regulamentos é obrigatória.
@@ -3698,7 +3371,6 @@ function RegulamentosSection() {
         </div>
       </div>
 
-      {/* Pesquisa */}
       <div className="relative">
         <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
         <input
@@ -3706,30 +3378,28 @@ function RegulamentosSection() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Pesquisar regulamento…"
-          className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200 dark:placeholder-slate-600 dark:focus:ring-indigo-500/40"
+          className="w-full rounded-xl md:rounded-lg border border-slate-300 bg-white py-2.5 md:py-2 pl-10 md:pl-9 pr-3 text-sm md:text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200 dark:placeholder-slate-600 dark:focus:ring-indigo-500/40"
         />
       </div>
 
-      {/* Lista de documentos por categoria */}
-      <div className="space-y-4 sm:space-y-5">
+      <div className="space-y-4 sm:space-y-5 md:space-y-4">
         {categoryOrder.map((category) => {
           const docs = grouped.get(category);
           if (!docs || docs.length === 0) return null;
           const meta = REGULATION_CATEGORY_META[category];
           const CatIcon = meta.icon;
           return (
-            <div key={category} className="space-y-2.5">
-              <div className="flex items-center gap-2.5 px-1">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-600/15 dark:text-indigo-400">
-                  <CatIcon size={14} />
+            <div key={category} className="space-y-2.5 md:space-y-2">
+              <div className="flex items-center gap-2.5 md:gap-2 px-1">
+                <div className="flex h-7 md:h-6 w-7 md:w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-600/15 dark:text-indigo-400">
+                  <CatIcon size={14} className="md:h-3 md:w-3" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{meta.label}</p>
-                  <p className="text-[10px] text-slate-600 dark:text-slate-600">{meta.description}</p>
+                  <p className="text-xs md:text-[11px] font-semibold text-slate-700 dark:text-slate-300">{meta.label}</p>
+                  <p className="text-[10px] md:text-[9px] text-slate-600 dark:text-slate-600">{meta.description}</p>
                 </div>
               </div>
-
-              <div className="grid gap-2.5 sm:grid-cols-2">
+              <div className="grid gap-2.5 md:gap-2 sm:grid-cols-2">
                 {docs.map((doc) => {
                   const totalArticles = doc.chapters.reduce(
                     (acc, ch) =>
@@ -3743,24 +3413,24 @@ function RegulamentosSection() {
                       key={doc.id}
                       type="button"
                       onClick={() => setSelectedId(doc.id)}
-                      className="group flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none dark:hover:border-indigo-500/30"
+                      className="group flex items-start gap-3 md:gap-2.5 rounded-xl md:rounded-lg border border-slate-200 bg-white p-4 md:p-3 text-left shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none dark:hover:border-indigo-500/30"
                     >
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-indigo-100 group-hover:text-indigo-600 dark:bg-white/5 dark:text-slate-400 dark:group-hover:bg-indigo-600/15 dark:group-hover:text-indigo-400">
-                        <FileText size={16} />
+                      <div className="mt-0.5 flex h-9 md:h-8 w-9 md:w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-indigo-100 group-hover:text-indigo-600 dark:bg-white/5 dark:text-slate-400 dark:group-hover:bg-indigo-600/15 dark:group-hover:text-indigo-400">
+                        <FileText size={16} className="md:h-4 md:w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold leading-snug text-slate-800 dark:text-slate-200">
+                        <p className="text-sm md:text-xs font-semibold leading-snug text-slate-800 dark:text-slate-200">
                           {doc.title}
                         </p>
                         {doc.subtitle && (
-                          <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-600">{doc.subtitle}</p>
+                          <p className="mt-0.5 text-[11px] md:text-[10px] text-slate-400 dark:text-slate-600">{doc.subtitle}</p>
                         )}
-                        <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-600">
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium dark:bg-white/5">
+                        <div className="mt-2 md:mt-1.5 flex items-center gap-2 text-[10px] md:text-[9px] text-slate-400 dark:text-slate-600">
+                          <span className="rounded-full bg-slate-100 px-2 md:px-1.5 py-0.5 font-medium dark:bg-white/5">
                             {doc.chapters.length} capítulo{doc.chapters.length !== 1 ? "s" : ""}
                           </span>
                           {totalArticles > 0 && (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium dark:bg-white/5">
+                            <span className="rounded-full bg-slate-100 px-2 md:px-1.5 py-0.5 font-medium dark:bg-white/5">
                               {totalArticles} artigo{totalArticles !== 1 ? "s" : ""}
                             </span>
                           )}
@@ -3768,7 +3438,7 @@ function RegulamentosSection() {
                       </div>
                       <ChevronRight
                         size={14}
-                        className="mt-1 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500 dark:text-slate-600 dark:group-hover:text-indigo-400"
+                        className="mt-1 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500 dark:text-slate-600 dark:group-hover:text-indigo-400 md:h-3.5 md:w-3.5"
                       />
                     </button>
                   );
@@ -3777,20 +3447,18 @@ function RegulamentosSection() {
             </div>
           );
         })}
-
         {filtered.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-950/40">
-            <Search size={28} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <div className="rounded-2xl md:rounded-xl border border-dashed border-slate-300 bg-white p-8 md:p-6 text-center dark:border-white/10 dark:bg-slate-950/40">
+            <Search size={28} className="mx-auto mb-3 md:mb-2 text-slate-300 dark:text-slate-600 md:h-6 md:w-6" />
+            <p className="text-sm md:text-xs font-medium text-slate-500 dark:text-slate-400">
               Nenhum regulamento encontrado para &quot;{query}&quot;
             </p>
           </div>
         )}
       </div>
 
-      {/* Nota legal */}
-      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/[0.06] dark:text-amber-300">
-        <ClipboardList size={14} className="mt-0.5 shrink-0" />
+      <div className="flex items-start gap-3 md:gap-2.5 rounded-xl md:rounded-lg border border-amber-200 bg-amber-50 px-4 md:px-3 py-3.5 md:py-2.5 text-xs md:text-[11px] text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/[0.06] dark:text-amber-300">
+        <ClipboardList size={14} className="mt-0.5 shrink-0 md:h-3 md:w-3" />
         <span>
           Estes regulamentos são de observância obrigatória por todos os estudantes,
           docentes e trabalhadores do ISAF. Em caso de dúvida, contacta a Direcção
@@ -3798,14 +3466,13 @@ function RegulamentosSection() {
         </span>
       </div>
 
-      {/* Contacto */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:px-5">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">
+      <div className="overflow-hidden rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none">
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03] sm:px-5 md:px-4 md:py-3">
+          <h2 className="text-sm md:text-xs font-semibold text-slate-900 dark:text-slate-100 sm:text-base md:text-sm">
             Dúvidas sobre os regulamentos?
           </h2>
         </div>
-        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+        <div className="grid gap-3 md:gap-2 p-4 md:p-3 sm:grid-cols-3 sm:p-5 md:p-4">
           {[
             { icon: Phone, label: "Telefone", value: "+244 227 281 009" },
             { icon: Mail, label: "Email", value: "geral@isaf.ao" },
@@ -3813,14 +3480,14 @@ function RegulamentosSection() {
           ].map(({ icon: Icon, label, value }) => (
             <div
               key={label}
-              className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/5 dark:bg-white/[0.02]"
+              className="flex items-start gap-3 md:gap-2 rounded-xl md:rounded-lg border border-slate-200 bg-slate-50 px-4 md:px-3 py-3 md:py-2 dark:border-white/5 dark:bg-white/[0.02]"
             >
-              <Icon size={15} className="mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400" />
+              <Icon size={15} className="mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400 md:h-3.5 md:w-3.5" />
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-600">
+                <p className="text-[10px] md:text-[9px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-600">
                   {label}
                 </p>
-                <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">{value}</p>
+                <p className="mt-0.5 text-xs md:text-[11px] font-medium text-slate-700 dark:text-slate-300">{value}</p>
               </div>
             </div>
           ))}

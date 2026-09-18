@@ -11,7 +11,6 @@ type Props = {
 export function MathText({ text, className }: Props) {
   if (!text) return null;
 
-  // Pré-processa o texto para converter \frac em \dfrac (frações maiores)
   const processLatex = (latex: string) => {
     return latex
       .replace(/\\frac/g, "\\dfrac")
@@ -20,7 +19,6 @@ export function MathText({ text, className }: Props) {
       .replace(/\\prod/g, "\\displaystyle\\prod");
   };
 
-  // Divide primeiro por blocos $$...$$
   const blockParts = text.split(/(\$\$[\s\S]+?\$\$)/g);
 
   return (
@@ -29,7 +27,7 @@ export function MathText({ text, className }: Props) {
         if (part.startsWith("$$") && part.endsWith("$$") && part.length > 4) {
           const latex = processLatex(part.slice(2, -2));
           return (
-            <span key={i} className="my-2 block overflow-visible py-1 text-left">
+            <div key={i} className="my-2 overflow-x-auto py-1 text-left">
               <BlockMath
                 math={latex}
                 errorColor="#e11d48"
@@ -37,11 +35,10 @@ export function MathText({ text, className }: Props) {
                   <span className="text-xs text-rose-500">[LaTeX erro: {err.message}]</span>
                 )}
               />
-            </span>
+            </div>
           );
         }
 
-        // Divide por inline $...$
         const inlineParts = part.split(/(\$[^$\n]+?\$)/g);
 
         return (

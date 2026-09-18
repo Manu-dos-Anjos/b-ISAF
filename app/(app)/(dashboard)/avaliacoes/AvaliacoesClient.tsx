@@ -122,17 +122,17 @@ class ModalErrorBoundary extends React.Component<EBProps, EBState> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-rose-300 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/10">
-            <span className="text-2xl">⚠️</span>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 md:p-6 text-center">
+          <div className="flex h-14 w-14 md:h-12 md:w-12 items-center justify-center rounded-2xl md:rounded-xl border border-rose-300 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/10">
+            <span className="text-2xl md:text-xl">⚠️</span>
           </div>
           <div>
-            <p className="text-base font-bold text-slate-900 dark:text-white">Ocorreu um erro inesperado</p>
-            <p className="mt-1 max-w-xs text-sm text-slate-500 dark:text-slate-400">{this.state.message}</p>
+            <p className="text-base md:text-sm font-bold text-slate-900 dark:text-white">Ocorreu um erro inesperado</p>
+            <p className="mt-1 max-w-xs text-sm md:text-xs text-slate-500 dark:text-slate-400">{this.state.message}</p>
           </div>
           <button
             onClick={this.props.onClose}
-            className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10"
+            className="rounded-xl md:rounded-lg border border-slate-300 bg-white px-5 md:px-4 py-2.5 md:py-2 text-sm md:text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10"
           >
             Fechar
           </button>
@@ -146,7 +146,7 @@ class ModalErrorBoundary extends React.Component<EBProps, EBState> {
 function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 backdrop-blur-md dark:bg-slate-950/95 sm:items-center sm:p-4">
-      <div className="relative flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:h-auto sm:max-h-[95dvh] sm:rounded-3xl">
+      <div className="relative flex h-[100dvh] w-full max-w-2xl md:max-w-xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:h-auto sm:max-h-[95dvh] sm:rounded-3xl md:rounded-2xl">
         <div className="flex justify-center pt-3 sm:hidden">
           <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
         </div>
@@ -240,35 +240,35 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
 
   return (
     <>
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-4 sm:space-y-6 md:space-y-5">
 
         {/* ══════════════════════════════════════════
             CABEÇALHO
         ══════════════════════════════════════════ */}
-        <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-slate-950/50 dark:shadow-none sm:rounded-2xl sm:p-5 md:p-6">
+        <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-slate-950/50 dark:shadow-none sm:rounded-2xl sm:p-5 md:p-4">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-50 dark:from-indigo-950/60 dark:via-slate-950/80 dark:to-slate-950" />
 
           {/* Título + média — linha única no mobile */}
-          <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="relative z-10 flex items-center justify-between gap-3 md:gap-2.5">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 sm:text-xs">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 sm:text-xs md:text-[11px]">
                 Avaliações
               </p>
-              <h1 className="mt-0.5 truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl md:text-3xl">
+              <h1 className="mt-0.5 truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl md:text-xl">
                 Olá, {firstName}
               </h1>
-              <p className="mt-1 hidden max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:block">
+              <p className="mt-1 hidden max-w-2xl md:max-w-xl text-sm md:text-xs text-slate-600 dark:text-slate-400 sm:block">
                 Questionários e avaliações das tuas disciplinas, organizados por
                 capítulo, com histórico, revisão e estatísticas.
               </p>
             </div>
 
             <div className="flex shrink-0 flex-col items-end text-right">
-              <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl">
+              <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl md:text-2xl">
                 {avgScore !== null ? avgScore : "—"}
-                {avgScore !== null && <span className="text-sm font-medium text-slate-400 sm:text-base">%</span>}
+                {avgScore !== null && <span className="text-sm md:text-xs font-medium text-slate-400 sm:text-base md:text-sm">%</span>}
               </p>
-              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px]">
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px] md:text-[10px]">
                 Média geral
               </p>
             </div>
@@ -282,7 +282,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
             />
           </div>
           <div className="relative z-10 mt-2 hidden justify-end sm:flex">
-            <div className="h-1.5 w-32 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+            <div className="h-1.5 md:h-1 w-32 md:w-28 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
                 style={{ width: `${quizItems.length ? (doneCount / quizItems.length) * 100 : 0}%` }}
@@ -292,7 +292,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
 
           {/* Stats — faixa compacta de pills no mobile, grid de cards a partir de sm */}
           <div
-            className={`relative z-10 mt-3 flex gap-1.5 overflow-x-auto sm:mt-5 sm:grid sm:grid-cols-4 sm:gap-2 sm:overflow-visible ${SCROLLBAR_X}`}
+            className={`relative z-10 mt-3 flex gap-1.5 overflow-x-auto sm:mt-5 md:mt-4 sm:grid sm:grid-cols-4 sm:gap-2 md:gap-1.5 sm:overflow-visible ${SCROLLBAR_X}`}
           >
             {[
               { label: "Disponíveis", value: quizItems.length, icon: BookOpen },
@@ -302,7 +302,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
             ].map(({ label, value, icon: Icon }) => (
               <div
                 key={label}
-                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5 sm:block sm:rounded-xl sm:px-3 sm:py-3"
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5 sm:block sm:rounded-xl sm:px-3 md:px-2.5 sm:py-3 md:py-2.5"
               >
                 <Icon size={12} className="text-slate-400 dark:text-slate-500 sm:hidden" />
                 <span className="text-xs font-bold tabular-nums text-slate-900 dark:text-white sm:hidden">
@@ -314,7 +314,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                   <Icon size={12} />
                   <p className="text-[10px] font-medium uppercase tracking-widest">{label}</p>
                 </div>
-                <p className="mt-1.5 hidden text-xl font-bold tabular-nums text-slate-900 dark:text-white sm:block">
+                <p className="mt-1.5 md:mt-1 hidden text-xl md:text-lg font-bold tabular-nums text-slate-900 dark:text-white sm:block">
                   {value}
                 </p>
               </div>
@@ -322,14 +322,14 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
           </div>
 
           {/* Pesquisa + filtros */}
-          <div className="relative z-10 mt-3 space-y-2 sm:mt-5">
+          <div className="relative z-10 mt-3 space-y-2 sm:mt-5 md:mt-4 md:space-y-1.5">
             <div className="relative">
               <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Pesquisar questionários, capítulos ou disciplinas..."
-                className="min-h-9 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600 dark:focus:border-indigo-500/40 dark:focus:ring-indigo-500/20 sm:min-h-11 sm:rounded-xl sm:py-3 sm:pl-10 sm:pr-4"
+                className="min-h-9 w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600 dark:focus:border-indigo-500/40 dark:focus:ring-indigo-500/20 sm:min-h-11 md:min-h-10 sm:rounded-xl sm:py-3 md:py-2.5 sm:pl-10 md:pl-9 sm:pr-4 md:text-xs"
               />
             </div>
 
@@ -339,7 +339,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                   key={item.key}
                   type="button"
                   onClick={() => setFilterStatus(item.key)}
-                  className={`flex flex-1 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition sm:rounded-lg sm:px-3 sm:py-2 sm:text-xs ${
+                  className={`flex flex-1 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition sm:rounded-lg sm:px-3 md:px-2.5 sm:py-2 md:py-1.5 sm:text-xs md:text-[11px] ${
                     filterStatus === item.key
                       ? "bg-indigo-600 text-white"
                       : "text-slate-500 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
@@ -350,8 +350,8 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
               ))}
             </div>
 
-            <div className={`flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:gap-2 sm:overflow-visible ${SCROLLBAR_X}`}>
-              <span className="mr-1 hidden items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:inline-flex">
+            <div className={`flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:gap-2 md:gap-1.5 sm:overflow-visible ${SCROLLBAR_X}`}>
+              <span className="mr-1 hidden items-center gap-1.5 text-[11px] md:text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:inline-flex">
                 <Filter size={12} />
                 Disciplina
               </span>
@@ -359,7 +359,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
               <button
                 type="button"
                 onClick={() => setFilterDisc("all")}
-                className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 sm:py-1.5 sm:text-xs ${
+                className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 md:px-2.5 sm:py-1.5 md:py-1 sm:text-xs md:text-[11px] ${
                   filterDisc === "all"
                     ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-200"
                     : "border-slate-300 bg-white text-slate-500 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:text-white"
@@ -373,7 +373,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                   key={d.id}
                   type="button"
                   onClick={() => setFilterDisc(d.id)}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 sm:py-1.5 sm:text-xs ${
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition sm:px-3 md:px-2.5 sm:py-1.5 md:py-1 sm:text-xs md:text-[11px] ${
                     filterDisc === d.id
                       ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-200"
                       : "border-slate-300 bg-white text-slate-500 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:text-white"
@@ -387,28 +387,28 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
         </section>
 
         {/* ── SIMULADO INDIVIDUAL ── */}
-        <section className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-4 shadow-sm dark:border-indigo-500/20 dark:from-indigo-950/50 dark:via-slate-950/70 dark:to-violet-950/30 sm:p-5 md:p-6">
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <section className="relative overflow-hidden rounded-2xl md:rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-4 shadow-sm dark:border-indigo-500/20 dark:from-indigo-950/50 dark:via-slate-950/70 dark:to-violet-950/30 sm:p-5 md:p-4">
+          <div className="relative z-10 flex flex-col gap-4 md:gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-300">
-                <Target size={16} />
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em]">Simulado individual</p>
+                <Target size={16} className="md:h-4 md:w-4" />
+                <p className="text-[10px] md:text-[9px] font-bold uppercase tracking-[0.18em]">Simulado individual</p>
               </div>
-              <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white sm:text-xl">Testa os teus conhecimentos</h2>
-              <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              <h2 className="mt-1 text-lg md:text-base font-bold text-slate-900 dark:text-white sm:text-xl md:text-base">Testa os teus conhecimentos</h2>
+              <p className="mt-1 max-w-xl text-sm md:text-xs leading-relaxed text-slate-600 dark:text-slate-300">
                 Começa pelo próximo questionário disponível e acompanha o teu desempenho por disciplina.
               </p>
             </div>
 
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-64">
-              <label htmlFor="simulation-discipline" className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="flex w-full flex-col gap-2 md:gap-1.5 sm:w-auto sm:min-w-64 md:min-w-56">
+              <label htmlFor="simulation-discipline" className="text-[10px] md:text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Disciplina
               </label>
               <select
                 id="simulation-discipline"
                 value={simulationDisc}
                 onChange={(event) => setSimulationDisc(event.target.value)}
-                className="h-10 rounded-lg border border-indigo-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:focus:ring-indigo-500/30"
+                className="h-10 md:h-9 rounded-lg border border-indigo-200 bg-white px-3 md:px-2.5 text-sm md:text-xs text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:focus:ring-indigo-500/30"
               >
                 <option value="all">Todas as disciplinas</option>
                 {disciplineStats.map((discipline) => (
@@ -418,21 +418,21 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
             </div>
           </div>
 
-          <div className="relative z-10 mt-4 flex flex-col gap-3 rounded-xl border border-indigo-100 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.05] sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="relative z-10 mt-4 md:mt-3 flex flex-col gap-3 md:gap-2 rounded-xl md:rounded-lg border border-indigo-100 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.05] sm:flex-row sm:items-center sm:justify-between sm:p-4 md:p-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Prova disponível</p>
-              <p className="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">
+              <p className="text-[10px] md:text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Prova disponível</p>
+              <p className="mt-1 truncate text-sm md:text-xs font-semibold text-slate-900 dark:text-white">
                 {simulationQuiz?.title ?? "Nenhum questionário disponível"}
               </p>
-              {simulationQuiz && <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{simulationQuiz.disciplineName} · {simulationQuiz.chapterTitle} · {getExamYear(simulationQuiz.title) ? `Prova ${getExamYear(simulationQuiz.title)}` : "Simulado"}</p>}
+              {simulationQuiz && <p className="mt-0.5 truncate text-xs md:text-[11px] text-slate-500 dark:text-slate-400">{simulationQuiz.disciplineName} · {simulationQuiz.chapterTitle} · {getExamYear(simulationQuiz.title) ? `Prova ${getExamYear(simulationQuiz.title)}` : "Simulado"}</p>}
             </div>
             <button
               type="button"
               disabled={!simulationQuiz}
               onClick={() => simulationQuiz && setModal({ type: "player", quiz: simulationQuiz, simulation: true })}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex shrink-0 items-center justify-center gap-2 md:gap-1.5 rounded-lg bg-indigo-600 px-4 md:px-3.5 py-2.5 md:py-2 text-sm md:text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Play size={14} fill="currentColor" />
+              <Play size={14} fill="currentColor" className="md:h-3 md:w-3" />
               Começar prova · {simulationMinutes} min
             </button>
           </div>
@@ -441,22 +441,22 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
         {/* ══════════════════════════════════════════
             LISTA AGRUPADA
         ══════════════════════════════════════════ */}
-        <div className="space-y-3 sm:space-y-4">
+        <div className="space-y-3 sm:space-y-4 md:space-y-3">
           {groupedByDiscipline.length === 0 ? (
-            <div className="flex min-h-[32vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-white/10 dark:bg-white/[0.03] sm:min-h-[38vh] sm:p-8 md:min-h-[42vh] md:p-10">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04] sm:h-16 sm:w-16">
-                <BookOpen size={26} className="text-slate-400 dark:text-slate-500" />
+            <div className="flex min-h-[32vh] flex-col items-center justify-center rounded-[28px] md:rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-white/10 dark:bg-white/[0.03] sm:min-h-[38vh] md:min-h-[34vh] sm:p-8 md:p-6">
+              <div className="mb-4 md:mb-3 flex h-14 w-14 md:h-12 md:w-12 items-center justify-center rounded-3xl md:rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04] sm:h-16 sm:w-16 md:h-14 md:w-14">
+                <BookOpen size={26} className="text-slate-400 dark:text-slate-500 md:h-6 md:w-6" />
               </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">
+              <h3 className="text-base md:text-sm font-bold text-slate-900 dark:text-white sm:text-lg md:text-base">
                 Nenhum questionário encontrado
               </h3>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-500">
+              <p className="mt-2 max-w-md text-sm md:text-xs leading-relaxed text-slate-500 dark:text-slate-500">
                 Ainda não há avaliações disponíveis para os filtros que escolheste.
                 Tenta mudar a pesquisa ou selecionar outra disciplina.
               </p>
             </div>
           ) : (
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-3 sm:space-y-4 md:space-y-3">
               {groupedByDiscipline.map((group, index) => {
                 const discId       = group.discipline.id;
                 const isOpen       = isDiscOpen(discId, index);
@@ -468,7 +468,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                 return (
                   <div
                     key={discId}
-                    className={`overflow-hidden rounded-xl border transition-all sm:rounded-2xl ${
+                    className={`overflow-hidden rounded-xl border transition-all sm:rounded-2xl md:rounded-xl ${
                       isCompleted
                         ? "border-emerald-300 dark:border-emerald-500/20"
                         : isOpen
@@ -478,7 +478,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                   >
                     <button
                       onClick={() => toggleDisc(discId, index)}
-                      className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition sm:gap-4 sm:px-5 sm:py-4 ${
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition sm:gap-4 md:gap-3 sm:px-5 md:px-4 sm:py-4 md:py-3 ${
                         isCompleted
                           ? "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30"
                           : isOpen
@@ -486,48 +486,48 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                           : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/40 dark:hover:bg-slate-950/50"
                       }`}
                     >
-                      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 ${
+                      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 md:gap-2.5">
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold sm:h-9 sm:w-9 md:h-8 md:w-8 ${
                           isCompleted
                             ? "bg-emerald-200 text-emerald-700 dark:bg-emerald-600/30 dark:text-emerald-400"
                             : isOpen
                             ? "bg-indigo-600 text-white"
                             : "bg-slate-200 text-slate-500 dark:bg-white/5 dark:text-slate-400"
                         }`}>
-                          <BookOpen size={15} />
+                          <BookOpen size={15} className="md:h-3.5 md:w-3.5" />
                         </div>
                         <div className="min-w-0">
-                          <p className={`flex flex-wrap items-center gap-1.5 truncate text-sm font-semibold sm:text-base ${
+                          <p className={`flex flex-wrap items-center gap-1.5 truncate text-sm md:text-xs font-semibold sm:text-base md:text-sm ${
                             isOpen || isCompleted ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300"
                           }`}>
                             {group.discipline.name}
                             {isCompleted && (
-                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] md:text-[9px] font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
                                 Concluído
                               </span>
                             )}
                           </p>
-                          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
+                          <p className="mt-0.5 text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
                             {totalQuizzes} questionário(s) · {doneQuizzes} concluído(s)
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                        <div className="hidden items-center gap-2 sm:flex">
-                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                      <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-2">
+                        <div className="hidden items-center gap-2 md:gap-1.5 sm:flex">
+                          <div className="h-1.5 md:h-1 w-20 md:w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
                               style={{ width: `${totalQuizzes ? (doneQuizzes / totalQuizzes) * 100 : 0}%` }}
                             />
                           </div>
-                          <span className="tabular-nums text-xs text-slate-500 dark:text-slate-400">
+                          <span className="tabular-nums text-xs md:text-[11px] text-slate-500 dark:text-slate-400">
                             {totalQuizzes ? Math.round((doneQuizzes / totalQuizzes) * 100) : 0}%
                           </span>
                         </div>
                         {isOpen
-                          ? <ChevronDown size={16} className="text-slate-400" />
-                          : <ChevronRight size={16} className="text-slate-400" />
+                          ? <ChevronDown size={16} className="text-slate-400 md:h-4 md:w-4" />
+                          : <ChevronRight size={16} className="text-slate-400 md:h-4 md:w-4" />
                         }
                       </div>
                     </button>
@@ -535,51 +535,51 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                     {isOpen && (
                       <div className="divide-y divide-slate-100 bg-slate-50/60 dark:divide-white/5 dark:bg-slate-950/30">
                         {Array.from(group.chapters.entries()).map(([chapterTitle, quizzes]) => (
-                          <div key={chapterTitle} className="p-3 sm:p-4">
-                            <div className="mb-2.5 flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-white/5 sm:mb-3">
+                          <div key={chapterTitle} className="p-3 sm:p-4 md:p-3">
+                            <div className="mb-2.5 md:mb-2 flex items-center gap-2 border-b border-slate-200 pb-2 dark:border-white/5 sm:mb-3 md:mb-2">
                               <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-                              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+                              <p className="text-xs md:text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
                                 {chapterTitle}
                               </p>
                             </div>
 
-                            <div className="space-y-1 sm:space-y-1.5">
+                            <div className="space-y-1 sm:space-y-1.5 md:space-y-1">
                               {quizzes.map((quiz) => {
                                 const scoreTheme = getScoreTheme(quiz.bestScore);
                                 const isDone     = quiz.attempts > 0;
                                 return (
                                   <div
                                     key={quiz.contentId}
-                                    className={`group flex flex-col gap-2.5 rounded-xl px-2.5 py-2.5 transition-all sm:flex-row sm:items-center sm:gap-3 sm:px-3 ${
+                                    className={`group flex flex-col gap-2.5 md:gap-2 rounded-xl px-2.5 py-2.5 md:py-2 transition-all sm:flex-row sm:items-center sm:gap-3 md:gap-2.5 sm:px-3 md:px-2.5 ${
                                       isDone ? "hover:bg-indigo-50 dark:hover:bg-indigo-950/40" : "hover:bg-slate-100 dark:hover:bg-white/5"
                                     }`}
                                   >
                                     <div className="flex items-start gap-2.5 sm:contents">
                                       <div className="mt-0.5 shrink-0 sm:mt-0">
                                         {isDone
-                                          ? <CheckCircle2 size={14} className="text-emerald-500 dark:text-emerald-400" />
-                                          : <Award size={14} className="text-amber-500 dark:text-amber-400" />
+                                          ? <CheckCircle2 size={14} className="text-emerald-500 dark:text-emerald-400 md:h-3.5 md:w-3.5" />
+                                          : <Award size={14} className="text-amber-500 dark:text-amber-400 md:h-3.5 md:w-3.5" />
                                         }
                                       </div>
 
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                          <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                                          <span className="truncate text-sm md:text-xs font-medium text-slate-800 dark:text-slate-200">
                                             {quiz.title}
                                           </span>
-                                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold tabular-nums ${scoreTheme.className}`}>
+                                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] md:text-[9px] font-bold tabular-nums ${scoreTheme.className}`}>
                                             {scoreTheme.label}
                                           </span>
                                         </div>
-                                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 dark:text-slate-500">
+                                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 md:gap-x-2 gap-y-0.5 text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
                                           {quiz.timeLimitSecs !== null && (
                                             <span className="flex items-center gap-1">
-                                              <Clock size={11} />
+                                              <Clock size={11} className="md:h-2.5 md:w-2.5" />
                                               {formatTime(quiz.timeLimitSecs)}
                                             </span>
                                           )}
                                           <span className="flex items-center gap-1">
-                                            <RotateCcw size={11} />
+                                            <RotateCcw size={11} className="md:h-2.5 md:w-2.5" />
                                             {quiz.attempts} tentativa{quiz.attempts === 1 ? "" : "s"}
                                           </span>
                                           <span className={isDone ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}>
@@ -592,9 +592,9 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                                     <div className="flex shrink-0 items-center gap-1.5 pl-[26px] sm:pl-0">
                                       <button
                                         onClick={() => setModal({ type: "player", quiz })}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-indigo-500 active:scale-[0.98]"
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 md:px-2.5 py-2 md:py-1.5 text-xs md:text-[11px] font-medium text-white transition hover:bg-indigo-500 active:scale-[0.98]"
                                       >
-                                        <Play size={12} fill="currentColor" />
+                                        <Play size={12} fill="currentColor" className="md:h-3 md:w-3" />
                                         {isDone ? "Repetir" : "Começar"}
                                       </button>
                                       {isDone && (
@@ -602,16 +602,16 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                                           <button
                                             onClick={() => setModal({ type: "review", quiz })}
                                             title="Rever"
-                                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
+                                            className="rounded-lg p-2 md:p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
                                           >
-                                            <CheckCircle2 size={14} />
+                                            <CheckCircle2 size={14} className="md:h-3.5 md:w-3.5" />
                                           </button>
                                           <button
                                             onClick={() => setModal({ type: "stats", quiz })}
                                             title="Estatísticas"
-                                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
+                                            className="rounded-lg p-2 md:p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300"
                                           >
-                                            <BarChart3 size={14} />
+                                            <BarChart3 size={14} className="md:h-3.5 md:w-3.5" />
                                           </button>
                                         </>
                                       )}

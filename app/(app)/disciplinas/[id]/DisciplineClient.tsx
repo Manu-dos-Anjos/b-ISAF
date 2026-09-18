@@ -40,6 +40,7 @@ import {
 
 import SlideViewer from "@/app/components/slides/SlideViewer";
 import QuizHost from "@/app/components/quiz/QuizHost";
+import { MathText } from "@/app/components/quiz/MathText";
 import { useLocalStorageState } from "@/app/lib/hooks/useLocalStorageState";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { saveItem, removeSavedItem } from "@/app/actions/saved";
@@ -230,11 +231,11 @@ const SCROLLBAR_CLASS = [
 
 function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-[200] flex flex-col gap-2">
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[200] flex flex-col gap-2 md:gap-1.5">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`pointer-events-auto flex items-center gap-2 rounded-xl border px-3 py-2 text-sm shadow-lg backdrop-blur-lg animate-[slideIn_0.2s_ease-out] ${
+          className={`pointer-events-auto flex items-center gap-2 md:gap-1.5 rounded-xl md:rounded-lg border px-3 md:px-2.5 py-2 md:py-1.5 text-sm md:text-xs shadow-lg backdrop-blur-lg animate-[slideIn_0.2s_ease-out] ${
             toast.type === "success"
               ? "border-emerald-300 bg-emerald-50/95 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-950/90 dark:text-emerald-200"
               : toast.type === "error"
@@ -245,11 +246,11 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
           aria-live="polite"
         >
           {toast.type === "success" ? (
-            <Check size={14} />
+            <Check size={14} className="md:h-3 md:w-3" />
           ) : toast.type === "error" ? (
-            <AlertCircle size={14} />
+            <AlertCircle size={14} className="md:h-3 md:w-3" />
           ) : (
-            <Sparkles size={14} />
+            <Sparkles size={14} className="md:h-3 md:w-3" />
           )}
           <span className="font-medium">{toast.message}</span>
           <button
@@ -1060,6 +1061,38 @@ export default function DisciplineClient({ discipline }: Props) {
 
   const renderTutorText = (text: string) => {
     const lines = text.split(/\r?\n/);
+
+    const renderMathAware = (content: string, keyPrefix: string) => {
+      const segments = content.split(/(\*\*[^*]+\*\*|`[^`]+`|\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g).filter(Boolean);
+
+      return segments.map((segment, segmentIndex) => {
+        if (segment.startsWith("**") && segment.endsWith("**")) {
+          return (
+            <strong key={`${keyPrefix}-strong-${segmentIndex}`} className="font-semibold text-slate-900 dark:text-white">
+              {renderMathAware(segment.slice(2, -2), `${keyPrefix}-strong-${segmentIndex}`)}
+            </strong>
+          );
+        }
+
+        if (segment.startsWith("`") && segment.endsWith("`")) {
+          return (
+            <code
+              key={`${keyPrefix}-code-${segmentIndex}`}
+              className="rounded bg-black/5 px-1 py-0.5 text-[0.9em] dark:bg-white/10"
+            >
+              {segment.slice(1, -1)}
+            </code>
+          );
+        }
+
+        if (/^\$\$[\s\S]+\$\$$/.test(segment) || /^\$[^$\n]+\$$/.test(segment)) {
+          return <MathText key={`${keyPrefix}-math-${segmentIndex}`} text={segment} className="inline" />;
+        }
+
+        return <span key={`${keyPrefix}-text-${segmentIndex}`}>{segment}</span>;
+      });
+    };
+
     return (
       <div className="space-y-2">
         {lines.map((line, index) => {
@@ -1070,22 +1103,18 @@ export default function DisciplineClient({ discipline }: Props) {
           const bullet = trimmed.match(/^[-*]\s+(.+)$/);
           const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
           const content = heading?.[1] ?? bullet?.[1] ?? numbered?.[1] ?? trimmed;
-          const parts = content.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
-          const formatted = parts.map((part, partIndex) => {
-            if (part.startsWith("**") && part.endsWith("**")) {
-              return <strong key={partIndex}>{part.slice(2, -2)}</strong>;
-            }
-            if (part.startsWith("`") && part.endsWith("`")) {
-              return <code key={partIndex} className="rounded bg-black/5 px-1 py-0.5 text-[0.9em] dark:bg-white/10">{part.slice(1, -1)}</code>;
-            }
-            return <span key={partIndex}>{part}</span>;
-          });
+          const formatted = renderMathAware(content, `line-${index}`);
 
-          if (heading) return <p key={index} className="font-bold text-slate-900 dark:text-white">{formatted}</p>;
+          if (heading) return <div key={index} className="font-bold text-slate-900 dark:text-white">{formatted}</div>;
           if (bullet || numbered) {
-            return <div key={index} className="flex gap-2"><span className="shrink-0 text-violet-500">{numbered ? `${index + 1}.` : "•"}</span><span>{formatted}</span></div>;
+            return (
+              <div key={index} className="flex gap-2">
+                <span className="shrink-0 text-violet-500">{numbered ? `${index + 1}.` : "•"}</span>
+                <span>{formatted}</span>
+              </div>
+            );
           }
-          return <p key={index}>{formatted}</p>;
+          return <div key={index}>{formatted}</div>;
         })}
       </div>
     );
@@ -1298,7 +1327,7 @@ export default function DisciplineClient({ discipline }: Props) {
     );
   };
 
-  const renderContentBtn = (content: TopicContent, topicTitle: string) => {
+    const renderContentBtn = (content: TopicContent, topicTitle: string) => {
     if (content.type !== "audio" && content.type !== "slide") return null;
 
     const Icon = getContentIcon(content.type);
@@ -1314,8 +1343,10 @@ export default function DisciplineClient({ discipline }: Props) {
         title={`${label}: ${content.title}`}
         className={`relative ${ACTION_BTN} ${cls}`}
       >
-        <Icon size={16} />
-        <span className={ACTION_LABEL}>{label}</span>
+        <Icon size={16} className="md:h-3.5 md:w-3.5" />
+        <span className={ACTION_LABEL}>
+          {label}
+        </span>
         {isViewed && (
           <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900">
             <Check size={8} className="text-white" />
@@ -1325,13 +1356,13 @@ export default function DisciplineClient({ discipline }: Props) {
     );
   };
 
-  const renderTopicActions = (topic: Topic) => {
+    const renderTopicActions = (topic: Topic) => {
     const contents = [...(topic.contents ?? [])]
       .filter((c) => c.type === "audio" || c.type === "slide")
       .sort((a, b) => (CONTENT_ORDER[a.type] ?? 99) - (CONTENT_ORDER[b.type] ?? 99));
 
     return (
-      <div className="grid w-full grid-flow-col auto-cols-fr items-stretch gap-1.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:ml-auto sm:justify-end">
+      <div className="grid w-full grid-flow-col auto-cols-fr items-stretch gap-1.5 md:gap-1 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:ml-auto sm:justify-end">
         {contents.map((c) => renderContentBtn(c, topic.title))}
         <button
           type="button"
@@ -1339,14 +1370,14 @@ export default function DisciplineClient({ discipline }: Props) {
           title="Tutor IA"
           className={`${ACTION_BTN} border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:border-violet-400 dark:border-violet-400/40 dark:bg-violet-500/15 dark:text-violet-200 dark:hover:bg-violet-500/25 dark:hover:border-violet-400/60 dark:hover:text-white`}
         >
-          <Sparkles size={16} />
+          <Sparkles size={16} className="md:h-3.5 md:w-3.5" />
           <span className={ACTION_LABEL}>Tutor IA</span>
         </button>
       </div>
     );
   };
 
-  const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => {
+    const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => {
     const quizzes = getChapterQuizzes(chapter);
     if (quizzes.length === 0) return null;
     const mainQuiz = quizzes[0];
@@ -1356,9 +1387,9 @@ export default function DisciplineClient({ discipline }: Props) {
         <button
           type="button"
           onClick={() => openQuiz(mainQuiz, chapter.title)}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+          className="inline-flex items-center gap-1.5 rounded-xl md:rounded-lg border border-emerald-200 bg-emerald-50 px-3 md:px-2.5 py-2 md:py-1.5 text-xs md:text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
         >
-          <Trophy size={12} />
+          <Trophy size={12} className="md:h-3 md:w-3" />
           Quiz
         </button>
       );
@@ -1368,17 +1399,16 @@ export default function DisciplineClient({ discipline }: Props) {
       <button
         type="button"
         onClick={() => openQuiz(mainQuiz, chapter.title)}
-        className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/30"
+        className="shrink-0 inline-flex items-center gap-2 md:gap-1.5 rounded-xl md:rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 md:px-3 py-2 md:py-1.5 text-xs md:text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/30"
       >
-        <Trophy size={13} />
+        <Trophy size={13} className="md:h-3 md:w-3" />
         Questionário
       </button>
     );
   };
 
-  const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
+    const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
     const topicsCount = chapter.topics?.length ?? 0;
-    // Progresso REAL baseado nos conteúdos visualizados
     const progress = calculateChapterProgress(chapter, viewedSet);
 
     return (
@@ -1387,27 +1417,37 @@ export default function DisciplineClient({ discipline }: Props) {
           onClick={() => {
             setActiveChapterId(chapter.id);
             setMobileView("topics");
-            // Scroll para o topo no mobile — melhora contexto visual
             if (isMobile) {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }
           }}
-          className={`w-full rounded-2xl border p-3.5 text-left transition-all duration-200 ${
+          className={`w-full rounded-2xl md:rounded-xl border p-3.5 md:p-3 text-left transition-all duration-200 ${
             isActive
               ? "border-indigo-300 bg-indigo-50 ring-1 ring-indigo-300 shadow-lg shadow-indigo-100/50 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:ring-indigo-500/20 dark:shadow-lg dark:shadow-indigo-900/20"
               : "border-slate-300 bg-white hover:bg-slate-100 hover:border-slate-400 dark:border-white/10 dark:bg-white/[0.02] dark:hover:bg-white/[0.05] dark:hover:border-white/20"
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 md:gap-2">
             <div className="min-w-0">
-              <p className={`text-sm font-semibold leading-snug ${isActive ? "text-indigo-900 dark:text-white" : "text-slate-900 dark:text-slate-200"}`}>
+              <p
+                className={`text-sm md:text-xs font-semibold leading-snug ${
+                  isActive ? "text-indigo-900 dark:text-white" : "text-slate-900 dark:text-slate-200"
+                }`}
+              >
                 {chapter.title}
               </p>
-              <p className="mt-1 text-xs text-slate-500">{chapter.status} · {topicsCount} temas</p>
+              <p className="mt-1 md:mt-0.5 text-xs md:text-[11px] text-slate-500">
+                {chapter.status} · {topicsCount} temas
+              </p>
             </div>
-            <ChevronRight size={16} className={`mt-0.5 shrink-0 transition-transform ${isActive ? "rotate-90 text-indigo-500 dark:text-indigo-400" : "text-slate-400 dark:text-slate-600"}`} />
+            <ChevronRight
+              size={16}
+              className={`mt-0.5 shrink-0 md:h-3.5 md:w-3.5 transition-transform ${
+                isActive ? "rotate-90 text-indigo-500 dark:text-indigo-400" : "text-slate-400 dark:text-slate-600"
+              }`}
+            />
           </div>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 md:mt-2 flex items-center gap-2 md:gap-1.5">
             <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
@@ -1418,7 +1458,7 @@ export default function DisciplineClient({ discipline }: Props) {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+            <span className="text-[10px] md:text-[9px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
               {progress}%
             </span>
           </div>
@@ -1556,11 +1596,11 @@ export default function DisciplineClient({ discipline }: Props) {
   );
 
   /* ── Empty state ── */
-  if (chapters.length === 0) {
+    if (chapters.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 md:space-y-5">
         <section
-          className={`relative overflow-hidden rounded-2xl border p-5 shadow-lg sm:p-6 ${
+          className={`relative overflow-hidden rounded-2xl md:rounded-xl border p-5 md:p-4 shadow-lg sm:p-6 ${
             hasCover
               ? "border-white/10 shadow-slate-300/40 dark:shadow-none"
               : "border-slate-300 shadow-slate-300/40 dark:border-white/10 dark:shadow-none"
@@ -1579,16 +1619,24 @@ export default function DisciplineClient({ discipline }: Props) {
             </div>
           )}
           <div className="relative z-10">
-            <p className={`text-xs font-semibold uppercase tracking-widest ${heroLabelClass}`}>{discipline.year} · {discipline.semester}</p>
-            <h1 className={`mt-2 text-3xl font-bold tracking-tight ${heroTitleClass}`}>{discipline.title}</h1>
+            <p className={`text-xs md:text-[11px] font-semibold uppercase tracking-widest ${heroLabelClass}`}>
+              {discipline.year} · {discipline.semester}
+            </p>
+            <h1 className={`mt-2 text-3xl md:text-2xl font-bold tracking-tight ${heroTitleClass}`}>
+              {discipline.title}
+            </h1>
           </div>
         </section>
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-950/40 dark:to-violet-950/40">
-            <Layers size={36} className="text-indigo-500 dark:text-indigo-400" />
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl md:rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 md:p-10 text-center dark:border-white/10 dark:bg-white/[0.02]">
+          <div className="flex h-20 w-20 md:h-16 md:w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-950/40 dark:to-violet-950/40">
+            <Layers size={36} className="md:h-8 md:w-8 text-indigo-500 dark:text-indigo-400" />
           </div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-300">Nenhum capítulo disponível</p>
-          <p className="text-xs text-slate-600">Os planos de estudo serão carregados do Supabase em breve.</p>
+          <p className="text-sm md:text-xs font-semibold text-slate-900 dark:text-slate-300">
+            Nenhum capítulo disponível
+          </p>
+          <p className="text-xs md:text-[11px] text-slate-600">
+            Os planos de estudo serão carregados do Supabase em breve.
+          </p>
         </div>
       </div>
     );
@@ -1599,9 +1647,9 @@ export default function DisciplineClient({ discipline }: Props) {
   ================================================================ */
   return (
     <div className="space-y-6">
-      {/* ── Hero ── */}
+            {/* ── Hero ── */}
       <section
-        className={`relative overflow-hidden rounded-2xl border p-5 shadow-lg sm:p-6 md:p-8 animate-[fadeIn_0.4s_ease-out] ${
+        className={`relative overflow-hidden rounded-2xl md:rounded-xl border p-5 md:p-4 shadow-lg md:shadow-md sm:p-6 md:p-5 animate-[fadeIn_0.4s_ease-out] ${
           hasCover
             ? "border-white/10 shadow-slate-300/40 dark:shadow-none"
             : "border-slate-300 shadow-slate-300/40 dark:border-white/10 dark:shadow-none"
@@ -1622,23 +1670,41 @@ export default function DisciplineClient({ discipline }: Props) {
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-transparent" />
           </>
         )}
-        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-2xl space-y-3.5">
-            <p className={`text-xs font-semibold uppercase tracking-widest ${heroLabelClass}`}>{discipline.year} · {discipline.semester}</p>
-            <h1 className={`text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl ${heroTitleClass}`}>{discipline.title}</h1>
-            <div className="flex flex-wrap gap-2">
-              {[`${stats.totalChapters} capítulos`, `${stats.totalTopics} temas`, `${stats.totalContents} conteúdos`].map((label) => (
-                <span key={label} className={`rounded-lg border px-3 py-1 text-xs font-medium backdrop-blur-sm ${heroPillClass}`}>{label}</span>
+        <div className="relative z-10 flex flex-col gap-4 md:gap-3.5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl space-y-3.5 md:space-y-2.5">
+            <p className={`text-xs md:text-[11px] font-semibold uppercase tracking-widest ${heroLabelClass}`}>
+              {discipline.year} · {discipline.semester}
+            </p>
+            <h1 className={`text-2xl md:text-xl font-bold tracking-tight sm:text-3xl md:text-2xl ${heroTitleClass}`}>
+              {discipline.title}
+            </h1>
+            <div className="flex flex-wrap gap-2 md:gap-1.5">
+              {[
+                `${stats.totalChapters} capítulos`,
+                `${stats.totalTopics} temas`,
+                `${stats.totalContents} conteúdos`,
+              ].map((label) => (
+                <span
+                  key={label}
+                  className={`rounded-lg md:rounded-md border px-3 md:px-2.5 py-1 md:py-0.5 text-xs md:text-[11px] font-medium backdrop-blur-sm ${heroPillClass}`}
+                >
+                  {label}
+                </span>
               ))}
             </div>
           </div>
           {discipline.introVideoUrl && (
             <button
               type="button"
-              onClick={() => { setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0); setIsVideoOpen(true); }}
-              className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 hover:scale-[1.02] active:scale-95"
+              onClick={() => {
+                setVideoReady(false);
+                setVideoPlaying(false);
+                setVideoCurrentTime(0);
+                setIsVideoOpen(true);
+              }}
+              className="inline-flex shrink-0 items-center gap-2 md:gap-1.5 self-start rounded-xl md:rounded-lg bg-indigo-600 px-5 md:px-4 py-3 md:py-2 text-sm md:text-xs font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 hover:scale-[1.02] active:scale-95"
             >
-              <PlayCircle size={18} /> Reproduzir vídeo
+              <PlayCircle size={18} className="md:h-4 md:w-4" /> Reproduzir vídeo
             </button>
           )}
         </div>
@@ -1728,30 +1794,32 @@ export default function DisciplineClient({ discipline }: Props) {
       </section>
 
       {/* ── Desktop ── */}
-      <section className="hidden overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-lg shadow-slate-300/50 dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none lg:grid lg:h-[42rem] lg:grid-cols-[320px_1fr]">
+            {/* ── Desktop ── */}
+      <section className="hidden overflow-hidden rounded-2xl md:rounded-xl border border-slate-300 bg-white shadow-lg md:shadow-md shadow-slate-300/50 dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none lg:grid lg:h-[40rem] lg:grid-cols-[300px_1fr]">
         <aside
           ref={chaptersPanelRef}
           className={`h-full overflow-y-auto border-r border-slate-300 bg-slate-100 dark:border-white/10 dark:bg-black/20 ${SCROLLBAR_CLASS}`}
         >
-          <div className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center border-b border-slate-300 bg-white/95 px-5 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Índice</h2>
+          <div
+            className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center border-b border-slate-300 bg-white/95 px-5 md:px-4 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}
+          >
+            <h2 className="text-xs md:text-[11px] font-bold uppercase tracking-widest text-slate-500">Índice</h2>
           </div>
-          <div className="space-y-2 p-3">
+          <div className="space-y-2 md:space-y-1.5 p-3 md:p-2.5">
             {chapters.map((c) => renderChapterCard(c, c.id === activeChapter?.id))}
           </div>
         </aside>
 
-        <main
-          ref={topicsPanelRef}
-          className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}
-        >
-          <div className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center justify-between gap-4 border-b border-slate-300 bg-white/95 px-6 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}>
+        <main ref={topicsPanelRef} className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}>
+          <div
+            className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center justify-between gap-4 md:gap-3 border-b border-slate-300 bg-white/95 px-6 md:px-5 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}
+          >
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-lg font-bold text-slate-900 dark:text-white">
+              <h2 className="truncate text-lg md:text-base font-bold text-slate-900 dark:text-white">
                 {activeChapter?.title}
               </h2>
               {activeChapter && (
-                <p className="mt-0.5 truncate text-xs text-slate-500">
+                <p className="mt-0.5 truncate text-xs md:text-[11px] text-slate-500">
                   {activeChapter.status} · {activeChapter.topics?.length ?? 0} temas
                 </p>
               )}
@@ -1760,17 +1828,17 @@ export default function DisciplineClient({ discipline }: Props) {
           </div>
 
           {activeChapter?.topics && activeChapter.topics.length > 0 ? (
-            <div className="space-y-2.5 p-5">
+            <div className="space-y-2.5 md:space-y-2 p-5 md:p-4">
               {activeChapter.topics.map((topic, index) => (
                 <article
                   key={topic.id}
-                  className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:shadow-md dark:border-white/5 dark:bg-white/[0.02] dark:shadow-none dark:hover:border-white/10 dark:hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between"
+                  className="flex flex-col gap-3 md:gap-2 rounded-2xl md:rounded-xl border border-slate-300 bg-white p-4 md:p-3 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:shadow-md dark:border-white/5 dark:bg-white/[0.02] dark:shadow-none dark:hover:border-white/10 dark:hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between"
                 >
-                  <div className="flex min-w-0 flex-1 items-start gap-4">
-                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
+                  <div className="flex min-w-0 flex-1 items-start gap-4 md:gap-3">
+                    <span className="mt-0.5 flex h-7 w-7 md:h-6 md:w-6 shrink-0 items-center justify-center rounded-xl md:rounded-lg border border-indigo-200 bg-indigo-50 text-[11px] md:text-[10px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
                       {index + 1}
                     </span>
-                    <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-200">
+                    <h3 className="text-sm md:text-xs font-semibold leading-snug text-slate-900 dark:text-slate-200">
                       {topic.title}
                     </h3>
                   </div>
@@ -1779,14 +1847,14 @@ export default function DisciplineClient({ discipline }: Props) {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-950/40 dark:to-violet-950/40">
-                <BookOpen size={28} className="text-indigo-500 dark:text-indigo-400" />
+            <div className="flex flex-col items-center justify-center py-16 md:py-12 text-center">
+              <div className="flex h-20 w-20 md:h-16 md:w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-950/40 dark:to-violet-950/40">
+                <BookOpen size={28} className="md:h-6 md:w-6 text-indigo-500 dark:text-indigo-400" />
               </div>
-              <p className="mt-4 text-sm font-semibold text-slate-900 dark:text-slate-300">
+              <p className="mt-4 md:mt-3 text-sm md:text-xs font-semibold text-slate-900 dark:text-slate-300">
                 Conteúdo em preparação
               </p>
-              <p className="mt-1 max-w-xs text-xs text-slate-500">
+              <p className="mt-1 max-w-xs text-xs md:text-[11px] text-slate-500">
                 Os materiais deste capítulo chegam em breve.
               </p>
             </div>
@@ -2071,44 +2139,80 @@ export default function DisciplineClient({ discipline }: Props) {
               </div>
             </div>
 
-            <div
-              className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
+                        <div
+              className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 md:px-5 py-5 md:py-4 transition-all duration-300 ease-out ${
+                showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"
+              }`}
               style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}
             >
-              <div className="space-y-4">
-                <div className="group relative h-2 cursor-pointer rounded-full bg-white/15" onClick={handleProgressClick}>
+              <div className="space-y-4 md:space-y-3">
+                <div className="group relative h-2 md:h-1.5 cursor-pointer rounded-full bg-white/15" onClick={handleProgressClick}>
                   <div className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-all" style={{ width: `${videoBuffered}%` }} />
-                  <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all" style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }} />
-                  <div className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-indigo-500 bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100" style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }} />
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all"
+                    style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }}
+                  />
+                  <div
+                    className="absolute top-1/2 h-4 w-4 md:h-3 md:w-3 -translate-y-1/2 rounded-full border-2 border-indigo-500 bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
+                    style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }}
+                  />
                 </div>
                 <div className="flex items-center justify-between text-xs tabular-nums text-slate-400">
                   <span>{formatTime(videoCurrentTime)}</span>
                   <span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span>
                 </div>
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 md:gap-2">
                   <button
                     type="button"
                     onClick={() => void toggleVideoPlay()}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
+                    className="flex h-11 w-11 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-xl md:rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
                     aria-label={videoPlaying ? "Pausar" : "Reproduzir"}
                   >
-                    {videoPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-0.5" />}
+                    {videoPlaying ? (
+                      <Pause size={18} className="md:h-4 md:w-4" />
+                    ) : (
+                      <Play size={18} className="translate-x-0.5 md:h-4 md:w-4" />
+                    )}
                   </button>
-                  <button type="button" onClick={() => skipVideo(-15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="-15s" aria-label="Recuar 15 segundos">
-                    <SkipBack size={16} />
+                  <button
+                    type="button"
+                    onClick={() => skipVideo(-15)}
+                    className="flex h-11 w-11 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-xl md:rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                    title="-15s"
+                    aria-label="Recuar 15 segundos"
+                  >
+                    <SkipBack size={16} className="md:h-3.5 md:w-3.5" />
                   </button>
-                  <button type="button" onClick={() => skipVideo(15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="+15s" aria-label="Avançar 15 segundos">
-                    <SkipForward size={16} />
+                  <button
+                    type="button"
+                    onClick={() => skipVideo(15)}
+                    className="flex h-11 w-11 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-xl md:rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                    title="+15s"
+                    aria-label="Avançar 15 segundos"
+                  >
+                    <SkipForward size={16} className="md:h-3.5 md:w-3.5" />
                   </button>
-                  <div className="hidden items-center gap-2.5 border-l border-white/10 pl-2.5 sm:flex">
-                    <button type="button" onClick={toggleVideoMute} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" aria-label={videoMuted ? "Ativar som" : "Silenciar"}>
-                      {videoMuted || videoVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                  <div className="hidden items-center gap-2.5 md:gap-2 border-l border-white/10 pl-2.5 md:pl-2 sm:flex">
+                    <button
+                      type="button"
+                      onClick={toggleVideoMute}
+                      className="flex h-11 w-11 md:h-9 md:w-9 items-center justify-center rounded-xl md:rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+                      aria-label={videoMuted ? "Ativar som" : "Silenciar"}
+                    >
+                      {videoMuted || videoVolume === 0 ? (
+                        <VolumeX size={16} className="md:h-3.5 md:w-3.5" />
+                      ) : (
+                        <Volume2 size={16} className="md:h-3.5 md:w-3.5" />
+                      )}
                     </button>
                     <input
-                      type="range" min={0} max={1} step={0.05}
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
                       value={videoMuted ? 0 : videoVolume}
                       onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
+                      className="h-1.5 md:h-1 w-24 md:w-20 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
                       aria-label="Volume"
                     />
                   </div>
@@ -2116,14 +2220,14 @@ export default function DisciplineClient({ discipline }: Props) {
                     <button
                       type="button"
                       onClick={() => setShowSpeedMenu((p) => !p)}
-                      className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                      className="flex h-11 md:h-9 items-center gap-2 md:gap-1.5 rounded-xl md:rounded-lg border border-white/10 bg-white/5 px-4 md:px-3 text-xs font-bold text-slate-200 transition hover:bg-white/10"
                       aria-label="Velocidade de reprodução"
                     >
-                      <Settings size={14} /> {videoSpeed}×
+                      <Settings size={14} className="md:h-3.5 md:w-3.5" /> {videoSpeed}×
                     </button>
                     {showSpeedMenu && (
-                      <div className="absolute bottom-[calc(100%+8px)] right-0 z-[130] min-w-[120px] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
-                        <div className="border-b border-white/10 px-3 py-2.5">
+                      <div className="absolute bottom-[calc(100%+8px)] right-0 z-[130] min-w-[120px] md:min-w-[110px] overflow-hidden rounded-2xl md:rounded-xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
+                        <div className="border-b border-white/10 px-3 md:px-2.5 py-2.5 md:py-2">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Velocidade</p>
                         </div>
                         <div className="p-1">
@@ -2132,7 +2236,9 @@ export default function DisciplineClient({ discipline }: Props) {
                               key={speed}
                               type="button"
                               onClick={() => setVideoSpeedFn(speed)}
-                              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition hover:bg-white/10 ${videoSpeed === speed ? "text-indigo-400 bg-indigo-500/10" : "text-slate-300"}`}
+                              className={`flex w-full items-center justify-between rounded-xl md:rounded-lg px-3 md:px-2.5 py-2.5 md:py-2 text-xs font-medium transition hover:bg-white/10 ${
+                                videoSpeed === speed ? "text-indigo-400 bg-indigo-500/10" : "text-slate-300"
+                              }`}
                             >
                               <span>{speed}×</span>
                               {videoSpeed === speed && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
