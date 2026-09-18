@@ -1,4 +1,3 @@
-// app/components/DisciplineClient.tsx
 "use client";
 
 import { useSearchParams, useRouter as useNavRouter, usePathname } from "next/navigation";
@@ -29,12 +28,14 @@ import {
   Loader2,
   Play,
   Settings,
-  Monitor,
-  Smartphone,
   Layers,
   Bookmark,
   ZoomIn,
   ZoomOut,
+  BookOpen,
+  AlertCircle,
+  Check,
+  Trash2,
 } from "lucide-react";
 
 import SlideViewer from "@/app/components/slides/SlideViewer";
@@ -82,6 +83,12 @@ type ActiveQuiz = {
   disciplineName: string;
   chapterTitle: string;
   timeLimitSecs: number | null;
+};
+
+type Toast = {
+  id: string;
+  type: "success" | "error" | "info";
+  message: string;
 };
 
 /* ================================================================
@@ -149,10 +156,7 @@ function getChapterContentCount(chapter: Chapter) {
 }
 
 function getChapterQuizzes(chapter: Chapter) {
-  // novo modelo: quiz directamente no capítulo
   if (chapter.quiz) return [chapter.quiz];
-
-  // fallback para mock/legado: quizzes ainda dentro dos tópicos
   const seen = new Set<string>();
   return (chapter.topics ?? [])
     .flatMap((t) => t.contents ?? [])
@@ -162,6 +166,25 @@ function getChapterQuizzes(chapter: Chapter) {
       return true;
     });
 }
+
+/**
+ * Calcula o progresso real de um capítulo baseado no estado dos conteúdos
+ * visualizados (guardados localmente). Sem isto o progresso era hard-coded (35%).
+ */
+function calculateChapterProgress(
+  chapter: Chapter,
+  viewedContents: Set<string>
+): number {
+  const allContents: { id: string }[] = [];
+  for (const t of chapter.topics ?? []) {
+    for (const c of t.contents ?? []) allContents.push(c);
+  }
+  if (chapter.quiz) allContents.push(chapter.quiz);
+  if (allContents.length === 0) return 0;
+  const viewed = allContents.filter((c) => viewedContents.has(c.id)).length;
+  return Math.round((viewed / allContents.length) * 100);
+}
+
 /* ================================================================
    CONSTANTES
 ================================================================ */
@@ -202,6 +225,48 @@ const SCROLLBAR_CLASS = [
 ].join(" ");
 
 /* ================================================================
+   TOAST COMPONENT (leve, sem dependências)
+================================================================ */
+
+function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
+  return (
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[200] flex flex-col gap-2">
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className={`pointer-events-auto flex items-center gap-2 rounded-xl border px-3 py-2 text-sm shadow-lg backdrop-blur-lg animate-[slideIn_0.2s_ease-out] ${
+            toast.type === "success"
+              ? "border-emerald-300 bg-emerald-50/95 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-950/90 dark:text-emerald-200"
+              : toast.type === "error"
+              ? "border-rose-300 bg-rose-50/95 text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/90 dark:text-rose-200"
+              : "border-slate-300 bg-white/95 text-slate-800 dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-200"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {toast.type === "success" ? (
+            <Check size={14} />
+          ) : toast.type === "error" ? (
+            <AlertCircle size={14} />
+          ) : (
+            <Sparkles size={14} />
+          )}
+          <span className="font-medium">{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => onDismiss(toast.id)}
+            className="ml-1 rounded p-0.5 opacity-60 transition hover:opacity-100"
+            aria-label="Fechar"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ================================================================
    BODY SCROLL LOCK
 ================================================================ */
 function useBodyScrollLock(active: boolean) {
@@ -213,20 +278,20 @@ function useBodyScrollLock(active: boolean) {
 
     const prev = {
       htmlOverflowY: html.style.overflowY,
-      htmlScrollbarGutter: (html.style as any).scrollbarGutter,
+      htmlScrollbarGutter: html.style.scrollbarGutter,
       bodyOverflow: body.style.overflow,
       bodyOverscroll: body.style.overscrollBehavior,
     };
 
     html.style.overflowY = "scroll";
-    (html.style as any).scrollbarGutter = "stable";
+    html.style.scrollbarGutter = "stable";
 
     body.style.overflow = "hidden";
     body.style.overscrollBehavior = "none";
 
     return () => {
       html.style.overflowY = prev.htmlOverflowY;
-      (html.style as any).scrollbarGutter = prev.htmlScrollbarGutter;
+      html.style.scrollbarGutter = prev.htmlScrollbarGutter;
       body.style.overflow = prev.bodyOverflow;
       body.style.overscrollBehavior = prev.bodyOverscroll;
     };
@@ -408,12 +473,12 @@ function MobileSlideSheet({
 
       <div className="relative min-h-0 flex-1 bg-slate-100 dark:bg-black/80">
         <SlideViewer
-  url={panel.context.content.url ?? ""}
-  title={panel.context.content.title}
-  zoom={zoom}
-  contentId={panel.context.content.id}
-  estimatedDurationSeconds={panel.context.content.durationSeconds ?? undefined}
-/>
+          url={panel.context.content.url ?? ""}
+          title={panel.context.content.title}
+          zoom={zoom}
+          contentId={panel.context.content.id}
+          estimatedDurationSeconds={panel.context.content.durationSeconds ?? undefined}
+        />
       </div>
     </div>
   );
@@ -428,9 +493,9 @@ export default function DisciplineClient({ discipline }: Props) {
   const hasCover = !!discipline.coverUrl;
   const { supabase } = useSupabase();
   const searchParams = useSearchParams();
-const navRouter = useNavRouter();
-const pathname = usePathname();
-const hasAutoOpenedRef = useRef(false);
+  const navRouter = useNavRouter();
+  const pathname = usePathname();
+  const hasAutoOpenedRef = useRef(false);
 
   const heroTitleClass = hasCover ? "text-white" : "text-slate-900 dark:text-white";
   const heroLabelClass = hasCover ? "text-indigo-400" : "text-indigo-600 dark:text-indigo-400";
@@ -463,6 +528,30 @@ const hasAutoOpenedRef = useRef(false);
   );
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<ActiveQuiz | null>(null);
+
+  // Sistema de toasts
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const pushToast = (type: Toast["type"], message: string) => {
+    const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [...prev, { id, type, message }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Conteúdos já visualizados (para cálculo de progresso real)
+  const [viewedContents, setViewedContents] = useLocalStorageState<string[]>(
+    `dc-viewed-${discipline.id}`, []
+  );
+  const viewedSet = useMemo(() => new Set(viewedContents), [viewedContents]);
+  const markAsViewed = (contentId: string) => {
+    setViewedContents((prev) =>
+      prev.includes(contentId) ? prev : [...prev, contentId]
+    );
+  };
 
   const chaptersPanelRef = useRef<HTMLElement | null>(null);
   const topicsPanelRef = useRef<HTMLElement | null>(null);
@@ -517,51 +606,11 @@ const hasAutoOpenedRef = useRef(false);
     return () => cleanups.forEach((fn) => fn());
   }, []);
 
-  /* ── Auto-abrir conteúdo vindo da Home (query params) ── */
-useEffect(() => {
-  if (hasAutoOpenedRef.current) return;
-
-  const openSlideId = searchParams.get("openSlide");
-  const openQuizId = searchParams.get("openQuiz");
-
-  if (!openSlideId && !openQuizId) return;
-
-  hasAutoOpenedRef.current = true;
-
-  for (const chapter of chapters) {
-    // Verifica se é o quiz do capítulo
-    if (openQuizId && chapter.quiz?.id === openQuizId) {
-      setActiveChapterId(chapter.id);
-      openQuiz(chapter.quiz, chapter.title);
-      break;
-    }
-
-    // Verifica conteúdos dentro dos tópicos (slide/audio)
-    let found = false;
-    for (const topic of chapter.topics ?? []) {
-      const content = topic.contents?.find((c) => c.id === openSlideId);
-      if (content) {
-        setActiveChapterId(chapter.id);
-        setMobileView("topics");
-        openContent(content, topic.title);
-        found = true;
-        break;
-      }
-    }
-    if (found) break;
-  }
-
-  // Limpa o query param da URL sem recarregar a página
-  navRouter.replace(pathname, { scroll: false });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [searchParams, chapters]);
-
   /* ── Vídeo ── */
   const videoModalRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsHideTimerRef = useRef<number | null>(null);
 
-  const [isVideoLandscape, setIsVideoLandscape] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
@@ -579,6 +628,7 @@ useEffect(() => {
   const [isTutorMinimized, setIsTutorMinimized] = useLocalStorageState<boolean>(`dc-tutorMinimized-${discipline.id}`, false);
   const [isTutorFullscreen, setIsTutorFullscreen] = useLocalStorageState<boolean>(`dc-tutorFullscreen-${discipline.id}`, false);
   const [tutorInput, setTutorInput] = useState("");
+  const [tutorSending, setTutorSending] = useState(false);
   const [tutorMessages, setTutorMessages] = useLocalStorageState<TutorMessage[]>(`dc-tutorMessages-${discipline.id}`, [
     { role: "assistant", text: "Olá! Sou o Tutor IA. Pergunta-me sobre este tema e eu ajudo-te com base no conteúdo da disciplina." },
   ]);
@@ -601,8 +651,8 @@ useEffect(() => {
   const [contentPanels, setContentPanels] = useState<FloatingContentPanel[]>([]);
   const [isDraggingContent, setIsDraggingContent] = useState(false);
 
-  const [browserFullscreenPanelId, setBrowserFullscreenPanelId] = useState<string | null>(null);
-  const [appFullscreenPanelId, setAppFullscreenPanelId] = useState<string | null>(null);
+  // Estado unificado de fullscreen (browser + app fallback)
+  const [fullscreenPanelId, setFullscreenPanelId] = useState<string | null>(null);
 
   const contentDragRef = useRef<FloatingContentDragState | null>(null);
   const contentPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -613,7 +663,8 @@ useEffect(() => {
   useEffect(() => {
     const handler = () => {
       const el = (document.fullscreenElement || (document as any).webkitFullscreenElement) as HTMLElement | null;
-      setBrowserFullscreenPanelId(el?.dataset?.panelId ?? null);
+      const panelId = el?.dataset?.panelId ?? null;
+      setFullscreenPanelId((prev) => panelId ?? prev);
     };
     document.addEventListener("fullscreenchange", handler);
     document.addEventListener("webkitfullscreenchange", handler);
@@ -657,9 +708,11 @@ useEffect(() => {
           .maybeSingle();
         if (saved?.id) await removeSavedItem(saved.id);
         setSavedContentIds((prev) => { const next = new Set(prev); next.delete(contentId); return next; });
+        pushToast("info", "Removido dos guardados");
       } else {
         await saveItem(user.id, contentId);
         setSavedContentIds((prev) => new Set(prev).add(contentId));
+        pushToast("success", "Guardado com sucesso");
       }
     } finally {
       setSavingContentId(null);
@@ -668,20 +721,23 @@ useEffect(() => {
 
   const toggleBrowserFullscreen = (panelId: string) => {
     const el = contentPanelRefs.current[panelId];
-    if (!el) return;
+    if (!el) {
+      setFullscreenPanelId((prev) => (prev === panelId ? null : panelId));
+      return;
+    }
 
     const currentFsEl = (document.fullscreenElement || (document as any).webkitFullscreenElement) as HTMLElement | null;
 
     if (currentFsEl === el) {
       const exit = (document.exitFullscreen || (document as any).webkitExitFullscreen)?.bind(document);
-      exit?.()?.catch?.(() => {});
+      exit?.()?.then?.(() => setFullscreenPanelId(null))?.catch?.(() => setFullscreenPanelId(null));
       return;
     }
 
     const request = (el.requestFullscreen || (el as any).webkitRequestFullscreen)?.bind(el);
 
     if (!request) {
-      setAppFullscreenPanelId((prev) => (prev === panelId ? null : panelId));
+      setFullscreenPanelId((prev) => (prev === panelId ? null : panelId));
       return;
     }
 
@@ -693,21 +749,21 @@ useEffect(() => {
     try {
       const result = request();
       if (result && typeof (result as Promise<void>).catch === "function") {
+        setFullscreenPanelId(panelId);
         (result as Promise<void>).catch((err: unknown) => {
           console.error("Fullscreen error:", err);
-          setAppFullscreenPanelId((prev) => (prev === panelId ? null : panelId));
+          setFullscreenPanelId((prev) => (prev === panelId ? null : panelId));
         });
       }
     } catch (err) {
       console.error("Fullscreen error (sync):", err);
-      setAppFullscreenPanelId((prev) => (prev === panelId ? null : panelId));
+      setFullscreenPanelId((prev) => (prev === panelId ? null : panelId));
     }
   };
 
   /* ── Vídeo helpers ── */
   const closeVideo = () => {
     videoRef.current?.pause();
-    setIsVideoLandscape(false);
     setIsVideoOpen(false);
     setShowSpeedMenu(false);
     setShowControls(true);
@@ -928,37 +984,111 @@ useEffect(() => {
 
   const isMobileSlideSheetOpen = isMobile && contentPanels.length > 0;
   const isMobileTutorSheetOpen = isMobile && isTutorOpen;
+  useBodyScrollLock(isMobileSlideSheetOpen || isMobileTutorSheetOpen || isVideoOpen || !!activeQuiz);
 
   const activeChapter = chapters.find((ch) => ch.id === activeChapterId) ?? chapters[0] ?? null;
 
- const stats = useMemo(
-  () => ({
-    totalChapters: chapters.length,
-    totalTopics: chapters.reduce((a, ch) => a + (ch.topics?.length ?? 0), 0),
-    totalContents: chapters.reduce((a, ch) => a + getChapterContentCount(ch), 0),
-  }),
-  [chapters]
-);
-
-  const shouldRotateVideo = isMobile && isVideoLandscape;
+  const stats = useMemo(
+    () => ({
+      totalChapters: chapters.length,
+      totalTopics: chapters.reduce((a, ch) => a + (ch.topics?.length ?? 0), 0),
+      totalContents: chapters.reduce((a, ch) => a + getChapterContentCount(ch), 0),
+    }),
+    [chapters]
+  );
 
   const openTutor = (topicTitle: string) => {
     setTutorContext({ discipline: discipline.title, chapter: activeChapter?.title ?? "", topic: topicTitle });
-    setTutorMessages([{ role: "assistant", text: `Olá! Vamos falar sobre "${topicTitle}". Escreve a tua dúvida.` }]);
     setTutorInput("");
     setIsTutorOpen(true);
     setIsTutorMinimized(false);
     setHasTutorPosition(false);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     const text = tutorInput.trim();
-    if (!text) return;
+    if (!text || tutorSending) return;
+    const history = tutorMessages.map((message) => ({
+      role: message.role === "assistant" ? "model" as const : "user" as const,
+      text: message.text,
+    }));
+
     setTutorMessages((prev) => [...prev, { role: "user", text }]);
     setTutorInput("");
-    setTimeout(() => {
-      setTutorMessages((prev) => [...prev, { role: "assistant", text: `Recebi a tua pergunta sobre "${tutorContext?.topic ?? "este tema"}". Em breve isto vai ser ligado à IA real.` }]);
-    }, 700);
+    setTutorSending(true);
+
+    const resources = chapters
+      .find((chapter) => chapter.id === activeChapter?.id)
+      ?.topics.flatMap((topic) => topic.contents.map((content) => ({
+        type: content.type,
+        title: content.title,
+        url: content.url,
+      }))) ?? [];
+
+    try {
+      const response = await fetch("/api/tutor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          history,
+          context: tutorContext ?? {
+            discipline: discipline.title,
+            chapter: activeChapter?.title ?? "",
+            topic: "",
+          },
+          resources,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.text !== "string") {
+        throw new Error(typeof data.error === "string" ? data.error : "Falha ao contactar o Tutor IA.");
+      }
+      setTutorMessages((prev) => [...prev, { role: "assistant", text: data.text }]);
+    } catch (error) {
+      setTutorMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: error instanceof Error ? error.message : "Não foi possível obter uma resposta agora.",
+        },
+      ]);
+    } finally {
+      setTutorSending(false);
+    }
+  };
+
+  const renderTutorText = (text: string) => {
+    const lines = text.split(/\r?\n/);
+    return (
+      <div className="space-y-2">
+        {lines.map((line, index) => {
+          const trimmed = line.trim();
+          if (!trimmed) return <div key={index} className="h-1" />;
+
+          const heading = trimmed.match(/^#{1,3}\s+(.+)$/);
+          const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+          const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+          const content = heading?.[1] ?? bullet?.[1] ?? numbered?.[1] ?? trimmed;
+          const parts = content.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
+          const formatted = parts.map((part, partIndex) => {
+            if (part.startsWith("**") && part.endsWith("**")) {
+              return <strong key={partIndex}>{part.slice(2, -2)}</strong>;
+            }
+            if (part.startsWith("`") && part.endsWith("`")) {
+              return <code key={partIndex} className="rounded bg-black/5 px-1 py-0.5 text-[0.9em] dark:bg-white/10">{part.slice(1, -1)}</code>;
+            }
+            return <span key={partIndex}>{part}</span>;
+          });
+
+          if (heading) return <p key={index} className="font-bold text-slate-900 dark:text-white">{formatted}</p>;
+          if (bullet || numbered) {
+            return <div key={index} className="flex gap-2"><span className="shrink-0 text-violet-500">{numbered ? `${index + 1}.` : "•"}</span><span>{formatted}</span></div>;
+          }
+          return <p key={index}>{formatted}</p>;
+        })}
+      </div>
+    );
   };
 
   const focusContentPanel = (id: string) => {
@@ -997,7 +1127,7 @@ useEffect(() => {
     const currentFsEl = (document.fullscreenElement || (document as any).webkitFullscreenElement) as HTMLElement | null;
 
     const cleanup = () => {
-      setAppFullscreenPanelId((prev) => (prev === panelId ? null : prev));
+      setFullscreenPanelId((prev) => (prev === panelId ? null : prev));
       setContentPanels((p) => p.filter((x) => x.id !== panelId));
       delete contentPanelRefs.current[panelId];
     };
@@ -1013,19 +1143,48 @@ useEffect(() => {
     cleanup();
   };
 
+  /* ── Atalhos de teclado ── */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
+
+      if (e.key === "Escape") {
+        if (isVideoOpen) { closeVideo(); return; }
+        if (activeQuiz) { setActiveQuiz(null); return; }
+        if (contentPanels.length > 0) {
+          const last = contentPanels[contentPanels.length - 1];
+          if (last) closeContentPanel(last.id);
+          return;
+        }
+        if (isTutorOpen) { setIsTutorOpen(false); return; }
+      }
+
+      if (e.code === "Space" && !isInput && isVideoOpen) {
+        e.preventDefault();
+        void toggleVideoPlay();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVideoOpen, activeQuiz, contentPanels, isTutorOpen]);
+
   const openQuiz = (content: TopicContent, chapterTitle: string) => {
-  setActiveQuiz({
-    contentId: content.id,
-    title: content.title,
-    disciplineName: discipline.title,
-    chapterTitle,
-    timeLimitSecs: content.timeLimitSeconds ?? null,
-  });
-};
+    markAsViewed(content.id);
+    setActiveQuiz({
+      contentId: content.id,
+      title: content.title,
+      disciplineName: discipline.title,
+      chapterTitle,
+      timeLimitSecs: content.timeLimitSeconds ?? null,
+    });
+  };
 
   const openContent = (content: TopicContent, topicTitle: string) => {
     if (content.type === "audio") {
-      if (!content.url) { alert("Este áudio ainda não tem URL configurada."); return; }
+      if (!content.url) { pushToast("error", "Este áudio ainda não tem URL configurada."); return; }
+      markAsViewed(content.id);
       void audioPlayer.play({
         id: content.id,
         title: content.title,
@@ -1035,6 +1194,7 @@ useEffect(() => {
         topic: topicTitle,
         coverUrl: discipline.coverUrl,
       });
+      pushToast("success", `A reproduzir: ${content.title}`);
       return;
     }
 
@@ -1043,6 +1203,7 @@ useEffect(() => {
       return;
     }
 
+    markAsViewed(content.id);
     const panelId = [discipline.id, activeChapter?.id ?? "ch", topicTitle, content.id].join("-");
     setContentPanels((prev) => {
       const exists = prev.find((p) => p.id === panelId);
@@ -1060,6 +1221,54 @@ useEffect(() => {
       }];
     });
   };
+
+  /* ── Auto-abrir conteúdo vindo da Home (query params) ── */
+  useEffect(() => {
+    if (hasAutoOpenedRef.current) return;
+
+    const openSlideId = searchParams.get("openSlide");
+    const openQuizId = searchParams.get("openQuiz");
+    const openTopicId = searchParams.get("openTopic");
+
+    if (!openSlideId && !openQuizId && !openTopicId) return;
+
+    hasAutoOpenedRef.current = true;
+
+    for (const chapter of chapters) {
+      if (openQuizId && chapter.quiz?.id === openQuizId) {
+        setActiveChapterId(chapter.id);
+        openQuiz(chapter.quiz, chapter.title);
+        pushToast("info", `A abrir quiz: ${chapter.quiz.title}`);
+        break;
+      }
+
+      if (openTopicId) {
+        const topic = chapter.topics.find((item) => item.id === openTopicId);
+        if (topic) {
+          setActiveChapterId(chapter.id);
+          setMobileView("topics");
+          break;
+        }
+      }
+
+      let found = false;
+      for (const topic of chapter.topics ?? []) {
+        const content = topic.contents?.find((c) => c.id === openSlideId);
+        if (content) {
+          setActiveChapterId(chapter.id);
+          setMobileView("topics");
+          openContent(content, topic.title);
+          pushToast("info", `A abrir: ${content.title}`);
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    navRouter.replace(pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, chapters]);
 
   /* ================================================================
      SUB-RENDERS
@@ -1089,13 +1298,13 @@ useEffect(() => {
     );
   };
 
-  // Quiz removido dos tópicos — acedido exclusivamente pelo botão no cabeçalho do capítulo
   const renderContentBtn = (content: TopicContent, topicTitle: string) => {
     if (content.type !== "audio" && content.type !== "slide") return null;
 
     const Icon = getContentIcon(content.type);
     const cls = getContentButtonClass(content.type);
     const label = content.type === "audio" ? "Áudio" : "Slide";
+    const isViewed = viewedSet.has(content.id);
 
     return (
       <button
@@ -1103,10 +1312,15 @@ useEffect(() => {
         type="button"
         onClick={() => openContent(content, topicTitle)}
         title={`${label}: ${content.title}`}
-        className={`${ACTION_BTN} ${cls}`}
+        className={`relative ${ACTION_BTN} ${cls}`}
       >
         <Icon size={16} />
         <span className={ACTION_LABEL}>{label}</span>
+        {isViewed && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900">
+            <Check size={8} className="text-white" />
+          </span>
+        )}
       </button>
     );
   };
@@ -1132,45 +1346,52 @@ useEffect(() => {
     );
   };
 
-  // Botão de quiz do capítulo — discreto, usado no cabeçalho da coluna de temas
-const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => {
-  const quizzes = getChapterQuizzes(chapter);
-  if (quizzes.length === 0) return null;
-  const mainQuiz = quizzes[0];
+  const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => {
+    const quizzes = getChapterQuizzes(chapter);
+    if (quizzes.length === 0) return null;
+    const mainQuiz = quizzes[0];
 
-  if (size === "xs") {
+    if (size === "xs") {
+      return (
+        <button
+          type="button"
+          onClick={() => openQuiz(mainQuiz, chapter.title)}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+        >
+          <Trophy size={12} />
+          Quiz
+        </button>
+      );
+    }
+
     return (
       <button
         type="button"
         onClick={() => openQuiz(mainQuiz, chapter.title)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+        className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/30"
       >
-        <Trophy size={12} />
-        Quiz
+        <Trophy size={13} />
+        Questionário
       </button>
     );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => openQuiz(mainQuiz, chapter.title)}
-      className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 dark:hover:border-emerald-500/30"
-    >
-      <Trophy size={13} />
-      Questionário
-    </button>
-  );
-};
+  };
 
   const renderChapterCard = (chapter: Chapter, isActive: boolean) => {
     const topicsCount = chapter.topics?.length ?? 0;
-    const progress = chapter.status === "Concluído" ? 100 : 35;
+    // Progresso REAL baseado nos conteúdos visualizados
+    const progress = calculateChapterProgress(chapter, viewedSet);
 
     return (
       <div key={chapter.id}>
         <button
-          onClick={() => { setActiveChapterId(chapter.id); setMobileView("topics"); }}
+          onClick={() => {
+            setActiveChapterId(chapter.id);
+            setMobileView("topics");
+            // Scroll para o topo no mobile — melhora contexto visual
+            if (isMobile) {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
           className={`w-full rounded-2xl border p-3.5 text-left transition-all duration-200 ${
             isActive
               ? "border-indigo-300 bg-indigo-50 ring-1 ring-indigo-300 shadow-lg shadow-indigo-100/50 dark:border-indigo-500/40 dark:bg-indigo-950/40 dark:ring-indigo-500/20 dark:shadow-lg dark:shadow-indigo-900/20"
@@ -1186,11 +1407,20 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
             </div>
             <ChevronRight size={16} className={`mt-0.5 shrink-0 transition-transform ${isActive ? "rotate-90 text-indigo-500 dark:text-indigo-400" : "text-slate-400 dark:text-slate-600"}`} />
           </div>
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
+          <div className="mt-3 flex items-center gap-2">
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  progress === 100
+                    ? "bg-gradient-to-r from-emerald-500 to-green-500"
+                    : "bg-gradient-to-r from-blue-500 to-indigo-500"
+                }`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+              {progress}%
+            </span>
           </div>
         </button>
       </div>
@@ -1199,15 +1429,23 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
 
   const renderTutorBody = () => (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* aria-live region para leitores de ecrã */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {tutorMessages[tutorMessages.length - 1]?.text}
+      </div>
       <div className={`flex-1 space-y-4 overflow-y-auto px-4 py-5 ${SCROLLBAR_CLASS}`}>
-        {tutorMessages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+        {tutorMessages.length === 0 ? (
+          <div className="flex min-h-full items-center justify-center px-4 text-center text-xs text-slate-500 dark:text-slate-400">
+            Escreve uma pergunta para começar a conversa.
+          </div>
+        ) : tutorMessages.map((msg, idx) => (
+          <div key={`${msg.role}-${idx}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[92%] break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed sm:max-w-[85%] ${
               msg.role === "user"
                 ? "rounded-br-none bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-lg"
                 : "rounded-bl-none border border-slate-200 bg-slate-50 text-slate-700 dark:border-white/5 dark:bg-white/5 dark:text-slate-200"
             }`}>
-              {msg.text}
+              {msg.role === "assistant" ? renderTutorText(msg.text) : <p className="whitespace-pre-wrap">{msg.text}</p>}
             </div>
           </div>
         ))}
@@ -1215,19 +1453,28 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
       </div>
       <div className="shrink-0 border-t border-slate-200 p-4 dark:border-white/10">
         <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-violet-400 focus-within:ring-1 focus-within:ring-violet-300 dark:border-white/10 dark:bg-white/5 dark:focus-within:border-violet-500/50 dark:focus-within:ring-violet-500/30">
-          <input
+          <textarea
             value={tutorInput}
             onChange={(e) => setTutorInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void handleSendMessage();
+              }
+            }}
             placeholder="Escreve a tua pergunta…"
-            className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+            rows={1}
+            className="max-h-28 min-h-9 flex-1 resize-none bg-transparent py-2 text-sm leading-relaxed text-slate-900 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+            aria-label="Mensagem para o Tutor IA"
           />
           <button
             type="button"
-            onClick={handleSendMessage}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md transition hover:bg-violet-500 active:scale-95"
+            onClick={() => void handleSendMessage()}
+            disabled={!tutorInput.trim() || tutorSending}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md transition hover:bg-violet-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="Enviar mensagem"
           >
-            <Send size={15} />
+            {tutorSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
           </button>
         </div>
       </div>
@@ -1250,7 +1497,18 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Tutor IA</h3>
+            <div className="flex min-w-0 items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Tutor IA</h3>
+              <button
+                type="button"
+                onClick={() => setTutorMessages([])}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-slate-200 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-rose-400"
+                title="Limpar conversa"
+              >
+                <Trash2 size={11} />
+                <span className="hidden sm:inline">Limpar</span>
+              </button>
+            </div>
             {draggable && !isTutorFullscreen && !isTutorMinimized && (
               <GripVertical size={13} className="hidden text-slate-400 dark:text-slate-600 sm:block" />
             )}
@@ -1289,6 +1547,7 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
           type="button"
           onClick={() => setIsTutorOpen(false)}
           className="rounded-xl p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+          aria-label="Fechar tutor"
         >
           <X size={18} />
         </button>
@@ -1325,7 +1584,9 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
           </div>
         </section>
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <Layers size={36} className="text-slate-400 dark:text-slate-600" />
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-950/40 dark:to-violet-950/40">
+            <Layers size={36} className="text-indigo-500 dark:text-indigo-400" />
+          </div>
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-300">Nenhum capítulo disponível</p>
           <p className="text-xs text-slate-600">Os planos de estudo serão carregados do Supabase em breve.</p>
         </div>
@@ -1338,10 +1599,9 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
   ================================================================ */
   return (
     <div className="space-y-6">
-
       {/* ── Hero ── */}
       <section
-        className={`relative overflow-hidden rounded-2xl border p-5 shadow-lg sm:p-6 md:p-8 ${
+        className={`relative overflow-hidden rounded-2xl border p-5 shadow-lg sm:p-6 md:p-8 animate-[fadeIn_0.4s_ease-out] ${
           hasCover
             ? "border-white/10 shadow-slate-300/40 dark:shadow-none"
             : "border-slate-300 shadow-slate-300/40 dark:border-white/10 dark:shadow-none"
@@ -1372,13 +1632,15 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
               ))}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => { setIsVideoLandscape(false); setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0); setIsVideoOpen(true); }}
-            className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
-          >
-            <PlayCircle size={18} /> Reproduzir vídeo
-          </button>
+          {discipline.introVideoUrl && (
+            <button
+              type="button"
+              onClick={() => { setVideoReady(false); setVideoPlaying(false); setVideoCurrentTime(0); setIsVideoOpen(true); }}
+              className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 hover:scale-[1.02] active:scale-95"
+            >
+              <PlayCircle size={18} /> Reproduzir vídeo
+            </button>
+          )}
         </div>
       </section>
 
@@ -1391,7 +1653,12 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
                 <button
                   key={view}
                   type="button"
-                  onClick={() => setMobileView(view)}
+                  onClick={() => {
+                    setMobileView(view);
+                    if (view === "topics") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
                   className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
                     mobileView === view
                       ? "bg-indigo-600 text-white shadow-md"
@@ -1411,7 +1678,6 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Header mobile com nome do capítulo + botão quiz + nav */}
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
                   <div className="min-w-0 flex-1">
                     <h2 className="truncate text-base font-bold text-slate-900 dark:text-white">
@@ -1426,27 +1692,35 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
                   </div>
                 </div>
 
-                {/* Tópicos */}
-                <div className="space-y-2.5">
-                  {activeChapter?.topics?.map((topic, index) => (
-                    <article key={topic.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-white/5 dark:bg-white/[0.02]">
-                      <div className="mb-3 flex items-start gap-3">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-[10px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
-                          {index + 1}
-                        </span>
-                        <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">
-                          {topic.title}
-                        </h3>
-                      </div>
-                      {renderTopicActions(topic)}
-                    </article>
-                  ))}
-                  {(!activeChapter?.topics || activeChapter.topics.length === 0) && (
-                    <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600 dark:border-white/10">
-                      Este capítulo ainda não tem temas.
+                {activeChapter?.topics && activeChapter.topics.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {activeChapter.topics.map((topic, index) => (
+                      <article key={topic.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-white/5 dark:bg-white/[0.02]">
+                        <div className="mb-3 flex items-start gap-3">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-[10px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
+                            {index + 1}
+                          </span>
+                          <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-white">
+                            {topic.title}
+                          </h3>
+                        </div>
+                        {renderTopicActions(topic)}
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-10 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-950/40 dark:to-violet-950/40">
+                      <BookOpen size={24} className="text-indigo-500 dark:text-indigo-400" />
                     </div>
-                  )}
-                </div>
+                    <p className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-300">
+                      Conteúdo em preparação
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Os materiais deste capítulo chegam em breve.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1455,8 +1729,6 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
 
       {/* ── Desktop ── */}
       <section className="hidden overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-lg shadow-slate-300/50 dark:border-white/10 dark:bg-slate-950/40 dark:shadow-none lg:grid lg:h-[42rem] lg:grid-cols-[320px_1fr]">
-
-        {/* Coluna esquerda: índice de capítulos */}
         <aside
           ref={chaptersPanelRef}
           className={`h-full overflow-y-auto border-r border-slate-300 bg-slate-100 dark:border-white/10 dark:bg-black/20 ${SCROLLBAR_CLASS}`}
@@ -1469,12 +1741,10 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
           </div>
         </aside>
 
-        {/* Coluna direita: temas do capítulo activo */}
         <main
           ref={topicsPanelRef}
           className={`h-full overflow-y-auto ${SCROLLBAR_CLASS}`}
         >
-          {/* Cabeçalho sticky com nome do capítulo + progresso + botão de questionário */}
           <div className={`sticky top-0 z-10 ${PANEL_HEADER_H} flex items-center justify-between gap-4 border-b border-slate-300 bg-white/95 px-6 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/90`}>
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-lg font-bold text-slate-900 dark:text-white">
@@ -1489,32 +1759,45 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
             {activeChapter && renderChapterQuizButton(activeChapter, "sm")}
           </div>
 
-          {/* Lista de tópicos */}
-          <div className="space-y-2.5 p-5">
-            {activeChapter?.topics?.map((topic, index) => (
-              <article
-                key={topic.id}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:shadow-md dark:border-white/5 dark:bg-white/[0.02] dark:shadow-none dark:hover:border-white/10 dark:hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between"
-              >
-                <div className="flex min-w-0 flex-1 items-start gap-4">
-                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
-                    {index + 1}
-                  </span>
-                  <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-200">
-                    {topic.title}
-                  </h3>
-                </div>
-                {renderTopicActions(topic)}
-              </article>
-            ))}
-          </div>
+          {activeChapter?.topics && activeChapter.topics.length > 0 ? (
+            <div className="space-y-2.5 p-5">
+              {activeChapter.topics.map((topic, index) => (
+                <article
+                  key={topic.id}
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:shadow-md dark:border-white/5 dark:bg-white/[0.02] dark:shadow-none dark:hover:border-white/10 dark:hover:bg-white/[0.04] md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="flex min-w-0 flex-1 items-start gap-4">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-600 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400">
+                      {index + 1}
+                    </span>
+                    <h3 className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-200">
+                      {topic.title}
+                    </h3>
+                  </div>
+                  {renderTopicActions(topic)}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-950/40 dark:to-violet-950/40">
+                <BookOpen size={28} className="text-indigo-500 dark:text-indigo-400" />
+              </div>
+              <p className="mt-4 text-sm font-semibold text-slate-900 dark:text-slate-300">
+                Conteúdo em preparação
+              </p>
+              <p className="mt-1 max-w-xs text-xs text-slate-500">
+                Os materiais deste capítulo chegam em breve.
+              </p>
+            </div>
+          )}
         </main>
       </section>
 
       {/* ── Painéis flutuantes (slides) ── */}
       {contentPanels.map((panel, index) => {
         const theme = getContentPanelTheme(panel.context.content.type);
-        const isPanelFullscreen = browserFullscreenPanelId === panel.id || appFullscreenPanelId === panel.id;
+        const isPanelFullscreen = fullscreenPanelId === panel.id;
         const pw = panel.size?.width ?? DEFAULT_PANEL_W;
         const ph = panel.size?.height ?? DEFAULT_PANEL_H;
         const zoom = panel.zoom ?? 1;
@@ -1625,12 +1908,12 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
             </div>
             <div className="relative min-h-0 flex-1 bg-slate-100 dark:bg-black/80">
               <SlideViewer
-  url={panel.context.content.url ?? ""}
-  title={panel.context.content.title}
-  zoom={zoom}
-  contentId={panel.context.content.id}
-  estimatedDurationSeconds={panel.context.content.durationSeconds ?? undefined}
-/>
+                url={panel.context.content.url ?? ""}
+                title={panel.context.content.title}
+                zoom={zoom}
+                contentId={panel.context.content.id}
+                estimatedDurationSeconds={panel.context.content.durationSeconds ?? undefined}
+              />
             </div>
           </div>
         );
@@ -1645,7 +1928,7 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
               <div
                 ref={tutorPanelRef}
                 style={{ height: `${tutorSheetHeight}dvh` }}
-                className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col overflow-hidden rounded-t-3xl border-t border-x border-slate-200 bg-white shadow-[0_-20px_60px_rgba(0,0,0,0.15)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/95 dark:shadow-[0_-20px_60px_rgba(0,0,0,0.5)]"
+                className="fixed bottom-0 left-0 right-0 z-[60] flex max-h-[94dvh] flex-col overflow-hidden rounded-t-3xl border-t border-x border-slate-200 bg-white shadow-[0_-20px_60px_rgba(0,0,0,0.15)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/95 dark:shadow-[0_-20px_60px_rgba(0,0,0,0.5)]"
               >
                 <div
                   className="flex touch-none cursor-ns-resize select-none justify-center py-3"
@@ -1693,15 +1976,16 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
                   ? "max-w-none max-h-none"
                   : isTutorMinimized
                   ? "resize-none"
-                  : "resize min-w-[340px] min-h-[450px] max-w-[90vw] max-h-[90vh]"
+                  : "resize min-w-[340px] min-h-[450px] max-w-[calc(100vw-2rem)] max-h-[90vh]"
               }`}
             >
               {renderTutorHeader(true)}
               {!isTutorFullscreen && !isTutorMinimized && (
                 <div className="shrink-0 flex justify-center gap-2 border-b border-slate-200 px-4 py-2.5 dark:border-white/10">
                   {[
+                    { label: "Compacto", width: 380, height: 520 },
                     { label: "Médio", width: 420, height: 580 },
-                    { label: "Grande", width: 520, height: 680 },
+                    { label: "Expandido", width: 520, height: 680 },
                   ].map((p) => (
                     <button
                       key={p.label}
@@ -1729,154 +2013,134 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
         <>
           <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md" onClick={closeVideo} />
           <div
-            className="fixed z-[121]"
-            style={
-              shouldRotateVideo
-                ? { position: "fixed", top: "50%", left: "50%", width: "100dvh", height: "100dvw", transform: "translate(-50%, -50%) rotate(90deg)", transformOrigin: "center center", overflow: "hidden" }
-                : { inset: 0 }
-            }
+            ref={videoModalRef}
+            onClick={(e) => e.stopPropagation()}
+            onMouseMove={resetControlsTimer}
+            onTouchStart={resetControlsTimer}
+            className="fixed inset-0 z-[121] bg-black md:inset-auto md:left-1/2 md:top-1/2 md:w-[90vw] md:max-w-5xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:border md:border-white/10 md:shadow-[0_40px_120px_rgba(0,0,0,0.8)] md:max-h-[92dvh] md:overflow-hidden"
           >
-            <div
-              ref={videoModalRef}
-              onClick={(e) => e.stopPropagation()}
-              onMouseMove={resetControlsTimer}
-              onTouchStart={resetControlsTimer}
-              className={`absolute bg-black ${
-                shouldRotateVideo
-                  ? "inset-0 rounded-none"
-                  : "inset-0 md:inset-auto md:left-1/2 md:top-1/2 md:w-[90vw] md:max-w-5xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:border md:border-white/10 md:shadow-[0_40px_120px_rgba(0,0,0,0.8)] md:max-h-[92dvh] md:overflow-hidden"
-              }`}
-              style={!shouldRotateVideo ? { height: "100dvh" } : undefined}
-            >
-              <div className="absolute inset-0 bg-black">
-                {!videoReady && (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-                    <p className="text-xs font-medium tracking-widest text-slate-500 uppercase">A carregar…</p>
-                  </div>
-                )}
-                <video
-                  ref={videoRef}
-                  className={`h-full w-full ${shouldRotateVideo ? "object-cover" : "object-contain"}`}
-                  playsInline
-                  preload="metadata"
-                  src={discipline.introVideoUrl}
-                  onClick={toggleControls}
-                />
-                {!videoPlaying && videoReady && showControls && (
-                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); void toggleVideoPlay(); }}
-                      className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-2xl backdrop-blur-md transition hover:scale-110 hover:bg-indigo-600/80 active:scale-95"
-                    >
-                      <Play size={24} className="translate-x-0.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
+            <div className="absolute inset-0 bg-black">
+              {!videoReady && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                  <p className="text-xs font-medium tracking-widest text-slate-500 uppercase">A carregar…</p>
+                </div>
+              )}
+              <video
+                ref={videoRef}
+                className="h-full w-full object-contain"
+                playsInline
+                preload="metadata"
+                src={discipline.introVideoUrl}
+                onClick={toggleControls}
+              />
+              {!videoPlaying && videoReady && showControls && (
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void toggleVideoPlay(); }}
+                    className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-2xl backdrop-blur-md transition hover:scale-110 hover:bg-indigo-600/80 active:scale-95"
+                  >
+                    <Play size={24} className="translate-x-0.5" />
+                  </button>
+                </div>
+              )}
+            </div>
 
-              {/* Barra superior */}
-              <div className={`absolute left-0 right-0 top-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-4 py-4 md:px-6 md:py-5 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-600/20">
-                      <PlayCircle size={18} className="text-indigo-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-white">Vídeo Introdutório</p>
-                      <p className="truncate text-xs text-slate-400">{discipline.title}</p>
-                    </div>
+            <div className={`absolute left-0 right-0 top-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent px-4 py-4 md:px-6 md:py-5 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-600/20">
+                    <PlayCircle size={18} className="text-indigo-400" />
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setIsVideoLandscape((p) => !p); setShowSpeedMenu(false); }}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-md transition hover:bg-white/10 md:hidden"
-                    >
-                      {isVideoLandscape ? <Smartphone size={13} /> : <Monitor size={13} />}
-                      <span>{isVideoLandscape ? "Vertical" : "Paisagem"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={closeVideo}
-                      className="rounded-xl border border-white/10 bg-black/50 p-2.5 text-slate-300 backdrop-blur-md transition hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30"
-                    >
-                      <X size={17} />
-                    </button>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">Vídeo Introdutório</p>
+                    <p className="truncate text-xs text-slate-400">{discipline.title}</p>
                   </div>
                 </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeVideo}
+                    className="rounded-xl border border-white/10 bg-black/50 p-2.5 text-slate-300 backdrop-blur-md transition hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30"
+                    aria-label="Fechar vídeo"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
               </div>
+            </div>
 
-              {/* Controlos inferiores */}
-              <div
-                className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
-                style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}
-              >
-                <div className="space-y-4">
-                  <div className="group relative h-2 cursor-pointer rounded-full bg-white/15" onClick={handleProgressClick}>
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-all" style={{ width: `${videoBuffered}%` }} />
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all" style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }} />
-                    <div className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-indigo-500 bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100" style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }} />
+            <div
+              className={`absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 md:px-6 md:py-6 transition-all duration-300 ease-out ${showControls ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"}`}
+              style={{ paddingBottom: `max(1.25rem, env(safe-area-inset-bottom))` }}
+            >
+              <div className="space-y-4">
+                <div className="group relative h-2 cursor-pointer rounded-full bg-white/15" onClick={handleProgressClick}>
+                  <div className="absolute inset-y-0 left-0 rounded-full bg-white/20 transition-all" style={{ width: `${videoBuffered}%` }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-500 transition-all" style={{ width: `${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}%` }} />
+                  <div className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-indigo-500 bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100" style={{ left: `calc(${videoDuration > 0 ? (videoCurrentTime / videoDuration) * 100 : 0}% - 8px)` }} />
+                </div>
+                <div className="flex items-center justify-between text-xs tabular-nums text-slate-400">
+                  <span>{formatTime(videoCurrentTime)}</span>
+                  <span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => void toggleVideoPlay()}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
+                    aria-label={videoPlaying ? "Pausar" : "Reproduzir"}
+                  >
+                    {videoPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-0.5" />}
+                  </button>
+                  <button type="button" onClick={() => skipVideo(-15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="-15s" aria-label="Recuar 15 segundos">
+                    <SkipBack size={16} />
+                  </button>
+                  <button type="button" onClick={() => skipVideo(15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="+15s" aria-label="Avançar 15 segundos">
+                    <SkipForward size={16} />
+                  </button>
+                  <div className="hidden items-center gap-2.5 border-l border-white/10 pl-2.5 sm:flex">
+                    <button type="button" onClick={toggleVideoMute} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" aria-label={videoMuted ? "Ativar som" : "Silenciar"}>
+                      {videoMuted || videoVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                    </button>
+                    <input
+                      type="range" min={0} max={1} step={0.05}
+                      value={videoMuted ? 0 : videoVolume}
+                      onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                      className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
+                      aria-label="Volume"
+                    />
                   </div>
-                  <div className="flex items-center justify-between text-xs tabular-nums text-slate-400">
-                    <span>{formatTime(videoCurrentTime)}</span>
-                    <span>{videoDuration ? formatTime(videoDuration) : "--:--"}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
+                  <div className="relative ml-auto">
                     <button
                       type="button"
-                      onClick={() => void toggleVideoPlay()}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 transition hover:bg-indigo-500 active:scale-95"
+                      onClick={() => setShowSpeedMenu((p) => !p)}
+                      className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                      aria-label="Velocidade de reprodução"
                     >
-                      {videoPlaying ? <Pause size={18} /> : <Play size={18} className="translate-x-0.5" />}
+                      <Settings size={14} /> {videoSpeed}×
                     </button>
-                    <button type="button" onClick={() => skipVideo(-15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="-15s">
-                      <SkipBack size={16} />
-                    </button>
-                    <button type="button" onClick={() => skipVideo(15)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10" title="+15s">
-                      <SkipForward size={16} />
-                    </button>
-                    <div className="hidden items-center gap-2.5 border-l border-white/10 pl-2.5 sm:flex">
-                      <button type="button" onClick={toggleVideoMute} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10">
-                        {videoMuted || videoVolume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                      </button>
-                      <input
-                        type="range" min={0} max={1} step={0.05}
-                        value={videoMuted ? 0 : videoVolume}
-                        onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                        className="h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-white/15 accent-indigo-500"
-                      />
-                    </div>
-                    <div className="relative ml-auto">
-                      <button
-                        type="button"
-                        onClick={() => setShowSpeedMenu((p) => !p)}
-                        className="flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-bold text-slate-200 transition hover:bg-white/10"
-                      >
-                        <Settings size={14} /> {videoSpeed}×
-                      </button>
-                      {showSpeedMenu && (
-                        <div className="absolute bottom-[calc(100%+8px)] right-0 z-[130] min-w-[120px] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
-                          <div className="border-b border-white/10 px-3 py-2.5">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Velocidade</p>
-                          </div>
-                          <div className="p-1">
-                            {VIDEO_SPEEDS.map((speed) => (
-                              <button
-                                key={speed}
-                                type="button"
-                                onClick={() => setVideoSpeedFn(speed)}
-                                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition hover:bg-white/10 ${videoSpeed === speed ? "text-indigo-400 bg-indigo-500/10" : "text-slate-300"}`}
-                              >
-                                <span>{speed}×</span>
-                                {videoSpeed === speed && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
-                              </button>
-                            ))}
-                          </div>
+                    {showSpeedMenu && (
+                      <div className="absolute bottom-[calc(100%+8px)] right-0 z-[130] min-w-[120px] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
+                        <div className="border-b border-white/10 px-3 py-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Velocidade</p>
                         </div>
-                      )}
-                    </div>
+                        <div className="p-1">
+                          {VIDEO_SPEEDS.map((speed) => (
+                            <button
+                              key={speed}
+                              type="button"
+                              onClick={() => setVideoSpeedFn(speed)}
+                              className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition hover:bg-white/10 ${videoSpeed === speed ? "text-indigo-400 bg-indigo-500/10" : "text-slate-300"}`}
+                            >
+                              <span>{speed}×</span>
+                              {videoSpeed === speed && <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1898,6 +2162,21 @@ const renderChapterQuizButton = (chapter: Chapter, size: "sm" | "xs" = "sm") => 
           onClose={() => setActiveQuiz(null)}
         />
       )}
+
+      {/* ── Toasts ── */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Keyframes para animações */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }

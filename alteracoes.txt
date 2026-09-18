@@ -1,0 +1,368 @@
+b-ISAF - REGISTO DE ALTERACOES
+================================
+
+Data do registo: 2026-09-18
+
+Este ficheiro resume as principais alterações realizadas no projeto durante o trabalho recente.
+
+
+1. PAGINA DE DISCIPLINAS
+========================
+
+- O contador do hero da página de disciplinas passou a incluir os quizzes ligados diretamente aos capítulos.
+- Antes, o contador percorria apenas os conteúdos dentro dos tópicos.
+- O contador agora soma também chapter.quiz, evitando que os questionários desapareçam das estatísticas.
+- Os cards de disciplinas já mostram contagens separadas de áudios, slides e quizzes.
+
+
+2. DISCIPLINECLIENT
+===================
+
+- Corrigido o import inválido de mock_data para mockData.
+- Eliminados erros de implicit any causados pelo import incorreto dos tipos.
+- Reorganizados efeitos que utilizavam funções antes da sua declaração.
+- Corrigidos problemas relacionados com o uso antecipado de openQuiz, openContent e closeVideo.
+- TypeScript passou sem erros no ficheiro.
+- Permanecem alguns avisos/erros antigos do ESLint relacionados com any, efeitos React e memoização.
+
+
+3. PROFESSORES
+==============
+
+- A página deixou de usar automaticamente professor_name da tabela de disciplinas.
+- Nomes possivelmente antigos ou incorretos já não são apresentados como verdade absoluta.
+- O nome do professor só é exibido quando foi preenchido no horário real do estudante.
+- Quando não existe professor definido, a interface apresenta o estado de docente não definido.
+
+Ficheiros principais:
+- app/lib/hooks/useScheduleInfo.ts
+- app/(app)/disciplinas/[id]/page.tsx
+
+
+4. CONTRASTE DO MODO CLARO
+==========================
+
+Sidebar:
+- Reforçados textos que usavam slate-400 em fundos claros.
+- Melhorado o contraste de Feedback, Último áudio e estados desativados.
+- O modo escuro foi preservado.
+
+Meu Curso:
+- Melhorado o contraste de ícones, setas, horários, mensagens vazias, percentagens e textos auxiliares.
+- O modo escuro foi preservado.
+
+
+5. REGULAMENTOS DO MEU CURSO
+============================
+
+- Os títulos completos dos capítulos deixaram de ser cortados por truncate.
+- Os títulos agora quebram linha de forma responsiva.
+- O índice rápido dos regulamentos também mostra os nomes completos e continua com scroll horizontal em ecrãs pequenos.
+
+
+6. BOTAO ULTIMO AUDIO
+=====================
+
+- Corrigida a chave de armazenamento usada pelo botão:
+  b-isaf:audio:player:v2
+- Antes o Sidebar procurava a versão v1, que já não era usada pelo AudioPlayerContext.
+- O botão agora utiliza o áudio atual do AudioPlayerContext.
+- A posição guardada do áudio é restaurada ao clicar em Último áudio.
+- O estado é atualizado quando muda o áudio atual.
+- O áudio pode ser retomado depois de recarregar a página.
+
+
+7. UPLOAD DA FOTO DO UTILIZADOR
+===============================
+
+- O upload do avatar no Header foi unificado com a rota R2 existente.
+- O AppShell deixou de tentar usar o bucket Supabase user-assets.
+- O fluxo atual é:
+  1. Enviar a imagem para /api/upload.
+  2. Usar type=avatar.
+  3. Receber publicUrl do R2.
+  4. Guardar avatar_url no perfil.
+- O limite atual do avatar é 2 MB.
+- Formatos aceites: JPEG, PNG, WebP e GIF.
+- Variáveis importantes:
+  R2_ENDPOINT
+  R2_ACCESS_KEY_ID
+  R2_SECRET_ACCESS_KEY
+  R2_BUCKET_NAME
+  NEXT_PUBLIC_R2_PUBLIC_URL
+
+
+8. FEEDBACK DOS UTILIZADORES
+============================
+
+- Adicionado botão Feedback no Sidebar desktop e mobile.
+- O botão abre um formulário externo numa nova aba.
+- O URL é configurado por:
+
+  NEXT_PUBLIC_FEEDBACK_URL=https://link-do-formulario
+
+- Sem essa variável, o botão aparece desativado para evitar links inválidos.
+
+
+9. BREADCRUMB DAS DISCIPLINAS
+=============================
+
+- O breadcrumb passou a consultar também o campo code da tabela disciplines.
+- Quando existe código, mostra a forma curta, por exemplo FSI ou MATI.
+- O nome completo fica disponível como tooltip.
+- Se não existir code, o nome completo é usado como fallback.
+
+Ficheiros principais:
+- app/components/header/Breadcrumbs.tsx
+- app/lib/hooks/useBreadcrumbDiscipline.ts
+
+
+10. HISTORICO DE QUIZZES NA HOME
+================================
+
+- Corrigida a duplicação de cards do mesmo quiz na Home.
+- A consulta podia trazer várias tentativas do mesmo content_id.
+- Agora apenas a tentativa mais recente de cada quiz é usada.
+- O limite de resultados é aplicado depois da deduplicação.
+
+Ficheiro principal:
+- app/lib/data/homeHistory.ts
+
+
+11. GEMINI - TUTOR IA
+=====================
+
+Foi criada uma integração server-side com o Gemini.
+
+Dependência instalada:
+- @google/generative-ai
+
+Rota criada:
+- app/api/tutor/route.ts
+
+Variáveis necessárias no .env.local:
+
+  GEMINI_API_KEY=chave-do-gemini
+  GEMINI_MODEL=gemini-3.5-flash-lite
+
+A chave nunca deve ser colocada numa variável NEXT_PUBLIC_ nem exposta no frontend.
+
+Fluxo:
+
+  Interface do Tutor
+        |
+        v
+  POST /api/tutor
+        |
+        v
+  Gemini no backend
+        |
+        v
+  Resposta para o painel
+
+O Tutor IA recebe:
+- Pergunta do estudante.
+- Histórico da conversa.
+- Disciplina atual.
+- Capítulo atual.
+- Tema atual.
+- Conteúdos do capítulo.
+
+O tutor foi instruído a:
+- Responder em português.
+- Ser natural, claro e objetivo.
+- Começar diretamente pela resposta.
+- Evitar saudações repetitivas.
+- Usar respostas curtas e parágrafos pequenos.
+- Usar Markdown quando for útil.
+- Não inventar informação.
+- Distinguir material interno de conhecimento geral.
+
+O frontend renderiza Markdown básico:
+- Títulos.
+- Listas.
+- Negrito.
+- Código inline.
+- Parágrafos separados.
+
+Correção aplicada:
+- O modelo antigo gemini-2.5-flash-lite deixou de estar disponível para novas contas.
+- A rota passou a usar gemini-3.5-flash-lite por padrão e converte automaticamente o nome antigo.
+- O histórico do Gemini não pode começar com uma mensagem model; mensagens iniciais desse tipo são removidas.
+
+Teste realizado:
+- POST /api/tutor devolveu HTTP 200.
+- O Gemini respondeu corretamente a uma pergunta de teste.
+
+
+12. CONTEUDOS ENVIADOS AO GEMINI
+================================
+
+HTML:
+- A rota tenta buscar URLs HTML públicas.
+- Remove tags script e style.
+- Remove tags HTML.
+- Limpa espaços e envia texto limitado ao modelo.
+
+Áudios:
+- Os áudios públicos do R2 podem ser enviados diretamente ao Gemini.
+- Até 3 áudios por pedido.
+- Limite de 8 MB por áudio.
+- O áudio precisa ter URL pública acessível pelo backend.
+- A rota tenta baixar os áudios usando file_url.
+- Ainda não existe transcrição permanente guardada na base.
+
+R2:
+- Os áudios estão no bucket R2 público.
+- A variável NEXT_PUBLIC_R2_PUBLIC_URL está configurada.
+- Não é necessário mover os ficheiros para outro servidor.
+
+
+13. LIMITES DO TUTOR IA
+=======================
+
+Limites atuais por utilizador autenticado:
+- 20 perguntas por dia.
+- 5 perguntas por minuto.
+- 2.000 caracteres por pergunta.
+- Até 3 áudios por pergunta.
+- Até 8 MB por áudio.
+
+A rota exige sessão autenticada.
+Quando o limite é atingido, devolve HTTP 429 e uma mensagem clara.
+
+Nota importante:
+- O contador atual fica em memória no processo Node.
+- Em Vercel/serverless, o limite deverá ser movido para uma tabela Supabase para funcionar corretamente entre instâncias.
+
+
+14. PERSISTENCIA DO TUTOR IA
+============================
+
+- As mensagens do Tutor são guardadas por disciplina no localStorage.
+- A chave usada é semelhante a:
+
+  dc-tutorMessages-ID_DA_DISCIPLINA
+
+- Abrir novamente o Tutor já não apaga a conversa.
+- Foi adicionado botão Limpar para remover manualmente o histórico.
+- O painel suporta textarea.
+- Enter envia a pergunta.
+- Shift + Enter cria uma nova linha.
+- Mensagens longas quebram corretamente.
+- O painel limita a largura e altura ao viewport.
+- No mobile, o Tutor funciona como bottom sheet responsivo.
+
+
+15. AVALIACOES E SIMULADO INDIVIDUAL
+====================================
+
+A página Avaliações começou a ser transformada em Simulados.
+
+O MVP atual inclui:
+- Secção Simulado individual no topo.
+- Seleção de disciplina.
+- Seleção automática do próximo questionário pendente.
+- Botão Começar prova.
+- Reutilização do QuizPlayer existente.
+- Histórico, repetição, revisão e estatísticas continuam disponíveis.
+- Modal de quiz estabilizado ao mover ModalShell para fora do render.
+
+Modo prova:
+- A prova usa o tempo definido no quiz quando existe.
+- Se não existir, usa 120 minutos por padrão.
+- O cronómetro é controlado pelo QuizPlayer.
+- O questionário é submetido quando o tempo termina.
+
+Identificação das provas:
+- O ano é procurado no título do quiz por uma expressão regular.
+- Exemplos reconhecidos:
+  Prova de Matemática I - 2025
+  Exame de Contabilidade Geral - 2024
+- A interface mostra Prova 2025 quando o título contém esse ano.
+
+Para colocar uma prova no Supabase:
+
+1. Criar um content do tipo quiz:
+
+  insert into contents (
+    chapter_id,
+    topic_id,
+    type,
+    title,
+    time_limit_seconds,
+    order_index,
+    is_active
+  ) values (
+    'ID_DO_CAPITULO',
+    null,
+    'quiz',
+    'Prova de Matemática I - 2025',
+    7200,
+    1,
+    true
+  ) returning id;
+
+2. Criar perguntas:
+
+  insert into quiz_questions (
+    content_id,
+    question_text,
+    order_index
+  ) values (
+    'ID_DA_PROVA',
+    'Qual é o resultado de 2 + 2?',
+    1
+  ) returning id;
+
+3. Criar respostas:
+
+  insert into quiz_answers (
+    question_id,
+    answer_text,
+    is_correct,
+    order_index
+  ) values
+    ('ID_DA_PERGUNTA', '3', false, 1),
+    ('ID_DA_PERGUNTA', '4', true, 2),
+    ('ID_DA_PERGUNTA', '5', false, 3);
+
+7200 segundos = 120 minutos.
+
+
+16. LIMITACOES E PROXIMOS PASSOS
+=================================
+
+Tutor IA:
+- Adicionar pesquisa web opcional quando o material interno não for suficiente.
+- Guardar transcrições dos áudios permanentemente.
+- Criar tabela Supabase para limites de utilização.
+- Adicionar citações e fontes às respostas.
+- Melhorar o parser Markdown ou usar um renderer dedicado.
+
+Simulados:
+- Criar painel administrativo para importar provas em CSV/Excel.
+- Adicionar campo próprio para ano da prova, em vez de depender do título.
+- Adicionar campo próprio para época: normal, recurso ou especial.
+- Permitir selecionar uma prova específica de 2025.
+- Permitir combinar perguntas de várias provas passadas.
+- Criar página de resultado com nota, tempo usado e temas fracos.
+- Adicionar modo de prova com confirmação antes de começar.
+
+Dados recomendados para uma futura importação CSV:
+
+  ano,disciplina,capitulo,pergunta,resposta_a,resposta_b,resposta_c,resposta_d,correta
+  2025,MAT I,Capítulo 1,Quanto é 2+2?,3,4,5,6,B
+
+
+17. VALIDACOES REALIZADAS
+==========================
+
+- npx tsc --noEmit passou nas alterações principais.
+- Diagnósticos do editor foram verificados nos ficheiros alterados.
+- ESLint foi executado nos ficheiros principais.
+- Alguns problemas antigos de ESLint permanecem em componentes grandes, sobretudo regras de any e setState em efeitos.
+
+
+FIM DO REGISTO
+===============

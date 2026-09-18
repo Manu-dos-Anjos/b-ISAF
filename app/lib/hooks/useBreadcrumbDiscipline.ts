@@ -6,15 +6,17 @@ import { useSupabase } from "@/app/lib/context/SupabaseContext";
 
 type Result = {
   name: string | null;
+  code: string | null;
   isLoading: boolean;
 };
 
 // Cache em memória para não fazer fetch repetido durante a sessão
-const cache = new Map<string, string>();
+const cache = new Map<string, { name: string; code: string | null }>();
 
 export function useBreadcrumbDiscipline(disciplineId: string | null): Result {
   const { supabase } = useSupabase();
   const [name,      setName]      = useState<string | null>(null);
+  const [code,      setCode]      = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -22,7 +24,11 @@ export function useBreadcrumbDiscipline(disciplineId: string | null): Result {
 
     // Se já está em cache, usa imediatamente
     if (cache.has(disciplineId)) {
-      setName(cache.get(disciplineId)!);
+      const cached = cache.get(disciplineId)!;
+      // O cache em memória evita uma nova consulta ao Supabase.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setName(cached.name);
+      setCode(cached.code);
       return;
     }
 
@@ -31,16 +37,18 @@ export function useBreadcrumbDiscipline(disciplineId: string | null): Result {
       try {
         const response = await supabase
           .from("disciplines")
-          .select("name")
+          .select("name, code")
           .eq("id", disciplineId!)
           .single();
 
         // garantir tipo compatível para TypeScript
-        const data = response.data as { name?: string } | null;
+        const data = response.data as { name?: string; code?: string | null } | null;
 
         if (data?.name) {
-          cache.set(disciplineId!, data.name);
+          const result = { name: data.name, code: data.code?.trim() || null };
+          cache.set(disciplineId!, result);
           setName(data.name);
+          setCode(result.code);
         }
       } catch {
         // silencioso — o breadcrumb mostra o ID como fallback
@@ -52,5 +60,5 @@ export function useBreadcrumbDiscipline(disciplineId: string | null): Result {
     void fetch();
   }, [supabase, disciplineId]);
 
-  return { name, isLoading };
+  return { name, code, isLoading };
 }

@@ -51,11 +51,6 @@ const COURSES = [
 
 type CourseId = (typeof COURSES)[number]["id"];
 
-// NOTA: estes UUIDs vivem no bundle do cliente. Funciona, mas qualquer
-// curso novo/alterado exige um redeploy. Se o catálogo de cursos crescer
-// ou mudar com frequência, considera buscar isto de uma tabela `courses`
-// no Supabase em vez de hardcoded — reduz o acoplamento entre o código e
-// os dados, sem custo de segurança adicional (os IDs não são segredo).
 const COURSE_ID_MAP: Record<CourseId, string> = {
   igf: "60313e51-2b89-4c1d-9737-6606c9d5e999",
   cf: "4c41b444-b985-40e0-8449-bdf3156cf3ab",
@@ -120,13 +115,6 @@ function isIsafEmail(email: string): boolean {
   return Boolean(local) && domain === ISAF_DOMAIN;
 }
 
-/**
- * Traduz erros do Supabase/rede para mensagens compreensíveis, sem expor
- * detalhes internos ao utilizador. Usa `status`/`code` quando disponíveis
- * (mais estável entre versões do Supabase) e só recorre à comparação de
- * texto como último recurso. Qualquer erro não reconhecido é registado na
- * consola para diagnóstico, mas nunca mostrado em bruto ao utilizador.
- */
 function getErrorMessage(err: unknown): string {
   if (err && typeof err === "object") {
     const e = err as { message?: string; status?: number; code?: string; name?: string };
@@ -204,7 +192,7 @@ const PASSWORD_REQS: { key: keyof PasswordRules; label: string }[] = [
 ================================================================ */
 
 const inputCls =
-  "w-full rounded-xl border border-slate-300 bg-white text-sm text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600 dark:focus:border-blue-500/60 dark:focus:bg-white/[0.07]";
+  "w-full rounded-lg border border-slate-300 bg-white text-xs text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600 dark:focus:border-blue-500/60 dark:focus:bg-white/[0.07]";
 
 /* ================================================================
    SUB-COMPONENTES ESTÁTICOS
@@ -226,35 +214,35 @@ function LeftPanel() {
         className="absolute inset-0 opacity-[0.07]"
         style={{
           backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
+          backgroundSize: "24px 24px",
         }}
       />
 
-      <div className="relative z-10 flex flex-1 flex-col justify-between p-10 xl:p-14">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
+      <div className="relative z-10 flex flex-1 flex-col justify-between p-9 xl:p-12">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
             <Image
               src="/logo_dark.svg"
               alt="b-ISAF"
-              width={28}
-              height={28}
-              className="h-7 w-7"
+              width={25}
+              height={25}
+              className="h-6 w-6"
             />
           </div>
           <div>
-            <p className="text-base font-bold tracking-tight text-white">b-ISAF</p>
-            <p className="text-[11px] text-blue-300/80">Plataforma académica</p>
+            <p className="text-sm font-bold tracking-tight text-white">b-ISAF</p>
+            <p className="text-[10px] text-blue-300/80">Plataforma académica</p>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-blue-300 backdrop-blur-sm">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
+        <div className="space-y-5">
+          <div className="space-y-2.5">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/20 bg-blue-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-blue-300 backdrop-blur-sm">
+              <span className="h-1 w-1 animate-pulse rounded-full bg-blue-400" />
               Biblioteca Virtual · ISAF
             </div>
 
-            <h2 className="text-4xl font-bold leading-tight tracking-tight text-white xl:text-5xl">
+            <h2 className="text-3xl font-bold leading-tight tracking-tight text-white xl:text-4xl">
               O teu percurso
               <br />
               <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
@@ -262,35 +250,35 @@ function LeftPanel() {
               </span>
             </h2>
 
-            <p className="max-w-sm text-base leading-relaxed text-slate-300/80">
+            <p className="max-w-sm text-sm leading-relaxed text-slate-300/80">
               Acede às tuas disciplinas, horários, avaliações e materiais de
               estudo num único lugar.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             {STATS.map(({ icon: Icon, value, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+                className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/15 text-blue-300">
-                  <Icon size={16} aria-hidden="true" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-blue-400/20 bg-blue-500/15 text-blue-300">
+                  <Icon size={14} aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-base font-bold leading-none text-white">{value}</p>
-                  <p className="mt-0.5 truncate text-[11px] text-slate-400">{label}</p>
+                  <p className="text-sm font-bold leading-none text-white">{value}</p>
+                  <p className="mt-0.5 truncate text-[10px] text-slate-400">{label}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-white/10 pt-6">
-          <p className="text-xs text-slate-500">
+        <div className="flex items-center justify-between border-t border-white/10 pt-5">
+          <p className="text-[11px] text-slate-500">
             © {new Date().getFullYear()} Manuel dos Anjos Quiconda João · Angola
           </p>
-          <div className="flex gap-4 text-xs text-slate-600">
+          <div className="flex gap-3.5 text-[11px] text-slate-600">
             {["Privacidade", "Termos", "Suporte"].map((t) => (
               <span key={t} className="cursor-default transition hover:text-slate-400">
                 {t}
@@ -305,7 +293,7 @@ function LeftPanel() {
 
 function MobileBanner() {
   return (
-    <div className="relative h-52 w-full overflow-hidden sm:h-60 lg:hidden">
+    <div className="relative h-48 w-full overflow-hidden sm:h-56 lg:hidden">
       <Image
         src="/images/login-bg.jpg"
         alt="ISAF campus"
@@ -314,19 +302,19 @@ function MobileBanner() {
         className="object-cover object-center"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-blue-950/80 via-slate-950/70 to-slate-950" />
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-5 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
           <Image
             src="/logo_dark.svg"
             alt="b-ISAF"
-            width={36}
-            height={36}
-            className="h-9 w-9"
+            width={32}
+            height={32}
+            className="h-8 w-8"
           />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">b-ISAF</h1>
-          <p className="mt-1 text-sm text-blue-300/80">Biblioteca Virtual · ISAF</p>
+          <h1 className="text-xl font-bold tracking-tight text-white">b-ISAF</h1>
+          <p className="mt-0.5 text-xs text-blue-300/80">Biblioteca Virtual · ISAF</p>
         </div>
       </div>
     </div>
@@ -335,20 +323,20 @@ function MobileBanner() {
 
 function MobileStats() {
   return (
-    <div className="mb-6 grid w-full max-w-md grid-cols-2 gap-2 lg:hidden">
+    <div className="mb-5 grid w-full max-w-sm grid-cols-2 gap-1.5 lg:hidden">
       {STATS.map(({ icon: Icon, value, label }) => (
         <div
           key={label}
-          className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none"
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
-            <Icon size={14} aria-hidden="true" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
+            <Icon size={12} aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold leading-none text-slate-900 dark:text-white">
+            <p className="text-xs font-bold leading-none text-slate-900 dark:text-white">
               {value}
             </p>
-            <p className="mt-0.5 truncate text-[10px] text-slate-500 dark:text-slate-500">
+            <p className="mt-0.5 truncate text-[9px] text-slate-500 dark:text-slate-500">
               {label}
             </p>
           </div>
@@ -368,20 +356,20 @@ function Feedback({
   if (!error && !success) return null;
 
   return (
-    <div className="mb-4 space-y-2" aria-live="polite" aria-atomic="true">
+    <div className="mb-3.5 space-y-1.5" aria-live="polite" aria-atomic="true">
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2.5 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"
+          className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"
         >
-          <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
       {success && (
         <div
           role="status"
-          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
+          className="rounded-lg border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
         >
           {success}
         </div>
@@ -394,7 +382,7 @@ function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: ReactNo
   return (
     <label
       htmlFor={htmlFor}
-      className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400"
+      className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400"
     >
       {children}
     </label>
@@ -408,20 +396,20 @@ function PasswordChecklist({ password }: { password: string }) {
 
   return (
     <div
-      className="mt-2.5 space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]"
+      className="mt-2 space-y-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-white/[0.08] dark:bg-white/[0.03]"
       aria-live="polite"
     >
       {PASSWORD_REQS.map(({ key, label }) => {
         const ok = rules[key];
         return (
-          <div key={key} className="flex items-center gap-2">
+          <div key={key} className="flex items-center gap-1.5">
             <div
-              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-all ${
+              className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full transition-all ${
                 ok ? "bg-emerald-100 dark:bg-emerald-500/20" : "bg-slate-200 dark:bg-white/5"
               }`}
             >
               <Check
-                size={10}
+                size={9}
                 aria-hidden="true"
                 className={`transition-colors ${
                   ok ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-600"
@@ -429,7 +417,7 @@ function PasswordChecklist({ password }: { password: string }) {
               />
             </div>
             <span
-              className={`text-[11px] transition-colors ${
+              className={`text-[10px] transition-colors ${
                 ok ? "text-emerald-700 dark:text-emerald-400" : "text-slate-500 dark:text-slate-500"
               }`}
             >
@@ -459,7 +447,7 @@ function PillOption({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={selected}
-      className={`flex h-11 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`flex h-10 flex-1 items-center justify-center rounded-lg border text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
         selected
           ? "border-blue-500 bg-blue-600 text-white"
           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/[0.08]"
@@ -479,8 +467,6 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const { supabase } = useSupabase();
 
-  // Evita "setState em componente desmontado" se o utilizador navegar
-  // para fora da página enquanto um pedido ainda está em curso.
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -494,15 +480,12 @@ function LoginPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // LOGIN
   const [loginStudentNumber, setLoginStudentNumber] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPass, setShowLoginPass] = useState(false);
 
-  // RESET
   const [resetEmail, setResetEmail] = useState("");
 
-  // REGISTO
   const [regStep, setRegStep] = useState<RegStep>(1);
   const [regForm, setRegForm] = useState<RegForm>(REG_INIT);
   const [showPass, setShowPass] = useState(false);
@@ -540,9 +523,6 @@ function LoginPageContent() {
     }
   }
 
-  /* ================================================================
-     LOGIN
-  ================================================================ */
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
@@ -576,9 +556,6 @@ function LoginPageContent() {
     }
   }
 
-  /* ================================================================
-     RESET PASSWORD
-  ================================================================ */
   async function handleReset(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
@@ -608,9 +585,6 @@ function LoginPageContent() {
     }
   }
 
-  /* ================================================================
-     REGISTO — validação
-  ================================================================ */
   function validateStep(): string | null {
     if (regStep === 1) {
       if (!isIsafEmail(regForm.email)) {
@@ -655,9 +629,6 @@ function LoginPageContent() {
     setRegStep((s) => Math.max(s - 1, 1) as RegStep);
   }
 
-  /* ================================================================
-     REGISTO — submissão
-  ================================================================ */
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (loading) return;
@@ -690,11 +661,6 @@ function LoginPageContent() {
         email,
         password: regForm.password,
         options: {
-          // Enviamos TODOS os dados do perfil aqui (não só nome e número),
-          // para que um trigger no Postgres (ex.: on_auth_user_created a
-          // ler raw_user_meta_data) consiga preencher a tabela "profiles"
-          // de forma atómica — mesmo quando a confirmação de email está
-          // activa e ainda não existe sessão para o passo seguinte.
           data: {
             full_name: fullName,
             student_number: derivedStudentNumber,
@@ -709,10 +675,6 @@ function LoginPageContent() {
       if (!authData.user) throw new Error("Utilizador não criado.");
 
       if (authData.session) {
-        // Há sessão activa (confirmação de email desligada, ou já
-        // confirmado automaticamente) — tentamos também o update directo
-        // como reforço. Se falhar, não bloqueamos o utilizador: a conta
-        // já existe e o trigger (se configurado) trata do essencial.
         const { error: profileErr } = await supabase
           .from("profiles")
           .update({
@@ -750,30 +712,30 @@ function LoginPageContent() {
   ================================================================ */
   function renderLoginReset() {
     return (
-      <div className="w-full max-w-md">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+      <div className="w-full max-w-sm">
+        <div className="mb-5">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
             {mode === "reset" ? "Recuperar password" : "Bem-vindo!"}
           </h2>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
             {mode === "reset"
               ? "Indica o teu email para receberes o link de recuperação."
               : "Introduz o teu número de estudante e a password para aceder à plataforma."}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-7 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60 sm:p-6 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-sm">
           <Feedback error={error} success={success} />
 
-          <form onSubmit={mode === "reset" ? handleReset : handleLogin} className="space-y-5" noValidate>
+          <form onSubmit={mode === "reset" ? handleReset : handleLogin} className="space-y-4" noValidate>
             {mode === "login" ? (
               <div>
                 <FieldLabel htmlFor="login-student-number">Número de estudante</FieldLabel>
                 <div className="relative">
                   <User
-                    size={15}
+                    size={14}
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
                     id="login-student-number"
@@ -785,10 +747,10 @@ function LoginPageContent() {
                     inputMode="numeric"
                     autoComplete="username"
                     disabled={loading}
-                    className={`${inputCls} h-12 pl-10 pr-4`}
+                    className={`${inputCls} h-11 pl-9 pr-3.5`}
                   />
                 </div>
-                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-500">
+                <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500">
                   O sistema adiciona automaticamente{" "}
                   <span className="font-mono">@{ISAF_DOMAIN}</span>
                 </p>
@@ -798,9 +760,9 @@ function LoginPageContent() {
                 <FieldLabel htmlFor="reset-email">Email institucional</FieldLabel>
                 <div className="relative">
                   <Mail
-                    size={15}
+                    size={14}
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
                     id="reset-email"
@@ -811,7 +773,7 @@ function LoginPageContent() {
                     required
                     autoComplete="email"
                     disabled={loading}
-                    className={`${inputCls} h-12 pl-10 pr-4`}
+                    className={`${inputCls} h-11 pl-9 pr-3.5`}
                   />
                 </div>
               </div>
@@ -819,22 +781,22 @@ function LoginPageContent() {
 
             {mode === "login" && (
               <div>
-                <div className="mb-1.5 flex items-center justify-between">
+                <div className="mb-1 flex items-center justify-between">
                   <FieldLabel htmlFor="login-password">Password</FieldLabel>
                   <button
                     type="button"
                     onClick={() => switchMode("reset")}
                     disabled={loading}
-                    className="text-[11px] text-slate-500 transition hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-500 dark:hover:text-blue-400"
+                    className="text-[10px] text-slate-500 transition hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-500 dark:hover:text-blue-400"
                   >
                     Esqueceste a password?
                   </button>
                 </div>
                 <div className="relative">
                   <Lock
-                    size={15}
+                    size={14}
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
                     id="login-password"
@@ -845,15 +807,15 @@ function LoginPageContent() {
                     required
                     autoComplete="current-password"
                     disabled={loading}
-                    className={`${inputCls} h-12 pl-10 pr-11`}
+                    className={`${inputCls} h-11 pl-9 pr-10`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowLoginPass((v) => !v)}
                     aria-label={showLoginPass ? "Ocultar password" : "Mostrar password"}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                   >
-                    {showLoginPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showLoginPass ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
@@ -862,11 +824,11 @@ function LoginPageContent() {
             <button
               type="submit"
               disabled={loading}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-blue-900/30"
+              className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-xs font-semibold text-white shadow-md shadow-blue-900/20 transition hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-blue-900/30"
             >
               {loading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
                   <span>A processar…</span>
                 </>
               ) : mode === "reset" ? (
@@ -877,9 +839,9 @@ function LoginPageContent() {
             </button>
           </form>
 
-          <div className="my-5 flex items-center gap-3">
+          <div className="my-4 flex items-center gap-2.5">
             <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
-            <span className="text-[11px] text-slate-400 dark:text-slate-600">ou</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-600">ou</span>
             <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
           </div>
 
@@ -887,28 +849,28 @@ function LoginPageContent() {
             type="button"
             onClick={() => switchMode("register")}
             disabled={loading}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
           >
-            <User size={16} aria-hidden="true" className="text-blue-600 dark:text-blue-400" />
+            <User size={14} aria-hidden="true" className="text-blue-600 dark:text-blue-400" />
             Criar conta
-            <ArrowRight size={15} aria-hidden="true" className="ml-auto text-slate-400 dark:text-slate-500" />
+            <ArrowRight size={13} aria-hidden="true" className="ml-auto text-slate-400 dark:text-slate-500" />
           </button>
         </div>
 
         {mode === "reset" && (
-          <div className="mt-5 text-center">
+          <div className="mt-4 text-center">
             <button
               type="button"
               onClick={() => switchMode("login")}
               disabled={loading}
-              className="text-sm text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-300"
+              className="text-xs text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-300"
             >
               ← Voltar ao login
             </button>
           </div>
         )}
 
-        <p className="mt-8 text-center text-xs text-slate-500 dark:text-slate-600">
+        <p className="mt-7 text-center text-[11px] text-slate-500 dark:text-slate-600">
           Instituto Superior de Administração e Finanças · Angola
         </p>
       </div>
@@ -920,31 +882,31 @@ function LoginPageContent() {
   ================================================================ */
   function renderRegister() {
     return (
-      <div className="w-full max-w-md">
-        <div className="mb-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-5">
           <button
             type="button"
             onClick={() => switchMode("login")}
             disabled={loading}
-            className="mb-3 flex items-center gap-1.5 text-xs text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-300"
+            className="mb-2.5 flex items-center gap-1 text-[11px] text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-slate-300"
           >
-            <ChevronLeft size={14} aria-hidden="true" />
+            <ChevronLeft size={13} aria-hidden="true" />
             Voltar ao login
           </button>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
             Criar conta
           </h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
             Preenche os teus dados para aceder à plataforma.
           </p>
         </div>
 
-        <div className="mb-5 flex items-center gap-2" role="list" aria-label="Progresso do registo">
+        <div className="mb-4 flex items-center gap-1.5" role="list" aria-label="Progresso do registo">
           {([1, 2, 3] as RegStep[]).map((s) => (
-            <div key={s} role="listitem" className="flex flex-1 flex-col items-center gap-1.5">
+            <div key={s} role="listitem" className="flex flex-1 flex-col items-center gap-1">
               <div
                 aria-current={s === regStep ? "step" : undefined}
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-all ${
                   s < regStep
                     ? "bg-emerald-500 text-white"
                     : s === regStep
@@ -952,10 +914,10 @@ function LoginPageContent() {
                     : "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-500"
                 }`}
               >
-                {s < regStep ? <Check size={13} aria-hidden="true" /> : s}
+                {s < regStep ? <Check size={12} aria-hidden="true" /> : s}
               </div>
               <p
-                className={`text-[10px] font-medium ${
+                className={`text-[9px] font-medium ${
                   s === regStep
                     ? "text-blue-600 dark:text-blue-400"
                     : "text-slate-400 dark:text-slate-600"
@@ -967,7 +929,7 @@ function LoginPageContent() {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-7 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60 sm:p-6 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-sm">
           <Feedback error={error} success={success} />
 
           <form
@@ -979,7 +941,7 @@ function LoginPageContent() {
                   }
                 : handleRegister
             }
-            className="space-y-4"
+            className="space-y-3.5"
             noValidate
           >
             {regStep === 1 && (
@@ -988,9 +950,9 @@ function LoginPageContent() {
                   <FieldLabel htmlFor="reg-email">Email institucional</FieldLabel>
                   <div className="relative">
                     <Mail
-                      size={15}
+                      size={14}
                       aria-hidden="true"
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       id="reg-email"
@@ -1002,20 +964,20 @@ function LoginPageContent() {
                       autoComplete="email"
                       disabled={loading}
                       aria-invalid={Boolean(regForm.email) && !isIsafEmail(regForm.email)}
-                      className={`${inputCls} h-11 pl-10 pr-4`}
+                      className={`${inputCls} h-10 pl-9 pr-3.5`}
                     />
                   </div>
 
                   {regForm.email && !isIsafEmail(regForm.email) && (
-                    <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">
+                    <p className="mt-1 text-[10px] text-rose-600 dark:text-rose-400">
                       O email deve terminar em{" "}
                       <span className="font-mono">@{ISAF_DOMAIN}</span>
                     </p>
                   )}
 
                   {regForm.email && isIsafEmail(regForm.email) && (
-                    <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                      <Check size={11} aria-hidden="true" />
+                    <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                      <Check size={10} aria-hidden="true" />
                       Email institucional válido.
                     </p>
                   )}
@@ -1025,9 +987,9 @@ function LoginPageContent() {
                   <FieldLabel htmlFor="reg-password">Password</FieldLabel>
                   <div className="relative">
                     <Lock
-                      size={15}
+                      size={14}
                       aria-hidden="true"
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       id="reg-password"
@@ -1039,15 +1001,15 @@ function LoginPageContent() {
                       minLength={8}
                       autoComplete="new-password"
                       disabled={loading}
-                      className={`${inputCls} h-11 pl-10 pr-11`}
+                      className={`${inputCls} h-10 pl-9 pr-10`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPass((v) => !v)}
                       aria-label={showPass ? "Ocultar password" : "Mostrar password"}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                     >
-                      {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
 
@@ -1058,9 +1020,9 @@ function LoginPageContent() {
                   <FieldLabel htmlFor="reg-confirm-password">Confirmar password</FieldLabel>
                   <div className="relative">
                     <Lock
-                      size={15}
+                      size={14}
                       aria-hidden="true"
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       id="reg-confirm-password"
@@ -1075,13 +1037,13 @@ function LoginPageContent() {
                         Boolean(regForm.confirmPassword) &&
                         regForm.password !== regForm.confirmPassword
                       }
-                      className={`${inputCls} h-11 pl-10 pr-4`}
+                      className={`${inputCls} h-10 pl-9 pr-3.5`}
                     />
                   </div>
 
                   {regForm.confirmPassword &&
                     regForm.password !== regForm.confirmPassword && (
-                      <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">
+                      <p className="mt-1 text-[10px] text-rose-600 dark:text-rose-400">
                         As passwords não coincidem.
                       </p>
                     )}
@@ -1089,8 +1051,8 @@ function LoginPageContent() {
                   {regForm.confirmPassword &&
                     regForm.password === regForm.confirmPassword &&
                     isPasswordValid(regForm.password) && (
-                      <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                        <Check size={11} aria-hidden="true" />
+                      <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                        <Check size={10} aria-hidden="true" />
                         Passwords coincidem.
                       </p>
                     )}
@@ -1104,9 +1066,9 @@ function LoginPageContent() {
                   <FieldLabel htmlFor="reg-full-name">Nome completo</FieldLabel>
                   <div className="relative">
                     <User
-                      size={15}
+                      size={14}
                       aria-hidden="true"
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                     />
                     <input
                       id="reg-full-name"
@@ -1117,7 +1079,7 @@ function LoginPageContent() {
                       required
                       autoComplete="name"
                       disabled={loading}
-                      className={`${inputCls} h-11 pl-10 pr-4`}
+                      className={`${inputCls} h-10 pl-9 pr-3.5`}
                     />
                   </div>
                 </div>
@@ -1125,7 +1087,7 @@ function LoginPageContent() {
                 <div>
                   <FieldLabel htmlFor="reg-student-number">Número de estudante</FieldLabel>
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 dark:text-slate-500">
                       #
                     </span>
                     <input
@@ -1133,13 +1095,13 @@ function LoginPageContent() {
                       type="text"
                       value={derivedStudentNumber}
                       readOnly
-                      className="h-11 w-full cursor-not-allowed rounded-xl border border-emerald-300 bg-emerald-50 pl-8 pr-10 text-sm text-slate-900 outline-none dark:border-emerald-500/30 dark:bg-emerald-500/5 dark:text-white"
+                      className="h-10 w-full cursor-not-allowed rounded-lg border border-emerald-300 bg-emerald-50 pl-7 pr-9 text-xs text-slate-900 outline-none dark:border-emerald-500/30 dark:bg-emerald-500/5 dark:text-white"
                     />
-                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
-                      <Check size={11} aria-hidden="true" className="text-emerald-600 dark:text-emerald-400" />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
+                      <Check size={10} aria-hidden="true" className="text-emerald-600 dark:text-emerald-400" />
                     </div>
                   </div>
-                  <p className="mt-1.5 text-[11px] text-emerald-600 dark:text-emerald-400/70">
+                  <p className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400/70">
                     Extraído automaticamente do email.
                   </p>
                 </div>
@@ -1150,7 +1112,7 @@ function LoginPageContent() {
               <>
                 <div>
                   <FieldLabel>Curso</FieldLabel>
-                  <div className="space-y-2" role="radiogroup" aria-label="Curso">
+                  <div className="space-y-1.5" role="radiogroup" aria-label="Curso">
                     {COURSES.map((c) => (
                       <button
                         key={c.id}
@@ -1159,14 +1121,14 @@ function LoginPageContent() {
                         aria-checked={regForm.courseKey === c.id}
                         onClick={() => updateReg("courseKey", c.id)}
                         disabled={loading}
-                        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                        className={`flex w-full items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                           regForm.courseKey === c.id
                             ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-500/50 dark:bg-blue-500/10 dark:ring-blue-500/30"
                             : "border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/[0.08]"
                         }`}
                       >
                         <div
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[9px] font-bold ${
                             regForm.courseKey === c.id
                               ? "bg-blue-600 text-white"
                               : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400"
@@ -1175,7 +1137,7 @@ function LoginPageContent() {
                           {c.code}
                         </div>
                         <p
-                          className={`flex-1 text-sm font-medium leading-snug ${
+                          className={`flex-1 text-xs font-medium leading-snug ${
                             regForm.courseKey === c.id
                               ? "text-slate-900 dark:text-white"
                               : "text-slate-700 dark:text-slate-300"
@@ -1184,17 +1146,17 @@ function LoginPageContent() {
                           {c.name}
                         </p>
                         {regForm.courseKey === c.id && (
-                          <Check size={15} aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400" />
+                          <Check size={13} aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400" />
                         )}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <FieldLabel>Ano actual</FieldLabel>
-                    <div className="flex gap-1" role="radiogroup" aria-label="Ano actual">
+                    <div className="flex gap-0.5" role="radiogroup" aria-label="Ano actual">
                       {YEARS.map((y) => (
                         <PillOption
                           key={y}
@@ -1209,7 +1171,7 @@ function LoginPageContent() {
 
                   <div>
                     <FieldLabel>Semestre</FieldLabel>
-                    <div className="flex gap-1" role="radiogroup" aria-label="Semestre">
+                    <div className="flex gap-0.5" role="radiogroup" aria-label="Semestre">
                       {SEMESTERS.map((s) => (
                         <PillOption
                           key={s}
@@ -1223,8 +1185,8 @@ function LoginPageContent() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-400">
-                  <GraduationCap size={13} aria-hidden="true" className="mt-0.5 shrink-0" />
+                <div className="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-400">
+                  <GraduationCap size={12} aria-hidden="true" className="mt-0.5 shrink-0" />
                   <span>
                     Podes actualizar o ano e semestre a qualquer momento no teu perfil.
                   </span>
@@ -1232,15 +1194,15 @@ function LoginPageContent() {
               </>
             )}
 
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-2.5 pt-0.5">
               {regStep > 1 && (
                 <button
                   type="button"
                   onClick={prevStep}
                   disabled={loading}
-                  className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                  className="flex h-10 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                 >
-                  <ChevronLeft size={15} aria-hidden="true" />
+                  <ChevronLeft size={13} aria-hidden="true" />
                   Voltar
                 </button>
               )}
@@ -1248,21 +1210,21 @@ function LoginPageContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-blue-900/30"
+                className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-xs font-semibold text-white shadow-md shadow-blue-900/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:shadow-blue-900/30"
               >
                 {loading ? (
                   <>
-                    <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                    <Loader2 size={13} className="animate-spin" aria-hidden="true" />
                     A criar conta…
                   </>
                 ) : regStep < 3 ? (
                   <>
                     <span>Continuar</span>
-                    <ChevronRight size={15} aria-hidden="true" />
+                    <ChevronRight size={13} aria-hidden="true" />
                   </>
                 ) : (
                   <>
-                    <Check size={15} aria-hidden="true" />
+                    <Check size={13} aria-hidden="true" />
                     <span>Criar conta</span>
                   </>
                 )}
@@ -1271,7 +1233,7 @@ function LoginPageContent() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-500 dark:text-slate-600">
+        <p className="mt-5 text-center text-[11px] text-slate-500 dark:text-slate-600">
           Instituto Superior de Administração e Finanças · Angola
         </p>
       </div>
@@ -1286,7 +1248,7 @@ function LoginPageContent() {
       <MobileBanner />
       <LeftPanel />
 
-      <div className="flex flex-1 flex-col items-center justify-start px-4 pb-12 pt-6 sm:justify-center sm:py-12 lg:justify-center lg:px-8 xl:px-16">
+      <div className="flex flex-1 flex-col items-center justify-start px-3.5 pb-10 pt-5 sm:justify-center sm:py-10 lg:justify-center lg:px-7 xl:px-14">
         {mode !== "register" && <MobileStats />}
         {mode === "register" ? renderRegister() : renderLoginReset()}
       </div>
@@ -1298,7 +1260,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600 dark:bg-slate-950 dark:text-white">
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600 dark:bg-slate-950 dark:text-white">
           A carregar…
         </div>
       }

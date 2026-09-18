@@ -278,10 +278,10 @@ function DisciplineListItem({
   return (
     <Link
       href={discipline.href}
-      className="group relative flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none"
+      className="group relative flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md hover:shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none"
     >
       {badge && (
-        <span className="absolute -top-px left-14 z-10 rounded-b-lg border border-t-0 border-indigo-400/30 bg-indigo-600 px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+        <span className="absolute -top-px left-12 z-10 rounded-b-md border border-t-0 border-indigo-400/30 bg-indigo-600 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-white">
           {badge}
         </span>
       )}
@@ -293,14 +293,14 @@ function DisciplineListItem({
             e.preventDefault();
             onRemove();
           }}
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-slate-300 backdrop-blur-sm transition hover:bg-rose-500/30 hover:text-rose-300"
+          className="absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-slate-300 backdrop-blur-sm transition hover:bg-rose-500/30 hover:text-rose-300"
           title="Remover cadeira"
         >
-          <Trash2 size={12} />
+          <Trash2 size={11} />
         </button>
       )}
 
-      <div className="relative w-28 shrink-0 overflow-hidden bg-slate-200 dark:bg-white/5 sm:w-36">
+      <div className="relative w-24 shrink-0 overflow-hidden bg-slate-200 dark:bg-white/5 sm:w-32">
         {discipline.coverUrl ? (
           <Image
             src={discipline.coverUrl}
@@ -308,51 +308,51 @@ function DisciplineListItem({
             fill
             quality={100}
             unoptimized
-            sizes="(max-width: 640px) 112px, 144px"
+            sizes="(max-width: 640px) 96px, 128px"
             className="object-cover object-center"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950">
             <div className="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-500 via-transparent to-transparent" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <BookOpen size={24} className="text-slate-500/80" />
+              <BookOpen size={22} className="text-slate-500/80" />
             </div>
           </div>
         )}
 
         {/* Ano */}
-        <div className="absolute left-0 right-0 top-2 flex justify-center">
-          <span className="rounded-md bg-black/40 px-2 py-0.5 text-[9px] font-semibold text-white/90 backdrop-blur-sm ring-1 ring-white/10">
+        <div className="absolute left-0 right-0 top-1.5 flex justify-center">
+          <span className="rounded-md bg-black/40 px-1.5 py-0.5 text-[8px] font-semibold text-white/90 backdrop-blur-sm ring-1 ring-white/10">
             {discipline.year}
           </span>
         </div>
 
         {/* Progresso */}
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center">
-          <div className="flex items-center gap-1 rounded-lg bg-black/40 px-2 py-1 backdrop-blur-sm ring-1 ring-white/10">
-            <div className="h-1 w-10 overflow-hidden rounded-full bg-white/20">
+        <div className="absolute bottom-1.5 left-0 right-0 flex justify-center">
+          <div className="flex items-center gap-1 rounded-md bg-black/40 px-1.5 py-0.5 backdrop-blur-sm ring-1 ring-white/10">
+            <div className="h-1 w-8 overflow-hidden rounded-full bg-white/20">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-blue-400 to-indigo-400 transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-[9px] font-bold tabular-nums text-white/90">
+            <span className="text-[8px] font-bold tabular-nums text-white/90">
               {progress}%
             </span>
           </div>
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-2.5 px-4 py-3.5">
-        <div className="flex items-start justify-between gap-2 pr-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 px-3.5 py-3">
+        <div className="flex items-start justify-between gap-2 pr-5">
           <div className="min-w-0">
-            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 dark:text-white">
+            <h3 className="line-clamp-2 text-xs font-semibold leading-snug text-slate-900 dark:text-white">
               {discipline.title}
             </h3>
-            <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-500">
+            <p className="mt-0.5 text-[9px] text-slate-500 dark:text-slate-500">
               {discipline.semester}
               {discipline.code && (
-                <span className="ml-2 rounded bg-slate-100 px-1.5 py-px font-bold text-slate-600 dark:bg-white/10 dark:text-slate-400">
+                <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-px font-bold text-slate-600 dark:bg-white/10 dark:text-slate-400">
                   {discipline.code}
                 </span>
               )}
@@ -362,8 +362,8 @@ function DisciplineListItem({
 
         {scheduleInfo?.professor && (
           <div className="flex items-center gap-1.5">
-            <User size={10} className="shrink-0 text-slate-500" />
-            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+            <User size={9} className="shrink-0 text-slate-500" />
+            <p className="truncate text-[10px] text-slate-600 dark:text-slate-400">
               {scheduleInfo.professor}
             </p>
           </div>
@@ -372,56 +372,56 @@ function DisciplineListItem({
         {next ? (
           <div className="flex items-center gap-1.5">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TYPE_DOT[next.type]}`} />
-            <p className={`text-[11px] font-medium ${TYPE_BADGE_LIST[next.type]}`}>
+            <p className={`text-[10px] font-medium ${TYPE_BADGE_LIST[next.type]}`}>
               {next.day}, {next.startTime}
               {next.endTime !== next.startTime && (
                 <span className="opacity-70"> – {next.endTime}</span>
               )}
               {next.room && (
                 <span className="ml-1 inline-flex items-center gap-0.5 text-slate-500 opacity-60 dark:text-slate-400">
-                  <MapPin size={9} />
+                  <MapPin size={8} />
                   {next.room}
                 </span>
               )}
             </p>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-600">
-            <Clock size={10} className="shrink-0" />
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-600">
+            <Clock size={9} className="shrink-0" />
             Sem aulas agendadas
           </div>
         )}
 
         <div className="h-px bg-slate-100 dark:bg-white/5" />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {hasContent ? (
             <>
               {contentCounts.audio > 0 && (
-                <span className="flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
-                  <Headphones size={10} /> {contentCounts.audio}
+                <span className="flex items-center gap-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+                  <Headphones size={9} /> {contentCounts.audio}
                 </span>
               )}
               {contentCounts.slide > 0 && (
-                <span className="flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400">
-                  <FileText size={10} /> {contentCounts.slide}
+                <span className="flex items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400">
+                  <FileText size={9} /> {contentCounts.slide}
                 </span>
               )}
               {contentCounts.quiz > 0 && (
-                <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-                  <Trophy size={10} /> {contentCounts.quiz}
+                <span className="flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                  <Trophy size={9} /> {contentCounts.quiz}
                 </span>
               )}
             </>
           ) : (
-            <span className="text-[11px] text-slate-500 dark:text-slate-600">
+            <span className="text-[10px] text-slate-500 dark:text-slate-600">
               {discipline.chaptersCount}{" "}
               {discipline.chaptersCount === 1 ? "capítulo" : "capítulos"} · sem
               conteúdos
             </span>
           )}
           <ArrowRight
-            size={13}
+            size={12}
             className="ml-auto shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-slate-600"
           />
         </div>
@@ -435,30 +435,30 @@ function DisciplineListItem({
 ================================================================ */
 function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-slate-900">
+    <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm dark:border-white/10 dark:bg-slate-900">
       <button
         type="button"
         onClick={() => onChange("grid")}
         title="Vista em grelha"
-        className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+        className={`flex h-6 w-6 items-center justify-center rounded-md transition ${
           mode === "grid"
             ? "bg-blue-600 text-white shadow-sm"
             : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
         }`}
       >
-        <LayoutGrid size={14} />
+        <LayoutGrid size={13} />
       </button>
       <button
         type="button"
         onClick={() => onChange("list")}
         title="Vista em lista"
-        className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+        className={`flex h-6 w-6 items-center justify-center rounded-md transition ${
           mode === "list"
             ? "bg-blue-600 text-white shadow-sm"
             : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
         }`}
       >
-        <List size={14} />
+        <List size={13} />
       </button>
     </div>
   );
@@ -469,15 +469,15 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
 ================================================================ */
 function CardSkeleton() {
   return (
-    <div className="animate-pulse overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <div className="h-36 w-full bg-slate-100 dark:bg-white/5" />
-      <div className="space-y-3 p-4">
-        <div className="h-3 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
-        <div className="h-10 w-full rounded-xl bg-slate-100 dark:bg-white/5" />
+    <div className="animate-pulse overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <div className="aspect-video w-full bg-slate-100 dark:bg-white/5" />
+      <div className="space-y-2.5 p-3.5">
+        <div className="h-2.5 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
+        <div className="h-9 w-full rounded-lg bg-slate-100 dark:bg-white/5" />
         <div className="h-px bg-slate-100 dark:bg-white/5" />
-        <div className="flex gap-2">
-          <div className="h-6 w-14 rounded-lg bg-slate-100 dark:bg-white/5" />
-          <div className="h-6 w-14 rounded-lg bg-slate-100 dark:bg-white/5" />
+        <div className="flex gap-1.5">
+          <div className="h-5 w-12 rounded-md bg-slate-100 dark:bg-white/5" />
+          <div className="h-5 w-12 rounded-md bg-slate-100 dark:bg-white/5" />
         </div>
         <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-white/5" />
       </div>
@@ -487,16 +487,16 @@ function CardSkeleton() {
 
 function ListSkeleton() {
   return (
-    <div className="animate-pulse flex overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <div className="w-28 shrink-0 bg-slate-100 dark:bg-white/5 sm:w-36" style={{ minHeight: 110 }} />
-      <div className="flex-1 space-y-3 p-4">
-        <div className="h-3.5 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
-        <div className="h-2.5 w-1/3 rounded bg-slate-100 dark:bg-white/5" />
-        <div className="h-2.5 w-1/2 rounded bg-slate-100 dark:bg-white/5" />
+    <div className="animate-pulse flex overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
+      <div className="w-24 shrink-0 bg-slate-100 dark:bg-white/5 sm:w-32" style={{ minHeight: 96 }} />
+      <div className="flex-1 space-y-2.5 p-3.5">
+        <div className="h-3 w-2/3 rounded bg-slate-100 dark:bg-white/5" />
+        <div className="h-2 w-1/3 rounded bg-slate-100 dark:bg-white/5" />
+        <div className="h-2 w-1/2 rounded bg-slate-100 dark:bg-white/5" />
         <div className="h-px bg-slate-100 dark:bg-white/5" />
-        <div className="flex gap-2">
-          <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
-          <div className="h-6 w-12 rounded-lg bg-slate-100 dark:bg-white/5" />
+        <div className="flex gap-1.5">
+          <div className="h-5 w-10 rounded-md bg-slate-100 dark:bg-white/5" />
+          <div className="h-5 w-10 rounded-md bg-slate-100 dark:bg-white/5" />
         </div>
       </div>
     </div>
@@ -518,12 +518,12 @@ function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-16 text-center dark:border-white/10 dark:bg-transparent">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
-        <Icon size={24} className="text-slate-500 dark:text-slate-600" />
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 py-12 text-center dark:border-white/10 dark:bg-transparent">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5">
+        <Icon size={22} className="text-slate-500 dark:text-slate-600" />
       </div>
-      <h3 className="mt-4 font-semibold text-slate-800 dark:text-slate-300">{title}</h3>
-      <p className="mt-1.5 max-w-xs text-sm text-slate-600">{description}</p>
+      <h3 className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-300">{title}</h3>
+      <p className="mt-1 max-w-xs text-xs text-slate-600">{description}</p>
       {action}
     </div>
   );
@@ -534,16 +534,16 @@ function ExtraLimitBanner({ current, max }: { current: number; max: number }) {
   const atLimit = remaining === 0;
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs ${
+      className={`flex items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-[11px] ${
         atLimit
           ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/5 dark:text-rose-400"
           : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-400"
       }`}
     >
       {atLimit ? (
-        <Lock size={14} className="mt-0.5 shrink-0" />
+        <Lock size={13} className="mt-0.5 shrink-0" />
       ) : (
-        <Info size={14} className="mt-0.5 shrink-0" />
+        <Info size={13} className="mt-0.5 shrink-0" />
       )}
       <p>
         {atLimit ? (
@@ -636,43 +636,43 @@ function AddExtraDisciplineModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur-sm sm:items-center"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10">
           <div>
-            <h3 className="font-semibold text-slate-900 dark:text-white">Adicionar cadeira</h3>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Adicionar cadeira</h3>
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
               Apenas cadeiras de semestres já concluídos
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/5 dark:hover:text-white"
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/5 dark:hover:text-white"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
-        <div className="border-b border-slate-100 px-5 py-3 dark:border-white/5">
+        <div className="border-b border-slate-100 px-4 py-2.5 dark:border-white/5">
           <div className="flex items-center justify-between">
-            <div className="flex gap-1.5">
+            <div className="flex gap-1">
               {Array.from({ length: MAX_EXTRA_DISCIPLINES }).map((_, i) => (
                 <div
                   key={i}
-                  className={`h-1.5 w-8 rounded-full transition-colors ${
+                  className={`h-1.5 w-7 rounded-full transition-colors ${
                     i < extraDisciplineIds.size ? "bg-indigo-500" : "bg-slate-200 dark:bg-white/10"
                   }`}
                 />
               ))}
             </div>
             <span
-              className={`text-xs font-medium ${
+              className={`text-[11px] font-medium ${
                 atLimit ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"
               }`}
             >
@@ -680,19 +680,19 @@ function AddExtraDisciplineModal({
             </span>
           </div>
           {atLimit && (
-            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-rose-600 dark:text-rose-400">
-              <Lock size={11} /> Limite atingido. Remove uma cadeira para
+            <p className="mt-1.5 flex items-center gap-1 text-[10px] text-rose-600 dark:text-rose-400">
+              <Lock size={10} /> Limite atingido. Remove uma cadeira para
               adicionar outra.
             </p>
           )}
         </div>
 
         {hasEligible && (
-          <div className="flex gap-2 border-b border-slate-100 px-5 py-3 dark:border-white/10">
+          <div className="flex gap-1.5 border-b border-slate-100 px-4 py-2.5 dark:border-white/10">
             <button
               type="button"
               onClick={() => setSelectedYear(null)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
                 !selectedYear
                   ? "bg-blue-600 text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
@@ -707,7 +707,7 @@ function AddExtraDisciplineModal({
                   key={y.year}
                   type="button"
                   onClick={() => setSelectedYear(y.year)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
                     selectedYear === y.year
                       ? "bg-blue-600 text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
@@ -719,28 +719,28 @@ function AddExtraDisciplineModal({
           </div>
         )}
 
-        <div className={`max-h-80 overflow-y-auto p-3 ${SCROLLBAR_CLASS}`}>
+        <div className={`max-h-72 overflow-y-auto p-2.5 ${SCROLLBAR_CLASS}`}>
           {!hasEligible ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <Lock size={24} className="mb-3 text-slate-400 dark:text-slate-600" />
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Lock size={22} className="mb-2.5 text-slate-400 dark:text-slate-600" />
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
                 Sem cadeiras disponíveis
               </p>
-              <p className="mt-1 max-w-xs text-xs text-slate-500">
+              <p className="mt-0.5 max-w-xs text-[11px] text-slate-500">
                 Só podes adicionar cadeiras de semestres já concluídos.
               </p>
             </div>
           ) : grouped.size === 0 ? (
-            <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+            <div className="flex items-center justify-center py-8 text-xs text-slate-500">
               Nenhuma cadeira disponível para este ano.
             </div>
           ) : (
             Array.from(grouped.entries()).map(([year, yearEntries]) => (
-              <div key={year} className="mb-3">
-                <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              <div key={year} className="mb-2.5">
+                <p className="mb-1 px-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-500">
                   {year}º Ano
                 </p>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {yearEntries.map((entry) => {
                     const realId = resolveRealId(entry.id);
                     const isOnPage = pageDisciplineIds.has(realId);
@@ -757,7 +757,7 @@ function AddExtraDisciplineModal({
                             onClose();
                           }
                         }}
-                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition ${
                           isOnPage
                             ? "border border-blue-300 bg-blue-50 text-blue-800 ring-1 ring-blue-200 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200 dark:ring-blue-500/20"
                             : isAdded
@@ -768,7 +768,7 @@ function AddExtraDisciplineModal({
                         }`}
                       >
                         <div
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                             isOnPage
                               ? "border-blue-400 bg-blue-100 dark:border-blue-400/40 dark:bg-blue-500/20"
                               : isAdded
@@ -779,18 +779,18 @@ function AddExtraDisciplineModal({
                           }`}
                         >
                           {isOnPage ? (
-                            <CheckCircle2 size={12} className="text-blue-600 dark:text-blue-400" />
+                            <CheckCircle2 size={10} className="text-blue-600 dark:text-blue-400" />
                           ) : isAdded ? (
-                            <span className="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
                           ) : atLimit ? (
-                            <Lock size={9} className="text-slate-400 dark:text-slate-600" />
+                            <Lock size={8} className="text-slate-400 dark:text-slate-600" />
                           ) : (
-                            <Plus size={10} className="text-slate-500" />
+                            <Plus size={9} className="text-slate-500" />
                           )}
                         </div>
                         <span className="flex-1 leading-snug">{entry.name}</span>
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                          className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider ${
                             isOnPage
                               ? "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
                               : isAdded
@@ -813,8 +813,8 @@ function AddExtraDisciplineModal({
           )}
         </div>
 
-        <div className="border-t border-slate-100 px-5 py-3 dark:border-white/5">
-          <p className="text-[11px] text-slate-500 dark:text-slate-600">
+        <div className="border-t border-slate-100 px-4 py-2.5 dark:border-white/5">
+          <p className="text-[10px] text-slate-500 dark:text-slate-600">
             Só são listadas cadeiras de semestres anteriores ao actual (
             {currentYear}º ano, {currentSemester}º semestre).
           </p>
@@ -1018,13 +1018,15 @@ export default function DisciplinasPage() {
   const stats = useMemo(() => {
     let audios = 0, slides = 0, quizzes = 0;
     for (const d of disciplines)
-      for (const ch of d.chapters ?? [])
+      for (const ch of d.chapters ?? []) {
         for (const t of ch.topics ?? [])
           for (const c of t.contents ?? []) {
             if (c.type === "audio") audios++;
             else if (c.type === "slide") slides++;
             else if (c.type === "quiz") quizzes++;
           }
+        if (ch.quiz) quizzes++;
+      }
     const avgProgress = disciplines.length
       ? Math.round(
           disciplines.reduce((s, d) => s + (d.progress ?? 0), 0) / disciplines.length
@@ -1143,14 +1145,14 @@ export default function DisciplinasPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/5" />
+      <div className="space-y-5">
+        <div className="h-24 animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />
         {viewMode === "grid" ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => <ListSkeleton key={i} />)}
           </div>
         )}
@@ -1160,16 +1162,16 @@ export default function DisciplinasPage() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-300 bg-rose-50 py-16 text-center dark:border-rose-500/20 dark:bg-rose-500/5">
-        <AlertCircle size={28} className="text-rose-500 dark:text-rose-400" />
-        <p className="mt-3 font-semibold text-slate-900 dark:text-slate-200">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-rose-300 bg-rose-50 py-12 text-center dark:border-rose-500/20 dark:bg-rose-500/5">
+        <AlertCircle size={24} className="text-rose-500 dark:text-rose-400" />
+        <p className="mt-2.5 text-sm font-semibold text-slate-900 dark:text-slate-200">
           Erro ao carregar disciplinas
         </p>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-500">{error}</p>
+        <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-500">{error}</p>
         <button
           type="button"
           onClick={refetch}
-          className="mt-4 rounded-xl border border-rose-300 bg-rose-100 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-200 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
+          className="mt-3 rounded-lg border border-rose-300 bg-rose-100 px-3.5 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-200 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
         >
           Tentar novamente
         </button>
@@ -1178,36 +1180,36 @@ export default function DisciplinasPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Cabeçalho ── */}
-      <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none">
-        <div className="border-b border-slate-100 px-5 py-4 dark:border-white/5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <header className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none">
+        <div className="border-b border-slate-100 px-4 py-3.5 dark:border-white/5">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">
                 {courseName}
               </p>
-              <h1 className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              <h1 className="mt-0.5 text-lg font-bold tracking-tight text-slate-900 dark:text-white">
                 {[courseAbbr, yearLabel, semesterLabel].filter(Boolean).join(" · ")}
               </h1>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.03]">
-                <TrendingUp size={16} className="shrink-0 text-blue-500" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/5 dark:bg-white/[0.03]">
+                <TrendingUp size={14} className="shrink-0 text-blue-500" />
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                  <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500">
                     Progresso médio
                   </p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-white">
+                  <p className="text-xs font-bold text-slate-800 dark:text-white">
                     {stats.avgProgress}%
                   </p>
                 </div>
-                <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
+                <div className="h-7 w-px bg-slate-200 dark:bg-white/10" />
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                  <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500">
                     Disciplinas
                   </p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-white">
+                  <p className="text-xs font-bold text-slate-800 dark:text-white">
                     {stats.total}
                   </p>
                 </div>
@@ -1221,13 +1223,13 @@ export default function DisciplinasPage() {
             { icon: FileText, label: "Slides", value: stats.slides, color: "text-indigo-600" },
             { icon: Trophy, label: "Quizzes", value: stats.quizzes, color: "text-amber-600" },
           ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="flex items-center gap-2.5 px-4 py-3">
-              <Icon size={15} className={`${color} opacity-80`} />
+            <div key={label} className="flex items-center gap-2 px-3.5 py-2.5">
+              <Icon size={14} className={`${color} opacity-80`} />
               <div>
-                <p className="text-base font-bold leading-none text-slate-800 dark:text-white">
+                <p className="text-sm font-bold leading-none text-slate-800 dark:text-white">
                   {value}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
+                <p className="mt-0.5 text-[9px] text-slate-500">{label}</p>
               </div>
             </div>
           ))}
@@ -1235,12 +1237,12 @@ export default function DisciplinasPage() {
       </header>
 
       {/* ── Filtros ── */}
-      <div className="flex min-w-0 items-center gap-2">
-        <SlidersHorizontal size={13} className="shrink-0 text-slate-500" />
-        <span className="hidden shrink-0 text-xs text-slate-600 dark:text-slate-400 sm:block">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <SlidersHorizontal size={12} className="shrink-0 text-slate-500" />
+        <span className="hidden shrink-0 text-[11px] text-slate-600 dark:text-slate-400 sm:block">
           Filtrar por:
         </span>
-        <div className="flex flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
+        <div className="flex flex-1 items-center gap-1 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
           {CONTENT_FILTERS.map(({ id, label, icon: Icon }) => {
             const active = activeFilters.has(id);
             return (
@@ -1248,13 +1250,13 @@ export default function DisciplinasPage() {
                 key={id}
                 type="button"
                 onClick={() => toggleFilter(id)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
                   active
                     ? "border-blue-500 bg-blue-600 text-white shadow-sm shadow-blue-500/30"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
                 }`}
               >
-                <Icon size={12} />
+                <Icon size={11} />
                 {label}
               </button>
             );
@@ -1263,16 +1265,16 @@ export default function DisciplinasPage() {
             <button
               type="button"
               onClick={() => setActiveFilters(new Set())}
-              className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs text-slate-500 transition hover:text-slate-700 dark:hover:text-slate-300"
+              className="flex shrink-0 items-center gap-1 rounded-full px-1.5 py-1 text-[11px] text-slate-500 transition hover:text-slate-700 dark:hover:text-slate-300"
             >
-              <X size={11} />
+              <X size={10} />
               <span className="hidden sm:inline">Limpar</span>
             </button>
           )}
         </div>
         {activeFilters.size > 0 && (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700 sm:hidden dark:bg-blue-500/15 dark:text-blue-400">
-            <SlidersHorizontal size={9} />
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700 sm:hidden dark:bg-blue-500/15 dark:text-blue-400">
+            <SlidersHorizontal size={8} />
             {activeFilters.size}
           </span>
         )}
@@ -1280,8 +1282,8 @@ export default function DisciplinasPage() {
 
       {/* ── Disciplinas ── */}
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
             {activeFilters.size > 0
               ? `${filtered.length} resultado${filtered.length !== 1 ? "s" : ""}`
               : `${stats.total} disciplina${stats.total !== 1 ? "s" : ""}`}
@@ -1291,7 +1293,7 @@ export default function DisciplinasPage() {
 
         {filtered.length > 0 ? (
           viewMode === "grid" ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((discipline) => (
                 <DisciplineCard
                   key={discipline.id}
@@ -1301,7 +1303,7 @@ export default function DisciplinasPage() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((discipline) => (
                 <DisciplineListItem
                   key={discipline.id}
@@ -1326,7 +1328,7 @@ export default function DisciplinasPage() {
               <button
                 type="button"
                 onClick={() => setActiveFilters(new Set())}
-                className="mt-4 rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20"
+                className="mt-3 rounded-lg border border-blue-300 bg-blue-50 px-3.5 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20"
               >
                 Limpar filtros
               </button>
@@ -1336,16 +1338,16 @@ export default function DisciplinasPage() {
       </section>
 
       {/* ── Cadeiras adicionais ── */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <GraduationCap size={16} className="text-indigo-500 dark:text-indigo-400" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <GraduationCap size={15} className="text-indigo-500 dark:text-indigo-400" />
+            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Cadeiras adicionais
             </h2>
             {extraDisciplineCards.length > 0 && (
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
                   atExtraLimit
                     ? "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400"
                     : "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400"
@@ -1359,7 +1361,7 @@ export default function DisciplinasPage() {
             type="button"
             onClick={() => setShowExtraModal(true)}
             disabled={!lookupReady || atExtraLimit}
-            className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+            className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${
               atExtraLimit
                 ? "cursor-not-allowed border-rose-200 bg-rose-50 text-rose-400 dark:border-rose-500/20 dark:bg-rose-500/5 dark:text-rose-500/50"
                 : lookupReady
@@ -1367,7 +1369,7 @@ export default function DisciplinasPage() {
                 : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-50 dark:border-white/5 dark:bg-white/5 dark:text-slate-600"
             }`}
           >
-            {atExtraLimit ? <Lock size={13} /> : <Plus size={13} />}
+            {atExtraLimit ? <Lock size={12} /> : <Plus size={12} />}
             {atExtraLimit ? "Limite atingido" : "Adicionar cadeira"}
           </button>
         </div>
@@ -1376,20 +1378,20 @@ export default function DisciplinasPage() {
           <ExtraLimitBanner current={extraDisciplineCards.length} max={MAX_EXTRA_DISCIPLINES} />
         )}
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-[11px] text-slate-600 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-500">
           Cadeiras de semestres anteriores em regime de recurso ou melhoria.
           Máximo de <strong className="text-slate-800 dark:text-slate-400">{MAX_EXTRA_DISCIPLINES}</strong>{" "}
           cadeiras.
         </div>
 
         {!lookupReady ? (
-          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 py-10 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
-            <Loader2 size={16} className="mr-2 animate-spin" />
+          <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-8 text-xs text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
+            <Loader2 size={14} className="mr-1.5 animate-spin" />
             A carregar cadeiras adicionais…
           </div>
         ) : extraDisciplineCards.length > 0 ? (
           viewMode === "grid" ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {extraDisciplineCards.map((d) => (
                 <DisciplineCard
                   key={d.id}
@@ -1401,7 +1403,7 @@ export default function DisciplinasPage() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {extraDisciplineCards.map((d) => (
                 <DisciplineListItem
                   key={d.id}
@@ -1414,17 +1416,17 @@ export default function DisciplinasPage() {
             </div>
           )
         ) : normalizedExtraIds.length > 0 ? (
-          <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 py-10 text-sm text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
-            <Loader2 size={16} className="mr-2 animate-spin" />
+          <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 py-8 text-xs text-slate-500 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
+            <Loader2 size={14} className="mr-1.5 animate-spin" />
             A carregar dados das cadeiras adicionais…
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-10 text-center dark:border-white/10 dark:bg-transparent">
-            <GraduationCap size={24} className="mb-2 text-slate-400 dark:text-slate-600" />
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-500">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 py-8 text-center dark:border-white/10 dark:bg-transparent">
+            <GraduationCap size={22} className="mb-1.5 text-slate-400 dark:text-slate-600" />
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-500">
               Nenhuma cadeira adicional
             </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-600">
+            <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-600">
               Frequentas cadeiras de semestres anteriores? Adiciona-as para aceder
               aos materiais.
             </p>

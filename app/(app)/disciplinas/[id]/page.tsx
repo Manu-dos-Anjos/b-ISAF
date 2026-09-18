@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useMemo } from "react";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, BookOpen } from "lucide-react";
 import { useDiscipline } from "@/app/lib/hooks/useDisciplines";
 import DisciplineClient from "./DisciplineClient";
 
@@ -19,7 +19,7 @@ export default function Page({ params }: PageProps) {
     return {
       id: discipline.id,
       title: discipline.name,
-      professor: discipline.professor_name ?? "",
+      professor: "",
       progress: discipline.progress,
       lessonCount: discipline.chapters.reduce(
         (acc, chapter) =>
@@ -49,7 +49,7 @@ export default function Page({ params }: PageProps) {
               title: ch.quiz.title,
               url: ch.quiz.file_url ?? undefined,
               timeLimitSeconds: ch.quiz.time_limit_seconds,
-              durationSeconds: ch.quiz.duration_seconds, // ✅ NOVO
+              durationSeconds: ch.quiz.duration_seconds,
             }
           : null,
         topics: ch.topics.map((t) => ({
@@ -61,7 +61,7 @@ export default function Page({ params }: PageProps) {
             title: c.title,
             url: c.file_url ?? undefined,
             timeLimitSeconds: c.time_limit_seconds,
-            durationSeconds: c.duration_seconds, // ✅ NOVO
+            durationSeconds: c.duration_seconds,
           })),
         })),
       })),
@@ -71,10 +71,13 @@ export default function Page({ params }: PageProps) {
   if (isLoading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
-        <Loader2
-          size={24}
-          className="animate-spin text-indigo-600 dark:text-blue-500"
-        />
+        <div className="relative">
+          <Loader2
+            size={32}
+            className="animate-spin text-indigo-600 dark:text-blue-500"
+          />
+          <div className="absolute inset-0 animate-ping rounded-full bg-indigo-400/30 blur-xl" />
+        </div>
         <p className="text-sm text-slate-600 dark:text-slate-400">
           A carregar disciplina…
         </p>
@@ -85,7 +88,9 @@ export default function Page({ params }: PageProps) {
   if (error) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
-        <AlertCircle size={28} className="text-rose-500 dark:text-rose-400" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-500/10">
+          <AlertCircle size={28} className="text-rose-500 dark:text-rose-400" />
+        </div>
         <p className="font-semibold text-slate-900 dark:text-slate-200">
           Erro ao carregar disciplina
         </p>
@@ -99,7 +104,9 @@ export default function Page({ params }: PageProps) {
   if (!adapted) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
-        <AlertCircle size={28} className="text-rose-500 dark:text-rose-400" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
+          <BookOpen size={28} className="text-slate-400 dark:text-slate-600" />
+        </div>
         <p className="font-semibold text-slate-900 dark:text-slate-200">
           Disciplina não encontrada
         </p>

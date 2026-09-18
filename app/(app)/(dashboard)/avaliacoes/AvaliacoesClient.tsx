@@ -43,7 +43,7 @@ type Props = {
 };
 
 type ModalState =
-  | { type: "player"; quiz: QuizItem }
+  | { type: "player"; quiz: QuizItem; simulation?: boolean }
   | { type: "review"; quiz: QuizItem }
   | { type: "stats"; quiz: QuizItem }
   | null;
@@ -65,6 +65,10 @@ function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
   const s = Math.floor(secs % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function getExamYear(title: string) {
+  return title.match(/\b(19|20)\d{2}\b/)?.[0] ?? null;
 }
 
 function getScoreTheme(score: number | null) {
@@ -139,12 +143,26 @@ class ModalErrorBoundary extends React.Component<EBProps, EBState> {
   }
 }
 
+function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 backdrop-blur-md dark:bg-slate-950/95 sm:items-center sm:p-4">
+      <div className="relative flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:h-auto sm:max-h-[95dvh] sm:rounded-3xl">
+        <div className="flex justify-center pt-3 sm:hidden">
+          <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
+        </div>
+        <ModalErrorBoundary onClose={onClose}>{children}</ModalErrorBoundary>
+      </div>
+    </div>
+  );
+}
+
 export default function AvaliacoesClient({ profile, quizItems, disciplines }: Props) {
   const [modal, setModal]               = useState<ModalState>(null);
   const [search, setSearch]             = useState("");
   const [filterDisc, setFilterDisc]     = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "done">("all");
   const [expandedDisc, setExpandedDisc] = useState<Record<string, boolean>>({});
+  const [simulationDisc, setSimulationDisc] = useState("all");
 
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "Aluno";
 
@@ -205,22 +223,20 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
       .sort((a, b) => b.total - a.total || (b.avg ?? -1) - (a.avg ?? -1));
   }, [disciplines, quizItems]);
 
+  const simulationQuizzes = useMemo(
+    () => quizItems.filter((quiz) => simulationDisc === "all" || quiz.disciplineId === simulationDisc),
+    [quizItems, simulationDisc]
+  );
+
+  const simulationQuiz =
+    simulationQuizzes.find((quiz) => quiz.attempts === 0) ?? simulationQuizzes[0] ?? null;
+  const simulationMinutes = simulationQuiz?.timeLimitSecs
+    ? Math.ceil(simulationQuiz.timeLimitSecs / 60)
+    : 120;
+
   const isDiscOpen = (discId: string, index: number) => expandedDisc[discId] ?? index === 0;
   const toggleDisc = (id: string, index: number) =>
     setExpandedDisc((prev) => ({ ...prev, [id]: !isDiscOpen(id, index) }));
-
-  function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-    return (
-      <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/70 backdrop-blur-md dark:bg-slate-950/95 sm:items-center sm:p-4">
-        <div className="relative flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-950 sm:h-auto sm:max-h-[95dvh] sm:rounded-3xl">
-          <div className="flex justify-center pt-3 sm:hidden">
-            <div className="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-white/20" />
-          </div>
-          <ModalErrorBoundary onClose={onClose}>{children}</ModalErrorBoundary>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -367,6 +383,58 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
                 </button>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ── SIMULADO INDIVIDUAL ── */}
+        <section className="relative overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-4 shadow-sm dark:border-indigo-500/20 dark:from-indigo-950/50 dark:via-slate-950/70 dark:to-violet-950/30 sm:p-5 md:p-6">
+          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-300">
+                <Target size={16} />
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em]">Simulado individual</p>
+              </div>
+              <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white sm:text-xl">Testa os teus conhecimentos</h2>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                Começa pelo próximo questionário disponível e acompanha o teu desempenho por disciplina.
+              </p>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-64">
+              <label htmlFor="simulation-discipline" className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Disciplina
+              </label>
+              <select
+                id="simulation-discipline"
+                value={simulationDisc}
+                onChange={(event) => setSimulationDisc(event.target.value)}
+                className="h-10 rounded-lg border border-indigo-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-white/10 dark:bg-slate-900 dark:text-white dark:focus:ring-indigo-500/30"
+              >
+                <option value="all">Todas as disciplinas</option>
+                {disciplineStats.map((discipline) => (
+                  <option key={discipline.id} value={discipline.id}>{discipline.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="relative z-10 mt-4 flex flex-col gap-3 rounded-xl border border-indigo-100 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.05] sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Prova disponível</p>
+              <p className="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">
+                {simulationQuiz?.title ?? "Nenhum questionário disponível"}
+              </p>
+              {simulationQuiz && <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{simulationQuiz.disciplineName} · {simulationQuiz.chapterTitle} · {getExamYear(simulationQuiz.title) ? `Prova ${getExamYear(simulationQuiz.title)}` : "Simulado"}</p>}
+            </div>
+            <button
+              type="button"
+              disabled={!simulationQuiz}
+              onClick={() => simulationQuiz && setModal({ type: "player", quiz: simulationQuiz, simulation: true })}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Play size={14} fill="currentColor" />
+              Começar prova · {simulationMinutes} min
+            </button>
           </div>
         </section>
 
@@ -572,7 +640,7 @@ export default function AvaliacoesClient({ profile, quizItems, disciplines }: Pr
             title={modal.quiz.title}
             disciplineName={modal.quiz.disciplineName}
             chapterTitle={modal.quiz.chapterTitle}
-            timeLimitSeconds={modal.quiz.timeLimitSecs}
+            timeLimitSeconds={modal.simulation ? (modal.quiz.timeLimitSecs ?? 120 * 60) : modal.quiz.timeLimitSecs}
             onClose={() => setModal(null)}
           />
         </ModalErrorBoundary>

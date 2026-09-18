@@ -54,16 +54,21 @@ export default function SectionCarousel({
       </div>
 
       <div className="relative">
-        {/* Fade esquerda */}
+        {/*
+          ── Fades suaves e semi-transparentes ──
+          • Mais estreitos: w-6 (24px) em vez de w-10 (40px)
+          • Gradiente com opacidade: 60% → 25% → 0%
+          → Os cards continuam visíveis ao passar por baixo,
+            o fade é só uma dica de que há mais conteúdo.
+        */}
         <div
-          className={`pointer-events-none absolute left-0 top-0 z-10 h-full w-10 bg-gradient-to-r from-slate-50 to-transparent transition-opacity duration-200 dark:from-[#050816] ${
+          className={`pointer-events-none absolute left-0 top-0 z-10 h-full w-6 bg-gradient-to-r from-slate-50/60 via-slate-50/25 to-transparent transition-opacity duration-200 dark:from-[#050816]/60 dark:via-[#050816]/25 ${
             canScrollLeft ? "opacity-100" : "opacity-0"
           }`}
         />
 
-        {/* Fade direita */}
         <div
-          className={`pointer-events-none absolute right-0 top-0 z-10 h-full w-10 bg-gradient-to-l from-slate-50 to-transparent transition-opacity duration-200 dark:from-[#050816] ${
+          className={`pointer-events-none absolute right-0 top-0 z-10 h-full w-6 bg-gradient-to-l from-slate-50/60 via-slate-50/25 to-transparent transition-opacity duration-200 dark:from-[#050816]/60 dark:via-[#050816]/25 ${
             canScrollRight ? "opacity-100" : "opacity-0"
           }`}
         />

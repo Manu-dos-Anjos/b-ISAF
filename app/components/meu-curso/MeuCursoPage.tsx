@@ -1036,7 +1036,7 @@ export default function MeuCursoPage({
     case "extra":
       return <Sparkles size={14} className="shrink-0 text-violet-500 dark:text-violet-400" />;
     case "upcoming":
-      return <Circle size={14} className="shrink-0 text-slate-400 dark:text-slate-500" />;
+      return <Circle size={14} className="shrink-0 text-slate-600 dark:text-slate-500" />;
   }
 };
 
@@ -1047,8 +1047,10 @@ export default function MeuCursoPage({
     extra:     "Cadeira extra",
   };
 
-  const goToDiscipline = (disciplineId: string) =>
-    router.push(`/disciplinas/${disciplineId}`);
+  const goToDiscipline = (disciplineId: string, topicId?: string) => {
+    const query = topicId ? `?openTopic=${encodeURIComponent(topicId)}` : "";
+    router.push(`/disciplinas/${disciplineId}${query}`);
+  };
 
   const goToScheduleDiscipline = (slot: WeeklySlot) => {
     const resolved = slot.disciplineSlug
@@ -1154,7 +1156,7 @@ export default function MeuCursoPage({
 const SelectWrap = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
   <div className={`relative ${className}`}>
     {children}
-    <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400" />
+    <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-400" />
   </div>
 );
 
@@ -1192,7 +1194,7 @@ const SelectWrap = ({ children, className = "" }: { children: ReactNode; classNa
           <div className="flex shrink-0 flex-col items-end text-right">
             <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl">
               {progress}
-              <span className="text-sm font-medium text-slate-400 dark:text-slate-400 sm:text-base">%</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400 sm:text-base">%</span>
             </p>
             <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 dark:text-slate-500 sm:text-[11px]">
               Progresso
@@ -1330,8 +1332,8 @@ const SelectWrap = ({ children, className = "" }: { children: ReactNode; classNa
                   </div>
                 </div>
                 {isExpanded
-                  ? <ChevronDown  size={16} className="shrink-0 text-slate-400" />
-                  : <ChevronRight size={16} className="shrink-0 text-slate-400" />
+                  ? <ChevronDown  size={16} className="shrink-0 text-slate-600 dark:text-slate-400" />
+                  : <ChevronRight size={16} className="shrink-0 text-slate-600 dark:text-slate-400" />
                 }
               </button>
 
@@ -1411,7 +1413,7 @@ const SelectWrap = ({ children, className = "" }: { children: ReactNode; classNa
                                   className={`shrink-0 transition-transform ${
                                     isSelected
                                       ? isExtraDisc ? "rotate-90 text-violet-500 dark:text-violet-400" : "rotate-90 text-indigo-500 dark:text-indigo-400"
-                                      : "text-slate-400 group-hover:text-slate-600 dark:text-slate-600 dark:group-hover:text-slate-400"
+                                      : "text-slate-600 group-hover:text-slate-700 dark:text-slate-600 dark:group-hover:text-slate-400"
                                   }`}
                                 />
                               </button>
@@ -1561,7 +1563,7 @@ const SelectWrap = ({ children, className = "" }: { children: ReactNode; classNa
                             <td className={`border-b border-r border-slate-200 px-3 py-3 align-middle dark:border-white/10 ${idx % 2 === 0 ? "bg-slate-50 dark:bg-white/[0.02]" : "bg-white dark:bg-white/[0.04]"}`}>
                               <div className="flex flex-col items-center leading-none">
                                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{period.startTime}</span>
-                                <span className="mt-1 text-xs text-slate-400 dark:text-slate-500">{period.endTime}</span>
+                                <span className="mt-1 text-xs text-slate-600 dark:text-slate-500">{period.endTime}</span>
                               </div>
                             </td>
                             {DAYS_ORDER.map((day) => {
@@ -1770,7 +1772,7 @@ function ManualScheduleEditor({
             {currentYear}º Ano · {currentSemester}º Semestre — selecciona a disciplina em cada tempo
           </p>
         </div>
-        <button type="button" onClick={onCancel} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300">
+        <button type="button" onClick={onCancel} className="rounded-lg p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300">
           <X size={18} />
         </button>
       </div>
@@ -2010,7 +2012,7 @@ function DisciplinePanel({
   status: DisciplineStatus;
   courseId: CourseId;
   onClose: () => void;
-  onGoToDiscipline: (disciplineId: string) => void;
+  onGoToDiscipline: (disciplineId: string, topicId?: string) => void;
 }) {
   const courseUUID     = COURSE_UUIDS[courseId];
   const disciplineCode = getDisciplineCodeFromId(discipline.id);
@@ -2040,9 +2042,9 @@ function DisciplinePanel({
 
   const activeChapter = chapters.find((ch) => ch.id === activeChapterId) ?? chapters[0] ?? null;
 
-  const openDiscipline = () => {
+  const openDiscipline = (topicId?: string) => {
     if (!result?.disciplineId) return;
-    onGoToDiscipline(result.disciplineId);
+    onGoToDiscipline(result.disciplineId, topicId);
   };
 
   const statusColors: Record<DisciplineStatus, string> = {
@@ -2140,13 +2142,13 @@ function DisciplinePanel({
           <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 p-5 text-center dark:border-white/10 dark:bg-white/[0.02]">
             <Layers size={24} className="mx-auto mb-2 text-slate-400 dark:text-slate-600" />
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Plano de estudo ainda não disponível</p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-600">Os capítulos e temas serão inseridos brevemente.</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-600">Os capítulos e temas serão inseridos brevemente.</p>
           </div>
 
           {isInteractive && (
             <button
               type="button"
-              onClick={openDiscipline}
+              onClick={() => openDiscipline()}
               className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${btnStyle}`}
             >
               <BookOpen size={14} />
@@ -2204,7 +2206,7 @@ function DisciplinePanel({
                 {isInteractive && (
                   <button
                     type="button"
-                    onClick={openDiscipline}
+                    onClick={() => openDiscipline()}
                     className={`shrink-0 rounded-lg border px-3 py-2 text-[11px] font-medium transition ${btnStyle}`}
                   >
                     Abrir disciplina
@@ -2221,7 +2223,7 @@ function DisciplinePanel({
                         <button
                           key={topic.id}
                           type="button"
-                          onClick={openDiscipline}
+                          onClick={() => openDiscipline(topic.id)}
                           className={`group flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 transition dark:border-white/5 dark:bg-black/10 dark:text-slate-300 ${topicHover}`}
                         >
                           <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${topicBadge}`}>
@@ -2235,7 +2237,7 @@ function DisciplinePanel({
                           key={topic.id}
                           className="flex min-h-[3.25rem] w-full items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500 dark:border-white/5 dark:bg-black/10 dark:text-slate-400"
                         >
-                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-400 dark:bg-white/5 dark:text-slate-600">
+                                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-600 dark:bg-white/5 dark:text-slate-600">
                             {topicIdx + 1}
                           </span>
                           <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{topic.title}</span>
@@ -2256,7 +2258,7 @@ function DisciplinePanel({
           {isInteractive && (
             <button
               type="button"
-              onClick={openDiscipline}
+              onClick={() => openDiscipline()}
               className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${btnStyle}`}
             >
               <BookOpen size={14} />
@@ -3508,7 +3510,7 @@ function ChapterBlock({ chapter, defaultOpen }: { chapter: RegChapter; defaultOp
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <ListTree size={15} className="shrink-0 text-indigo-500 dark:text-indigo-400" />
-          <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200">{chapter.title}</span>
+          <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-slate-800 dark:text-slate-200">{chapter.title}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/10 dark:text-slate-400">
@@ -3598,7 +3600,7 @@ function RegulationViewer({ doc, onBack }: { doc: RegulationDocument; onBack: ()
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/10 text-[9px] font-bold dark:bg-black/20">
                   {idx + 1}
                 </span>
-                <span className="max-w-[10rem] truncate">{ch.title.replace(/^Capítulo [IVX]+\s*—\s*/i, "")}</span>
+                <span className="max-w-[18rem] whitespace-normal break-words text-left leading-snug">{ch.title.replace(/^Capítulo [IVX]+\s*—\s*/i, "")}</span>
               </button>
             ))}
           </div>
@@ -3723,7 +3725,7 @@ function RegulamentosSection() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{meta.label}</p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-600">{meta.description}</p>
+                  <p className="text-[10px] text-slate-600 dark:text-slate-600">{meta.description}</p>
                 </div>
               </div>
 

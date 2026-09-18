@@ -396,7 +396,7 @@ export async function fetchQuizHistory(
       .order("attempted_at", {
         ascending: false,
       })
-      .limit(limit);
+      .limit(Math.max(limit * 3, 30));
 
   if (resultsError) {
     throw resultsError;
@@ -406,12 +406,23 @@ export async function fetchQuizHistory(
     return [];
   }
 
+  type QuizResultRow = {
+    content_id: string;
+  };
+
+  const quizResults = results as QuizResultRow[];
+
   /*
-   * Remove content_ids duplicados.
+   * Mantém apenas a tentativa mais recente de cada quiz.
+   * A consulta vem ordenada por attempted_at descendente.
    */
+  const latestResults = quizResults.filter((result, index) =>
+    quizResults.findIndex((candidate) => candidate.content_id === result.content_id) === index
+  );
+
   const contentIds = [
     ...new Set(
-      results.map(
+      latestResults.map(
         (result: any) => result.content_id
       )
     ),
@@ -465,7 +476,7 @@ export async function fetchQuizHistory(
   /*
    * 4. Combina resultados + conteúdos.
    */
-  return results
+  return latestResults
     .map((result: any) => {
       const content = contentsMap.get(
         result.content_id
@@ -530,5 +541,6 @@ export async function fetchQuizHistory(
         item
       ): item is UserQuizHistory =>
         item !== null
-    );
+      )
+      .slice(0, limit);
 }

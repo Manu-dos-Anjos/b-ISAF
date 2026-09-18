@@ -190,11 +190,12 @@ export function useScheduleInfo(
         disciplineNamesMatch(slot.discipline, disc.name)
       );
 
-      // ✅ Professor: horário do estudante tem prioridade sobre o Supabase
+      // Só exibe docentes informados no horário do estudante.
+      // O professor cadastrado na disciplina pode estar desatualizado.
       const professorFromSchedule =
         slots.find((s) => s.professor?.trim())?.professor?.trim() ?? null;
 
-      const professor = professorFromSchedule ?? disc.professor_name ?? null;
+      const professor = professorFromSchedule;
 
       // Próxima aula
       const nextClass = getNextClass(slots);
