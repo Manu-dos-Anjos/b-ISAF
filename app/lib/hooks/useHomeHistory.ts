@@ -37,17 +37,18 @@ export function useHomeHistory() {
       return;
     }
 
+    const studentId = profile.id;
     let cancelled = false;
 
-    (async () => {
+    async function loadHistory() {
       setLoading(true);
       try {
-        console.log("[useHomeHistory] a buscar histórico para:", profile.id);
+        console.log("[useHomeHistory] a buscar histórico para:", studentId);
 
         const [a, s, q] = await Promise.all([
-          fetchAudioHistory(supabase, profile.id),
-          fetchSlideHistory(supabase, profile.id),
-          fetchQuizHistory(supabase, profile.id),
+          fetchAudioHistory(supabase, studentId),
+          fetchSlideHistory(supabase, studentId),
+          fetchQuizHistory(supabase, studentId),
         ]);
 
         // LOG 2 — resultados crus
@@ -70,9 +71,19 @@ export function useHomeHistory() {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    }
 
-    return () => { cancelled = true; };
+    void loadHistory();
+
+    const refresh = () => void loadHistory();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("b-isaf:quiz-progress-updated", refresh);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("b-isaf:quiz-progress-updated", refresh);
+    };
   }, [profile?.id, userLoading, supabase]);
 
   return { audios, slides, quizzes, loading };

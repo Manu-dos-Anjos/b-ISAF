@@ -1,6 +1,6 @@
 "use client";
-
-import { useMemo, useState, type ReactNode } from "react";
+import { useAdmin } from "@/app/lib/hooks/useAdmin";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,7 +18,9 @@ import {
   ChevronUp,
   type LucideIcon,
 } from "lucide-react";
-
+import EventCard from "@/app/components/home/EventCard";
+import { useSupabase } from "@/app/lib/context/SupabaseContext";
+import { CATEGORY_META, type EventCategory } from "@/app/lib/events/classifyCategory";
 import AudioCard from "@/app/components/home/AudioCard";
 import SlideCard from "@/app/components/home/SlideCard";
 import QuizCard from "@/app/components/home/QuizCard";
@@ -258,6 +260,70 @@ function TutorBannerBody() {
   );
 }
 
+type HomeEvent = {
+  id: string;
+  title: string;
+  theme: string | null;
+  category: string;
+  date_start: string | null;
+  date_end: string | null;
+  time_label: string | null;
+  location: string | null;
+  image_url: string | null;
+};
+
+const ACCENT_DOT: Record<EventCategory, string> = {
+  formacao: "bg-blue-500",
+  palestra: "bg-violet-500",
+  financas: "bg-emerald-500",
+  empregabilidade: "bg-amber-500",
+  academico: "bg-indigo-500",
+  cultural: "bg-pink-500",
+  desporto: "bg-orange-500",
+  comunidade: "bg-slate-400",
+};
+
+const catOf = (c: string): EventCategory =>
+  c in CATEGORY_META ? (c as EventCategory) : "comunidade";
+
+const parseIso = (iso: string) => new Date(`${iso}T00:00:00`);
+
+const startOfToday = () => {
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  return t;
+};
+
+function fmtRangeEv(ev: HomeEvent): string {
+  if (!ev.date_start) return "Data a definir";
+  if (ev.date_end && ev.date_end !== ev.date_start) {
+    const f = (iso: string) =>
+      parseIso(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
+    return `${f(ev.date_start)} – ${f(ev.date_end)}`;
+  }
+  return parseIso(ev.date_start).toLocaleDateString("pt-PT", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function statusForEv(ev: HomeEvent): { label: string; className: string } | null {
+  const today = startOfToday().getTime();
+  const s = ev.date_start ? parseIso(ev.date_start).getTime() : null;
+  const e = ev.date_end ? parseIso(ev.date_end).getTime() : s;
+  if (s !== null && s !== e && today >= s && today <= (e ?? s))
+    return { label: "A decorrer", className: "bg-emerald-500" };
+  if (s !== null && today === s) return { label: "Hoje", className: "bg-amber-500" };
+  if (s !== null) {
+    const days = Math.round((s - today) / 86400000);
+    if (days === 1) return { label: "Amanhã", className: "bg-amber-500" };
+    if (days > 1 && days <= 7)
+      return { label: `Daqui a ${days} dias`, className: "bg-slate-500" };
+  }
+  return null;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const userContext = useUser();
@@ -267,12 +333,72 @@ export default function HomePage() {
 
   const { play } = useAudioPlayer();
 
+const { isAdmin, loading: adminLoading } = useAdmin();
+
+useEffect(() => {
+  if (!adminLoading && isAdmin) {
+    router.replace("/admin/eventos");
+  }
+}, [isAdmin, adminLoading, router]);
+
   const {
     audios: historicoAudios,
     slides: historicoSlides,
     quizzes: historicoQuizzes,
     loading,
   } = useHomeHistory();
+  
+      const { supabase } = useSupabase();
+  const [markedEvents, setMarkedEvents] = useState<HomeEvent[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMarked() {
+      const { data } = await supabase
+        .from("event_marks")
+        .select("event_id");
+
+      // Cast explícito → dá tipo contextual ao .map() (mata o ts7006)
+      const marks = (data ?? []) as { event_id: string }[];
+      const ids = marks.map((m) => m.event_id);
+
+      if (ids.length === 0) {
+        if (!cancelled) setMarkedEvents([]);
+        return;
+      }
+
+      const { data: evData } = await supabase
+        .from("events")
+        .select(
+          "id, title, theme, category, date_start, date_end, time_label, location, image_url"
+        )
+        .in("id", ids)
+        .eq("is_published", true);
+
+      if (cancelled) return;
+
+      const rows = (evData ?? []) as HomeEvent[];
+      const today = startOfToday().getTime();
+
+      const upcoming = rows
+        .filter((ev: HomeEvent) => {
+          const last = ev.date_end ?? ev.date_start;
+          if (!last) return true; // sem data = ainda não aconteceu
+          return parseIso(last).getTime() >= today;
+        })
+        .sort((a: HomeEvent, b: HomeEvent) =>
+          (a.date_start ?? "9999").localeCompare(b.date_start ?? "9999")
+        );
+
+      setMarkedEvents(upcoming);
+    }
+
+    void loadMarked();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user?.email]); // ← user?.email (AppUser não tem .id)
 
   const userName =
     profile?.full_name?.split(" ")[0] ||
@@ -618,6 +744,37 @@ export default function HomePage() {
       </>
 
       {/* ===================== CARROSSEIS ===================== */}
+
+            {/* ===================== EVENTOS MARCADOS ===================== */}
+      {markedEvents.length > 0 && (
+        <SectionCarousel title="Os teus eventos marcados">
+          {markedEvents.map((ev) => {
+            const cat = catOf(ev.category);
+            const d = ev.date_start ? parseIso(ev.date_start) : null;
+            return (
+              <EventCard
+                key={ev.id}
+                title={ev.title}
+                theme={ev.theme}
+                categoryLabel={CATEGORY_META[cat].label}
+                dotClass={ACCENT_DOT[cat]}
+                dateLabel={fmtRangeEv(ev)}
+                timeLabel={ev.time_label}
+                location={ev.location}
+                imageUrl={ev.image_url}
+                dayNum={d ? String(d.getDate()) : null}
+                monthShort={
+                  d
+                    ? d.toLocaleDateString("pt-PT", { month: "short" }).replace(".", "")
+                    : null
+                }
+                status={statusForEv(ev)}
+                onClick={() => router.push("/eventos")}
+              />
+            );
+          })}
+        </SectionCarousel>
+      )}
 
       {/* ÁUDIOS */}
       <SectionCarousel title="Continuar a ouvir">

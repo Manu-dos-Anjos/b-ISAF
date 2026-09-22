@@ -379,9 +379,7 @@ export async function fetchQuizHistory(
   studentId: string,
   limit = 10
 ): Promise<UserQuizHistory[]> {
-  /*
-   * 1. Busca os resultados dos quizzes.
-   */
+  /* Resultados concluídos e progresso parcial vivem em tabelas diferentes. */
   const { data: results, error: resultsError } =
     await supabase
       .from("quiz_results")
@@ -402,15 +400,23 @@ export async function fetchQuizHistory(
     throw resultsError;
   }
 
-  if (!results || results.length === 0) {
-    return [];
+  const { data: progressRows, error: progressError } = await supabase
+    .from("student_progress")
+    .select("content_id, progress_percent, updated_at, completed")
+    .eq("student_id", studentId)
+    .eq("completed", false)
+    .order("updated_at", { ascending: false })
+    .limit(Math.max(limit * 3, 30));
+
+  if (progressError) {
+    throw progressError;
   }
 
   type QuizResultRow = {
     content_id: string;
   };
 
-  const quizResults = results as QuizResultRow[];
+  const quizResults = (results ?? []) as QuizResultRow[];
 
   /*
    * Mantém apenas a tentativa mais recente de cada quiz.
@@ -421,12 +427,13 @@ export async function fetchQuizHistory(
   );
 
   const contentIds = [
-    ...new Set(
-      latestResults.map(
-        (result: any) => result.content_id
-      )
-    ),
+    ...new Set([
+      ...latestResults.map((result: any) => result.content_id),
+      ...(progressRows ?? []).map((row: any) => row.content_id),
+    ]),
   ];
+
+  if (contentIds.length === 0) return [];
 
   /*
    * 2. Busca os conteúdos dos quizzes.
@@ -473,14 +480,19 @@ export async function fetchQuizHistory(
     )
   );
 
-  /*
-   * 4. Combina resultados + conteúdos.
-   */
-  return latestResults
-    .map((result: any) => {
-      const content = contentsMap.get(
-        result.content_id
-      );
+  const resultsMap = new Map(
+    latestResults.map((result: any) => [result.content_id, result])
+  );
+  const progressMap = new Map(
+    (progressRows ?? []).map((row: any) => [row.content_id, row])
+  );
+
+  /* Combina cada quiz com o resultado final ou com o progresso parcial. */
+  return contentIds
+    .map((contentId) => {
+      const result = resultsMap.get(contentId);
+      const progress = progressMap.get(contentId);
+      const content = contentsMap.get(contentId);
 
       if (
         !content?.chapter?.discipline
@@ -491,27 +503,16 @@ export async function fetchQuizHistory(
       const disciplina =
         content.chapter.discipline;
 
-      const correctAnswers = Number(
-        result.correct_answers ?? 0
+      const emAndamento = !result;
+      const totalQuestions = Math.max(1, Number(result?.total_questions ?? 0));
+      const progressPercent = Math.max(
+        0,
+        Math.min(100, Number(progress?.progress_percent ?? 0))
       );
-
-      const totalQuestions = Math.max(
-        1,
-        Number(result.total_questions ?? 0)
-      );
-
-      /*
-       * Não existe atualmente um campo "completed"
-       * na query de quiz_results.
-       *
-       * Portanto, consideramos em andamento quando
-       * o resultado ainda não atingiu todas as perguntas.
-       */
-      const emAndamento =
-        correctAnswers < totalQuestions;
+      const correctAnswers = Number(result?.correct_answers ?? 0);
 
       return {
-        id: result.id,
+        id: result?.id ?? `progress-${contentId}`,
 
         contentId: result.content_id,
 
@@ -521,14 +522,12 @@ export async function fetchQuizHistory(
 
         tituloQuiz: content.title,
 
-        pontuacao: correctAnswers,
+        pontuacao: emAndamento ? progressPercent : correctAnswers,
 
         totalPerguntas: totalQuestions,
 
         dataConclusao:
-          formatRelative(
-            result.attempted_at
-          ),
+          formatRelative(result?.attempted_at ?? progress?.updated_at),
 
         thumbnail:
           disciplina.cover_image_url ?? null,
@@ -542,5 +541,10 @@ export async function fetchQuizHistory(
       ): item is UserQuizHistory =>
         item !== null
       )
+      .sort((a, b) => {
+        const aDate = resultsMap.get(a.contentId)?.attempted_at ?? progressMap.get(a.contentId)?.updated_at;
+        const bDate = resultsMap.get(b.contentId)?.attempted_at ?? progressMap.get(b.contentId)?.updated_at;
+        return new Date(bDate ?? 0).getTime() - new Date(aDate ?? 0).getTime();
+      })
       .slice(0, limit);
 }

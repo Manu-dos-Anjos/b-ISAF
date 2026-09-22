@@ -67,6 +67,7 @@ const STEP_LABELS: Record<1 | 2 | 3, string> = {
 };
 
 const ISAF_DOMAIN = "isaf.co.ao";
+const ROLE_STORAGE_KEY = "b-isaf:role";
 
 /* ================================================================
    TIPOS
@@ -113,6 +114,26 @@ function studentNumberToEmail(studentNumber: string): string {
 function isIsafEmail(email: string): boolean {
   const [local, domain] = email.trim().toLowerCase().split("@");
   return Boolean(local) && domain === ISAF_DOMAIN;
+}
+
+/**
+ * Decide o destino após autenticação.
+ * - Admin/Superadmin → sempre `/admin/eventos` (role vence).
+ * - Caso contrário → `?next=` se for um destino "real" (≠ `/`); senão `/`.
+ */
+function resolveDestination(role: string | null, explicitNext: string | null): string {
+  const isAdminRole = role === "admin" || role === "superadmin";
+  if (isAdminRole) return "/admin/eventos";
+  return explicitNext && explicitNext !== "/" ? explicitNext : "/";
+}
+
+/** Persiste o role em localStorage para que a home saiba sincronamente quem é o utilizador. */
+function persistRole(role: string | null | undefined): void {
+  try {
+    if (role) localStorage.setItem(ROLE_STORAGE_KEY, role);
+  } catch {
+    /* ignore */
+  }
 }
 
 function getErrorMessage(err: unknown): string {
@@ -276,7 +297,7 @@ function LeftPanel() {
 
         <div className="flex items-center justify-between border-t border-white/10 pt-5">
           <p className="text-[11px] text-slate-500">
-            © {new Date().getFullYear()} Manuel dos Anjos Quiconda João · Angola
+            © {new Date().getFullYear()} Todos os direitos reservados · Angola
           </p>
           <div className="flex gap-3.5 text-[11px] text-slate-600">
             {["Privacidade", "Termos", "Suporte"].map((t) => (
@@ -539,15 +560,32 @@ function LoginPageContent() {
     try {
       const email = studentNumberToEmail(studentNumber);
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password: loginPassword,
       });
 
       if (error) throw error;
+      if (!authData.user) throw new Error("Utilizador não encontrado.");
 
-      const next = searchParams.get("next") ?? "/";
-      router.push(next);
+      // Ler o papel
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", authData.user.id)
+        .maybeSingle();
+      const role = (prof?.role as string | null) ?? "student";
+      const isAdminRole = role === "admin" || role === "superadmin";
+
+      // Persistir o role → a home sabe sincronamente quem és (sem flash)
+      persistRole(role);
+
+      // next só vence se NÃO for a home; para admin o role vence sempre
+      const explicitNext = searchParams.get("next");
+      const destination = resolveDestination(role, explicitNext);
+
+      // replace (não push) → sem home no histórico
+      router.replace(destination);
       router.refresh();
     } catch (err: unknown) {
       if (isMountedRef.current) setError(getErrorMessage(err));
@@ -691,7 +729,20 @@ function LoginPageContent() {
           console.error("Falha ao atualizar perfil após registo:", profileErr);
         }
 
-        router.push(searchParams.get("next") ?? "/");
+        // ── Redirecionamento por papel (mesma lógica do login) ──
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+        const role = (prof?.role as string | null) ?? "student";
+
+        persistRole(role);
+
+        const explicitNext = searchParams.get("next");
+        const destination = resolveDestination(role, explicitNext);
+
+        router.replace(destination);
         router.refresh();
       } else if (isMountedRef.current) {
         setMode("login");

@@ -3,34 +3,11 @@
 
 import Image from "next/image";
 import {
-  Search,
-  SlidersHorizontal,
-  Bell,
-  Menu,
-  X,
-  BookOpen,
-  Headphones,
-  FileText,
-  Trophy,
-  Clock,
-  Users,
-  Loader2,
-  Inbox,
-  Megaphone,
-  ChevronDown,
-  ChevronLeft,
-  Mail,
-  Shield,
-  PencilLine,
-  LogOut,
-  Check,
-  Camera,
-  AlertCircle,
-  ChevronRight,
-  RefreshCw,
-  Sun,
-  Moon,
-  ArrowRight,
+  Search, SlidersHorizontal, Bell, Menu, X, BookOpen, Headphones,
+  FileText, Trophy, Clock, Users, Loader2, Inbox, Megaphone,
+  ChevronDown, ChevronLeft, Mail, Shield, PencilLine, LogOut, Check,
+  Camera, AlertCircle, ChevronRight, RefreshCw, Sun, Moon, ArrowRight,
+  Calendar,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
@@ -64,24 +41,32 @@ export type ProfileUpdatePayload = {
 
 export type SearchResult = {
   id: string;
-  type: "audio" | "slide" | "quiz";
+  type: "audio" | "slide" | "quiz" | "event";
   title: string;
-  disciplineId: string;
-  disciplineName: string;
-  chapterTitle: string;
-  topicTitle: string;
+  isEvent?: boolean;
+  disciplineId?: string;
+  disciplineName?: string;
+  chapterTitle?: string;
+  topicTitle?: string;
   fileUrl?: string | null;
   durationSeconds?: number | null;
+  dateStart?: string | null;
+  timeLabel?: string | null;
+  location?: string | null;
+  category?: string;
+  theme?: string | null;
+  imageUrl?: string | null;
 };
 
 export type HeaderNotification = {
   id: string;
-  type: "quiz" | "audio" | "slide" | "default";
+  type: "quiz" | "audio" | "slide" | "default" | "event";
   title: string;
   time: string;
   createdAt: string;
   read: boolean;
   contentId?: string;
+  eventId?: string;
 };
 
 export type HeaderProps = {
@@ -107,7 +92,8 @@ type ProfileDraft = { fullName: string; bio: string };
    CONSTANTES
 ================================================================ */
 const FILTER_OPTIONS = [
-  { id: "all",         label: "Todos",         icon: BookOpen,   color: "text-slate-500",    description: "Todos os conteúdos" },
+  { id: "all",         label: "Todos",         icon: BookOpen,   color: "text-slate-500",    description: "Todos os conteúdos e eventos" },
+  { id: "events",      label: "Eventos",       icon: Calendar,   color: "text-amber-500",    description: "Palestras, formações e iniciativas" },
   { id: "disciplinas", label: "Disciplinas",   icon: BookOpen,   color: "text-blue-500",    description: "Encontre por matéria" },
   { id: "slides",      label: "Slides",        icon: FileText,   color: "text-emerald-500", description: "Apresentações de aulas" },
   { id: "audios",      label: "Áudios",        icon: Headphones, color: "text-purple-500",  description: "Resumos e podcasts" },
@@ -129,6 +115,7 @@ const ROLE_BADGE: Record<UserRole, string> = {
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_FILE_SIZE_MB = 2;
 const READ_NOTIFICATIONS_KEY = "b-isaf:header:read-notifications:v1";
+const ROLE_STORAGE_KEY = "b-isaf:role";
 
 const SCROLLBAR_THIN = "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-300/60 hover:scrollbar-thumb-slate-400/80 dark:scrollbar-thumb-slate-700/40 dark:hover:scrollbar-thumb-slate-600/60 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/60 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/80 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/40 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60";
 
@@ -148,6 +135,7 @@ function getNotifIcon(type?: string) {
     case "quiz":   return Trophy;
     case "audio":  return Headphones;
     case "slide":  return FileText;
+    case "event":  return Calendar;
     case "class":  return Clock;
     case "invite": return Users;
     default:       return Bell;
@@ -238,31 +226,40 @@ const ProfileView = memo(function ProfileView({
         </div>
       </div>
       <div className="px-4 py-3">
-        <p className="mb-2 text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">Dados Académicos</p>
-        <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-          {[
-            { label: "Curso", value: user.course },
-            { label: "Ano", value: `${user.academicYear}º ano` },
-            { label: "Semestre", value: `${user.semester}º semestre` },
-            { label: "Nº aluno", value: user.studentNumber ?? "—" },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
-              <span className="block text-slate-500">{label}</span>
-              <span className="mt-0.5 block truncate font-medium text-slate-800 dark:text-slate-100">{value}</span>
+        {/* Dados Académicos — SÓ para estudantes/professores */}
+        {user.role !== "admin" && (
+          <>
+            <p className="mb-2 text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-500">
+              Dados Académicos
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+              {[
+                { label: "Curso",     value: user.course },
+                { label: "Ano",       value: `${user.academicYear}º ano` },
+                { label: "Semestre",  value: `${user.semester}º semestre` },
+                { label: "Nº aluno",  value: user.studentNumber ?? "—" },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-white/10 dark:bg-white/5">
+                  <span className="block text-slate-500">{label}</span>
+                  <span className="mt-0.5 block truncate font-medium text-slate-800 dark:text-slate-100">{value}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-[10px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-300">
-          <Shield size={11} className="mt-0.5 shrink-0" />
-          <span>Dados académicos são geridos pela secretaria e não podem ser alterados aqui.</span>
-        </div>
+            <div className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-[10px] text-amber-700 dark:border-amber-500/15 dark:bg-amber-500/[0.08] dark:text-amber-300">
+              <Shield size={11} className="mt-0.5 shrink-0" />
+              <span>Dados académicos são geridos pela secretaria e não podem ser alterados aqui.</span>
+            </div>
+          </>
+        )}
+
         {profileSuccess && (
           <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-2 text-[10px] text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
             <Check size={11} className="shrink-0" />
             {profileSuccess}
           </div>
         )}
-        <div className="mt-3 flex gap-1.5">
+
+        <div className={`flex gap-1.5 ${user.role !== "admin" ? "mt-3" : ""}`}>
           <button type="button" onClick={onEdit} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-2 text-xs font-medium text-white transition hover:bg-blue-500">
             <PencilLine size={13} /> Editar perfil
           </button>
@@ -348,22 +345,29 @@ const ProfileEdit = memo(function ProfileEdit({
           className="w-full resize-none rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-600" />
         <p className={`mt-0.5 text-right text-[9px] transition ${bioLength > 140 ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-slate-600"}`}>{bioLength}/160</p>
       </div>
-      <div>
-        <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-600">Campos bloqueados</p>
-        <div className="grid grid-cols-2 gap-1.5 text-[10px] opacity-70 dark:opacity-60">
-          {[
-            { label: "Curso", value: user.course },
-            { label: "Ano", value: `${user.academicYear}º ano` },
-            { label: "Semestre", value: `${user.semester}º semestre` },
-            { label: "Perfil", value: ROLE_LABELS[user.role] },
-          ].map(({ label, value }) => (
-            <div key={label} className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-white/5 dark:bg-white/[0.03]">
-              <span className="block text-slate-500 dark:text-slate-600">{label}</span>
-              <span className="mt-0.5 block truncate font-medium text-slate-600 dark:text-slate-400">{value}</span>
-            </div>
-          ))}
+
+      {/* Campos bloqueados — SÓ para estudantes/professores */}
+      {user.role !== "admin" && (
+        <div>
+          <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-600">
+            Campos bloqueados
+          </p>
+          <div className="grid grid-cols-2 gap-1.5 text-[10px] opacity-70 dark:opacity-60">
+            {[
+              { label: "Curso",     value: user.course },
+              { label: "Ano",       value: `${user.academicYear}º ano` },
+              { label: "Semestre",  value: `${user.semester}º semestre` },
+              { label: "Perfil",    value: ROLE_LABELS[user.role] },
+            ].map(({ label, value }) => (
+              <div key={label} className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-white/5 dark:bg-white/[0.03]">
+                <span className="block text-slate-500 dark:text-slate-600">{label}</span>
+                <span className="mt-0.5 block truncate font-medium text-slate-600 dark:text-slate-400">{value}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
       {profileError && (
         <div className="flex items-start gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
           <AlertCircle size={11} className="mt-0.5 shrink-0" /> {profileError}
@@ -427,6 +431,76 @@ const ProfileEmpty = memo(function ProfileEmpty() {
     </div>
   );
 });
+
+/* ================================================================
+   RENDER RESULTADO DE PESQUISA (partilhado)
+================================================================ */
+function SearchResultRow({
+  result,
+  onClick,
+}: {
+  result: SearchResult;
+  onClick: (r: SearchResult) => void;
+}) {
+  const Icon = result.isEvent
+    ? Calendar
+    : result.type === "audio"
+      ? Headphones
+      : result.type === "slide"
+        ? FileText
+        : Trophy;
+
+  const iconBg = result.isEvent
+    ? "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300"
+    : result.type === "audio"
+      ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"
+      : result.type === "slide"
+        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300"
+        : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300";
+
+  const subtitle = result.isEvent
+    ? [
+        result.dateStart
+          ? new Date(`${result.dateStart}T00:00:00`).toLocaleDateString("pt-PT", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "Data a definir",
+        result.timeLabel,
+        result.location,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : [result.disciplineName, result.chapterTitle, result.topicTitle]
+        .filter(Boolean)
+        .join(" · ");
+
+  return (
+    <button
+      key={`${result.type}-${result.id}`}
+      type="button"
+      onClick={() => onClick(result)}
+      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"
+    >
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconBg}`}>
+        <Icon size={15} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-slate-800 dark:text-slate-100">
+          {result.title}
+          {result.isEvent && (
+            <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+              Evento
+            </span>
+          )}
+        </p>
+        <p className="truncate text-[11px] text-slate-500">{subtitle}</p>
+      </div>
+      <ArrowRight size={13} className="shrink-0 text-slate-400" />
+    </button>
+  );
+}
 
 /* ================================================================
    HEADER PRINCIPAL
@@ -496,7 +570,7 @@ const Header = memo(function Header({
   }, []);
 
   /* ================================================================
-     PESQUISA REAL
+     PESQUISA REAL (conteúdos + eventos)
   ================================================================ */
   const performSearch = useCallback(async (query: string, filter: string) => {
     const term = query.trim().toLowerCase();
@@ -507,36 +581,55 @@ const Header = memo(function Header({
     }
     setSearchLoading(true);
     setSearchOpen(true);
+
     try {
       let typeFilter = "";
       if (filter === "slides") typeFilter = "slide";
       if (filter === "audios") typeFilter = "audio";
       if (filter === "quizzes") typeFilter = "quiz";
 
-      let queryBuilder = supabase
-        .from("contents")
-        .select(`
-          id, type, title, file_url, duration_seconds, is_active,
-          topic:topics!inner (
-            id, title,
-            chapter:chapters!inner (
-              id, title,
-              discipline:disciplines!inner (id, name)
-            )
-          )
-        `)
-        .eq("is_active", true)
-        .ilike("title", `%${term}%`)
-        .limit(20);
+      const runContentSearch = filter !== "events";
+      const runEventSearch   = filter === "all" || filter === "events";
 
-      if (typeFilter) queryBuilder = queryBuilder.eq("type", typeFilter);
+      const [contentResult, eventResult] = await Promise.all([
+        runContentSearch
+          ? (async () => {
+              let qb = supabase
+                .from("contents")
+                .select(`
+                  id, type, title, file_url, duration_seconds, is_active,
+                  topic:topics!inner (
+                    id, title,
+                    chapter:chapters!inner (
+                      id, title,
+                      discipline:disciplines!inner (id, name)
+                    )
+                  )
+                `)
+                .eq("is_active", true)
+                .ilike("title", `%${term}%`)
+                .limit(15);
+              if (typeFilter) qb = qb.eq("type", typeFilter);
+              return qb;
+            })()
+          : Promise.resolve({ data: null, error: null }),
 
-      const { data, error } = await queryBuilder;
-      if (error) throw error;
+        runEventSearch
+          ? supabase
+              .from("events")
+              .select("id, title, theme, description, date_start, time_label, location, category, image_url, is_published")
+              .eq("is_published", true)
+              .or(
+                `title.ilike.%${term}%,description.ilike.%${term}%,location.ilike.%${term}%,theme.ilike.%${term}%`
+              )
+              .order("date_start", { ascending: true, nullsFirst: false })
+              .limit(10)
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
-      const results: SearchResult[] = (data ?? [])
-        .filter((c: any) => c.topic?.chapter?.discipline)
-        .map((c: any) => ({
+      const contentRows: SearchResult[] = ((contentResult.data ?? []) as any[])
+        .filter((c) => c.topic?.chapter?.discipline)
+        .map((c) => ({
           id: c.id,
           type: c.type,
           title: c.title,
@@ -548,7 +641,22 @@ const Header = memo(function Header({
           durationSeconds: c.duration_seconds,
         }));
 
-      setSearchResults(results);
+      const eventRows: SearchResult[] = ((eventResult.data ?? []) as any[]).map(
+        (e) => ({
+          id: e.id,
+          type: "event",
+          isEvent: true,
+          title: e.title,
+          dateStart: e.date_start,
+          timeLabel: e.time_label,
+          location: e.location,
+          category: e.category,
+          theme: e.theme,
+          imageUrl: e.image_url,
+        })
+      );
+
+      setSearchResults([...eventRows, ...contentRows]);
     } catch (err) {
       console.error("Erro na pesquisa:", err);
       setSearchResults([]);
@@ -578,6 +686,82 @@ const Header = memo(function Header({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchOpen]);
+
+  /* ================================================================
+     NOTIFICAÇÕES DE EVENTOS MARCADOS
+  ================================================================ */
+  const fetchEventNotifs = useCallback(async () => {
+    const { data: marks } = await supabase.from("event_marks").select("event_id");
+    const ids = ((marks ?? []) as { event_id: string }[]).map((m) => m.event_id);
+    if (ids.length === 0) return [];
+
+    const { data } = await supabase
+      .from("events")
+      .select("id, title, date_start, date_end, time_label, location, is_published")
+      .in("id", ids)
+      .eq("is_published", true);
+
+    const events = (data ?? []) as {
+      id: string;
+      title: string;
+      date_start: string | null;
+      date_end: string | null;
+      time_label: string | null;
+      location: string | null;
+      is_published: boolean;
+    }[];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayMs = today.getTime();
+
+    const notifs: HeaderNotification[] = [];
+
+    for (const ev of events) {
+      if (!ev.date_start) continue;
+      const start = new Date(`${ev.date_start}T00:00:00`);
+      const end = ev.date_end ? new Date(`${ev.date_end}T00:00:00`) : start;
+      const startMs = start.getTime();
+      const endMs = end.getTime();
+
+      if (todayMs > endMs) continue;
+
+      let title = "";
+      let createdAt = start.toISOString();
+
+      if (startMs === todayMs && endMs === todayMs) {
+        title = `Hoje${ev.time_label ? ` às ${ev.time_label}` : ""}: ${ev.title}`;
+        createdAt = new Date().toISOString();
+      } else if (startMs <= todayMs && endMs >= todayMs && startMs < endMs) {
+        title = `A decorrer: ${ev.title}`;
+        createdAt = new Date().toISOString();
+      } else {
+        const daysUntil = Math.round((startMs - todayMs) / 86400000);
+        if (daysUntil === 1) {
+          title = `Amanhã${ev.time_label ? ` às ${ev.time_label}` : ""}: ${ev.title}`;
+        } else if (daysUntil <= 7) {
+          title = `Daqui a ${daysUntil} dias: ${ev.title}`;
+        } else {
+          continue;
+        }
+      }
+
+      if (ev.location) title += ` · ${ev.location}`;
+
+      const id = `event-${ev.id}`;
+      notifs.push({
+        id,
+        type: "event",
+        title,
+        time: formatRelativeTime(createdAt),
+        createdAt,
+        read: readNotificationIds.has(id),
+        eventId: ev.id,
+      });
+    }
+
+    return notifs;
+  }, [supabase, readNotificationIds]);
 
   /* ================================================================
      NOTIFICAÇÕES REAIS
@@ -634,7 +818,13 @@ const Header = memo(function Header({
       }
 
       notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setNotifications(notifs.slice(0, 15));
+
+      const eventNotifs = await fetchEventNotifs();
+
+      const all = [...eventNotifs, ...notifs];
+      all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setNotifications(all.slice(0, 20));
       setNotifLoadedOnce(true);
     } catch (err) {
       console.error("Erro ao carregar notificações:", err);
@@ -642,7 +832,7 @@ const Header = memo(function Header({
     } finally {
       setNotifLoading(false);
     }
-  }, [supabase, profile?.id, user?.id, readNotificationIds]);
+  }, [supabase, profile?.id, user?.id, readNotificationIds, fetchEventNotifs]);
 
   useEffect(() => {
     if (notifOpen) void fetchNotifs();
@@ -779,7 +969,11 @@ const Header = memo(function Header({
 
   const handleLogout = async () => {
     setLoggingOut(true);
-    try { await onLogout?.(); } finally {
+    try {
+      await onLogout?.();
+    } finally {
+      // Limpar o role persistido — evita splash de admin em logins seguintes como estudante
+      try { localStorage.removeItem(ROLE_STORAGE_KEY); } catch { /* ignore */ }
       setLoggingOut(false);
       router.replace("/login");
     }
@@ -803,7 +997,14 @@ const Header = memo(function Header({
     setFilterOpen(false);
     setMobileSearchOpen(false);
     onSearchChange("");
-    router.push(`/disciplinas/${result.disciplineId}?open${result.type === "quiz" ? "Quiz" : "Slide"}=${result.id}`);
+
+    if (result.isEvent) {
+      router.push(`/eventos?open=${result.id}`);
+      return;
+    }
+    router.push(
+      `/disciplinas/${result.disciplineId}?open${result.type === "quiz" ? "Quiz" : "Slide"}=${result.id}`
+    );
   };
 
   /* ================================================================
@@ -831,7 +1032,7 @@ const Header = memo(function Header({
               <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input type="text" value={searchQuery} onChange={(e) => onSearchChange(e.target.value)}
                 onFocus={() => searchQuery.trim().length >= 2 && setSearchOpen(true)}
-                placeholder="Pesquisar conteúdos..."
+                placeholder="Pesquisar conteúdos e eventos..."
                 className="h-9 w-full rounded-full border border-slate-300 bg-white pl-9 pr-11 text-xs text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-800" />
               <button type="button" onClick={() => { setFilterOpen(!filterOpen); setNotifOpen(false); setProfileOpen(false); }}
                 className={`absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full transition ${filterOpen ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"}`}
@@ -882,25 +1083,9 @@ const Header = memo(function Header({
                     </div>
                   ) : (
                     <div className="p-1.5">
-                      {searchResults.map((result) => {
-                        const Icon = result.type === "audio" ? Headphones : result.type === "slide" ? FileText : Trophy;
-                        return (
-                          <button key={`${result.type}-${result.id}`} type="button" onClick={() => handleResultClick(result)}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800">
-                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
-                              result.type === "audio" ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"
-                              : result.type === "slide" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300"
-                              : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300"}`}>
-                              <Icon size={15} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-slate-800 dark:text-slate-100">{result.title}</p>
-                              <p className="truncate text-[11px] text-slate-500">{result.disciplineName} · {result.chapterTitle} · {result.topicTitle}</p>
-                            </div>
-                            <ArrowRight size={13} className="shrink-0 text-slate-400" />
-                          </button>
-                        );
-                      })}
+                      {searchResults.map((result) => (
+                        <SearchResultRow key={`${result.type}-${result.id}`} result={result} onClick={handleResultClick} />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -973,11 +1158,29 @@ const Header = memo(function Header({
                         <button
                           key={n.id}
                           type="button"
-                          onClick={() => markNotificationRead(n.id)}
+                          onClick={() => {
+                            markNotificationRead(n.id);
+                            if (n.type === "event") {
+                              setNotifOpen(false);
+                              router.push("/eventos");
+                            }
+                          }}
                           className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-none transition dark:border-white/10 ${!n.read ? "bg-blue-50/50 dark:bg-blue-950/20" : ""} hover:bg-slate-50 dark:hover:bg-slate-800/60`}
                         >
-                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                            <Icon size={15} className="text-slate-500 dark:text-slate-400" />
+                          <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                            n.type === "event"
+                              ? "bg-amber-100 dark:bg-amber-500/15"
+                              : n.type === "quiz"
+                                ? "bg-amber-50 dark:bg-amber-500/10"
+                                : n.type === "slide"
+                                  ? "bg-emerald-50 dark:bg-emerald-500/10"
+                                  : "bg-slate-100 dark:bg-slate-800"
+                          }`}>
+                            <Icon size={15} className={
+                              n.type === "event"
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-slate-500 dark:text-slate-400"
+                            } />
                           </div>
                           <div className="flex-1">
                             <p className="text-xs font-medium leading-snug text-slate-800 dark:text-slate-100">{n.title}</p>
@@ -1058,7 +1261,7 @@ const Header = memo(function Header({
             <input ref={mobileSearchInputRef} type="text" inputMode="search" enterKeyHint="search"
               value={searchQuery} onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") mobileSearchInputRef.current?.blur(); }}
-              placeholder="Pesquisar conteúdos..."
+              placeholder="Pesquisar conteúdos e eventos..."
               className="h-10 w-full rounded-full border border-slate-300 bg-slate-50 pl-9 pr-9 text-xs text-slate-800 outline-none placeholder:text-slate-400 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500" />
             {searchQuery && (
               <button type="button" onClick={() => { onSearchChange(""); mobileSearchInputRef.current?.focus(); }}
@@ -1107,25 +1310,9 @@ const Header = memo(function Header({
             ) : null
           ) : (
             <div className="p-1.5">
-              {searchResults.map((result) => {
-                const Icon = result.type === "audio" ? Headphones : result.type === "slide" ? FileText : Trophy;
-                return (
-                  <button key={`${result.type}-${result.id}`} type="button" onClick={() => handleResultClick(result)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800">
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
-                      result.type === "audio" ? "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"
-                      : result.type === "slide" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300"}`}>
-                      <Icon size={15} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-slate-800 dark:text-slate-100">{result.title}</p>
-                      <p className="truncate text-[11px] text-slate-500">{result.disciplineName} · {result.chapterTitle} · {result.topicTitle}</p>
-                    </div>
-                    <ArrowRight size={13} className="shrink-0 text-slate-400" />
-                  </button>
-                );
-              })}
+              {searchResults.map((result) => (
+                <SearchResultRow key={`${result.type}-${result.id}`} result={result} onClick={handleResultClick} />
+              ))}
             </div>
           )}
         </div>

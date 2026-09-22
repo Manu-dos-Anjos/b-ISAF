@@ -49,16 +49,8 @@ import { MathText } from "@/app/components/quiz/MathText";
 import { GraphSVG } from "@/app/components/quiz/GraphSVG";
 import type { GraphConfig } from "@/app/components/quiz/GraphSVG";
 
-/* ================================================================
-   CONFIG
-   ================================================================ */
-
 const QUESTIONS_PER_ATTEMPT = 20;
 const HISTORY_LOOKBACK = 50;
-
-/* ================================================================
-   TIPOS
-   ================================================================ */
 
 export type QuizAnswerOption = {
   id: string;
@@ -66,10 +58,9 @@ export type QuizAnswerOption = {
   is_correct: boolean;
   order_index: number;
   feedback: string | null;
-  metadata: AnswerMetadata | null; // 👈 novo
+  metadata: AnswerMetadata | null;
 };
 
-// Novo tipo (pode ser importado de GraphViewer)
 export type AnswerMetadata = {
   graph?: GraphConfig;
   image_url?: string;
@@ -146,10 +137,6 @@ type UiPrefs = {
   isWide: boolean;
   isFullscreen: boolean;
 };
-
-/* ================================================================
-   HELPERS
-   ================================================================ */
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -294,10 +281,6 @@ function writeUiPrefs(contentId: string, prefs: UiPrefs) {
   }
 }
 
-/* ================================================================
-   BADGE DE TIPO DE PERGUNTA
-   ================================================================ */
-
 function QuestionKindBadge({ info }: { info: QuestionKindInfo }) {
   const Icon =
     info.kind === "true_false"
@@ -323,10 +306,6 @@ function QuestionKindBadge({ info }: { info: QuestionKindInfo }) {
   );
 }
 
-/* ================================================================
-   PROPS
-   ================================================================ */
-
 type Props = {
   contentId: string;
   title: string;
@@ -335,10 +314,6 @@ type Props = {
   timeLimitSeconds?: number | null;
   onClose: () => void;
 };
-
-/* ================================================================
-   COMPONENTE
-   ================================================================ */
 
 export default function QuizPlayer({
   contentId,
@@ -586,7 +561,7 @@ export default function QuizPlayer({
         const { data: answerRows, error: answerError } = questionIds.length
           ? await supabase
               .from("quiz_answers")
-.select("id, question_id, answer_text, is_correct, order_index, feedback, metadata")
+              .select("id, question_id, answer_text, is_correct, order_index, feedback, metadata")
               .in("question_id", questionIds)
               .eq("is_active", true)
               .order("order_index")
@@ -943,8 +918,6 @@ export default function QuizPlayer({
   const questionKind = currentQ ? getQuestionKind(currentQ) : null;
   const isMultiSelect = questionKind?.kind === "multiple_select";
 
-  // 🔒 Uma vez escolhida uma opção (pergunta directa / V-F), a resposta fica bloqueada.
-  // Para seleção múltipla, o bloqueio só acontece depois de "Confirmar respostas".
   const isOptionsLocked = currentQ
     ? isMultiSelect
       ? confirmedQuestions.has(currentQ.id)
@@ -1070,8 +1043,8 @@ export default function QuizPlayer({
           isFullscreen
             ? "h-[100dvh] w-[100vw] rounded-none"
             : isWide
-            ? "h-[96dvh] w-full rounded-t-3xl sm:h-[94dvh] sm:w-[min(96vw,1600px)] sm:rounded-3xl"
-            : "h-[95dvh] w-full rounded-t-3xl sm:h-[92dvh] sm:w-[min(92vw,1100px)] sm:max-w-2xl sm:rounded-3xl lg:max-w-3xl"
+            ? "h-[96dvh] w-full rounded-t-3xl md:rounded-t-2xl sm:h-[94dvh] sm:w-[min(96vw,1600px)] md:w-[min(94vw,1480px)] sm:rounded-3xl md:rounded-2xl"
+            : "h-[95dvh] w-full rounded-t-3xl md:rounded-t-2xl sm:h-[92dvh] sm:w-[min(92vw,1100px)] md:w-[min(90vw,1020px)] sm:max-w-2xl md:max-w-[42rem] sm:rounded-3xl md:rounded-2xl lg:max-w-3xl md:max-w-[44rem]"
         }`}
       >
         <div className="flex justify-center pt-3 sm:hidden">
@@ -1079,8 +1052,8 @@ export default function QuizPlayer({
         </div>
 
         {!isOnline && (
-          <div className="flex shrink-0 items-center justify-center gap-2 bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white">
-            <WifiOff size={12} />
+          <div className="flex shrink-0 items-center justify-center gap-2 bg-rose-600 px-3 md:px-2.5 py-1.5 md:py-1 text-xs md:text-[11px] font-semibold text-white">
+            <WifiOff size={12} className="md:h-3 md:w-3" />
             Sem ligação — o teu progresso continua a ser guardado localmente
           </div>
         )}
@@ -1089,26 +1062,26 @@ export default function QuizPlayer({
 
         {showCloseConfirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-slate-900">
+            <div className="w-full max-w-sm space-y-4 md:space-y-3 rounded-2xl md:rounded-xl border border-slate-200 bg-white p-5 md:p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
               <div className="flex items-center gap-2">
-                <AlertOctagon size={18} className="shrink-0 text-amber-500 dark:text-amber-400" />
-                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                <AlertOctagon size={18} className="shrink-0 text-amber-500 dark:text-amber-400 md:h-4 md:w-4" />
+                <p className="text-sm md:text-xs font-bold text-slate-900 dark:text-white">
                   Sair do questionário?
                 </p>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
+              <p className="text-xs md:text-[11px] text-slate-600 dark:text-slate-400">
                 Já respondeste a {answeredCount} de {orderedQuestions.length} perguntas. O teu
                 progresso fica guardado e podes continuar mais tarde.
               </p>
 
-              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+              <label className="flex cursor-pointer items-center gap-2 rounded-xl md:rounded-lg border border-slate-200 bg-slate-50 px-3 md:px-2.5 py-2.5 md:py-2 dark:border-white/10 dark:bg-white/5">
                 <input
                   type="checkbox"
                   checked={shouldSaveOnClose}
                   onChange={(e) => setShouldSaveOnClose(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-white/15 dark:bg-white/10"
                 />
-                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                <span className="flex items-center gap-1.5 text-xs md:text-[11px] font-medium text-slate-700 dark:text-slate-300">
                   <Bookmark
                     size={12}
                     className={isSaved ? "text-amber-600" : "text-slate-400"}
@@ -1118,13 +1091,13 @@ export default function QuizPlayer({
                 </span>
               </label>
 
-              <div className="flex gap-2.5">
+              <div className="flex gap-2.5 md:gap-2">
                 <button
                   onClick={() => {
                     setShowCloseConfirm(false);
                     setShouldSaveOnClose(false);
                   }}
-                  className="flex-1 rounded-xl border border-slate-300 bg-slate-50 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                  className="flex-1 rounded-xl md:rounded-lg border border-slate-300 bg-slate-50 py-2.5 md:py-2 text-xs md:text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                 >
                   Continuar a responder
                 </button>
@@ -1137,7 +1110,7 @@ export default function QuizPlayer({
                     setShouldSaveOnClose(false);
                     onClose();
                   }}
-                  className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white transition hover:bg-rose-500"
+                  className="flex-1 rounded-xl md:rounded-lg bg-rose-600 py-2.5 md:py-2 text-xs md:text-[11px] font-bold text-white transition hover:bg-rose-500"
                 >
                   {shouldSaveOnClose && !isSaved ? "Guardar e sair" : "Sair"}
                 </button>
@@ -1148,21 +1121,21 @@ export default function QuizPlayer({
 
         {showSubmitConfirm && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-slate-900">
+            <div className="w-full max-w-sm space-y-4 md:space-y-3 rounded-2xl md:rounded-xl border border-slate-200 bg-white p-5 md:p-4 shadow-xl dark:border-white/10 dark:bg-slate-900">
               <div className="flex items-center gap-2">
-                <AlertTriangle size={18} className="shrink-0 text-amber-500 dark:text-amber-400" />
-                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                <AlertTriangle size={18} className="shrink-0 text-amber-500 dark:text-amber-400 md:h-4 md:w-4" />
+                <p className="text-sm md:text-xs font-bold text-slate-900 dark:text-white">
                   Ainda tens perguntas por responder
                 </p>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
+              <p className="text-xs md:text-[11px] text-slate-600 dark:text-slate-400">
                 Faltam {unansweredCount} {unansweredCount === 1 ? "pergunta" : "perguntas"}. Queres
                 terminar mesmo assim?
               </p>
-              <div className="flex gap-2.5">
+              <div className="flex gap-2.5 md:gap-2">
                 <button
                   onClick={() => setShowSubmitConfirm(false)}
-                  className="flex-1 rounded-xl border border-slate-300 bg-slate-50 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                  className="flex-1 rounded-xl md:rounded-lg border border-slate-300 bg-slate-50 py-2.5 md:py-2 text-xs md:text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                 >
                   Continuar a responder
                 </button>
@@ -1171,7 +1144,7 @@ export default function QuizPlayer({
                     setShowSubmitConfirm(false);
                     void submitQuiz();
                   }}
-                  className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-500"
+                  className="flex-1 rounded-xl md:rounded-lg bg-emerald-600 py-2.5 md:py-2 text-xs md:text-[11px] font-bold text-white transition hover:bg-emerald-500"
                 >
                   Terminar mesmo assim
                 </button>
@@ -1187,43 +1160,43 @@ export default function QuizPlayer({
     <div className="hidden shrink-0 items-center gap-1 sm:flex">
       <button
         onClick={() => setIsWide((v) => !v)}
-        className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+        className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
         aria-label={isWide ? "Reduzir largura" : "Ampliar largura"}
         title={isWide ? "Reduzir largura" : "Ampliar largura"}
       >
-        {isWide ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        {isWide ? <Minimize2 size={14} className="md:h-3.5 md:w-3.5" /> : <Maximize2 size={14} className="md:h-3.5 md:w-3.5" />}
       </button>
       <button
         onClick={() => setIsFullscreen((v) => !v)}
-        className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+        className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
         aria-label={isFullscreen ? "Sair do ecrã completo" : "Ecrã completo"}
         title={isFullscreen ? "Sair do ecrã completo" : "Ecrã completo"}
       >
-        {isFullscreen ? <Minimize2 size={14} className="rotate-90" /> : <Maximize2 size={14} className="rotate-90" />}
+        {isFullscreen ? <Minimize2 size={14} className="rotate-90 md:h-3.5 md:w-3.5" /> : <Maximize2 size={14} className="rotate-90 md:h-3.5 md:w-3.5" />}
       </button>
     </div>
   );
 
   if (loadError) {
     return overlay(
-      <div className="flex flex-col items-center gap-4 px-6 py-16 text-center sm:py-20">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/15">
-          <AlertOctagon size={24} className="text-rose-600 dark:text-rose-400" />
+      <div className="flex flex-col items-center gap-4 px-6 py-16 md:py-12 text-center sm:py-20">
+        <div className="flex h-14 w-14 md:h-12 md:w-12 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/15">
+          <AlertOctagon size={24} className="text-rose-600 dark:text-rose-400 md:h-5 md:w-5" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">Algo correu mal</p>
-          <p className="mt-1 max-w-xs text-xs text-slate-500 dark:text-slate-400">{loadError}</p>
+          <p className="text-sm md:text-xs font-semibold text-slate-900 dark:text-white">Algo correu mal</p>
+          <p className="mt-1 max-w-xs text-xs md:text-[11px] text-slate-500 dark:text-slate-400">{loadError}</p>
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex gap-2.5 md:gap-2">
           <button
             onClick={onClose}
-            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            className="rounded-xl md:rounded-lg border border-slate-300 bg-slate-50 px-4 md:px-3 py-2.5 md:py-2 text-xs md:text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
           >
             Fechar
           </button>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-blue-500"
+            className="rounded-xl md:rounded-lg bg-blue-600 px-4 md:px-3 py-2.5 md:py-2 text-xs md:text-[11px] font-bold text-white transition hover:bg-blue-500"
           >
             Tentar novamente
           </button>
@@ -1234,9 +1207,9 @@ export default function QuizPlayer({
 
   if (loading || sessionLoading || (phase === "playing" && session === null)) {
     return overlay(
-      <div className="flex flex-col items-center gap-4 py-16 sm:py-20">
-        <Loader2 size={28} className="animate-spin text-blue-500 dark:text-blue-400" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">A carregar questionário…</p>
+      <div className="flex flex-col items-center gap-4 py-16 md:py-12 sm:py-20">
+        <Loader2 size={28} className="animate-spin text-blue-500 dark:text-blue-400 md:h-6 md:w-6" />
+        <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">A carregar questionário…</p>
       </div>
     );
   }
@@ -1248,53 +1221,53 @@ export default function QuizPlayer({
     const savedTotal = session?.questionIds?.length ?? 0;
 
     return overlay(
-      <div className="space-y-4 p-5 sm:space-y-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
+      <div className="space-y-4 md:space-y-3 p-5 md:p-4 sm:space-y-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3 md:gap-2.5">
           <div>
-            <p className="text-xs text-slate-500 dark:text-slate-500">
+            <p className="text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
               {disciplineName} · {chapterTitle}
             </p>
-            <h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
+            <h2 className="mt-1 text-lg md:text-base font-bold text-slate-900 dark:text-white">{title}</h2>
           </div>
           <div className="flex items-center gap-1">
             {sizeControls}
             <button
               onClick={onClose}
-              className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+              className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
             >
-              <X size={18} />
+              <X size={18} className="md:h-4 md:w-4" />
             </button>
           </div>
         </div>
 
-        <div className="space-y-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/[0.08]">
+        <div className="space-y-2 rounded-2xl md:rounded-xl border border-amber-300 bg-amber-50 p-4 md:p-3 dark:border-amber-500/20 dark:bg-amber-500/[0.08]">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={16} className="shrink-0 text-amber-500 dark:text-amber-400" />
-            <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+            <AlertTriangle size={16} className="shrink-0 text-amber-500 dark:text-amber-400 md:h-4 md:w-4" />
+            <p className="text-sm md:text-xs font-semibold text-amber-700 dark:text-amber-300">
               Sessão guardada encontrada
             </p>
           </div>
-          <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
+          <p className="text-xs md:text-[11px] text-amber-600/80 dark:text-amber-400/70">
             Já respondeste a {savedAnswered}
             {savedTotal ? ` de ${savedTotal}` : ""} perguntas. Queres retomar de onde ficaste?
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 md:gap-2">
           <button
             onClick={async () => {
               await resetSession();
               setPhase("playing");
             }}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl border border-slate-300 bg-slate-50 py-3 md:py-2.5 text-sm md:text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
           >
-            <RotateCcw size={14} /> Começar de novo
+            <RotateCcw size={14} className="md:h-3.5 md:w-3.5" /> Começar de novo
           </button>
           <button
             onClick={() => setPhase("playing")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
+            className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl bg-blue-600 py-3 md:py-2.5 text-sm md:text-xs font-bold text-white transition hover:bg-blue-500"
           >
-            Retomar <ArrowRight size={14} />
+            Retomar <ArrowRight size={14} className="md:h-3.5 md:w-3.5" />
           </button>
         </div>
       </div>
@@ -1303,9 +1276,9 @@ export default function QuizPlayer({
 
   if (phase === "submitting")
     return overlay(
-      <div className="flex flex-col items-center gap-4 py-16 sm:py-20">
-        <Loader2 size={28} className="animate-spin text-blue-500 dark:text-blue-400" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">A calcular resultado…</p>
+      <div className="flex flex-col items-center gap-4 py-16 md:py-12 sm:py-20">
+        <Loader2 size={28} className="animate-spin text-blue-500 dark:text-blue-400 md:h-6 md:w-6" />
+        <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">A calcular resultado…</p>
       </div>
     );
 
@@ -1314,63 +1287,63 @@ export default function QuizPlayer({
 
     return overlay(
       <div className="flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10 sm:px-5 sm:py-4">
-          <p className="text-sm font-bold text-slate-900 dark:text-white">Resultado</p>
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 md:px-3.5 md:py-3 dark:border-white/10 sm:px-5 sm:py-4">
+          <p className="text-sm md:text-xs font-bold text-slate-900 dark:text-white">Resultado</p>
           <div className="flex items-center gap-1">
             {sizeControls}
             <button
               onClick={onClose}
-              className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+              className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
             >
-              <X size={16} />
+              <X size={16} className="md:h-4 md:w-4" />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 lg:p-6">
+        <div className="flex-1 space-y-4 md:space-y-3 overflow-y-auto p-4 md:p-3 sm:p-5 lg:p-6">
           {submissionPending && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-200">
+            <div className="rounded-2xl md:rounded-xl border border-amber-300 bg-amber-50 p-4 md:p-3 text-sm md:text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-200">
               <p className="font-semibold">Resultado guardado localmente</p>
-              <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-300/70">
+              <p className="mt-1 text-xs md:text-[11px] text-amber-700/80 dark:text-amber-300/70">
                 A ligação falhou. Vou reenviar automaticamente quando a rede voltar.
               </p>
             </div>
           )}
 
           <div
-            className={`rounded-2xl border p-5 text-center sm:p-6 ${
+            className={`rounded-2xl md:rounded-xl border p-5 md:p-4 text-center sm:p-6 md:p-5 ${
               pass
                 ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5"
                 : "border-rose-300 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/5"
             }`}
           >
             <div
-              className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full sm:h-16 sm:w-16 ${
+              className={`mx-auto mb-3 md:mb-2.5 flex h-14 w-14 md:h-12 md:w-12 items-center justify-center rounded-full sm:h-16 sm:w-16 md:h-14 md:w-14 ${
                 pass ? "bg-emerald-100 dark:bg-emerald-500/15" : "bg-rose-100 dark:bg-rose-500/15"
               }`}
             >
               <Trophy
                 size={26}
-                className={pass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}
+                className={`md:h-6 md:w-6 ${pass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
               />
             </div>
             <p
-              className={`text-4xl font-black tabular-nums sm:text-5xl ${
+              className={`text-4xl md:text-3xl font-black tabular-nums sm:text-5xl md:text-4xl ${
                 pass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
               }`}
             >
               {finalSummary.pct}%
             </p>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm md:text-xs text-slate-500 dark:text-slate-400">
               {finalSummary.correct} de {finalSummary.total} respostas correctas
             </p>
             {finalSummary.timeSecs != null && (
-              <p className="mt-1 flex items-center justify-center gap-1 text-xs text-slate-400 dark:text-slate-500">
-                <Clock size={11} /> Tempo: {formatTime(finalSummary.timeSecs)}
+              <p className="mt-1 flex items-center justify-center gap-1 text-xs md:text-[11px] text-slate-400 dark:text-slate-500">
+                <Clock size={11} className="md:h-2.5 md:w-2.5" /> Tempo: {formatTime(finalSummary.timeSecs)}
               </p>
             )}
             <p
-              className={`mt-2 text-xs font-semibold ${
+              className={`mt-2 text-xs md:text-[11px] font-semibold ${
                 pass ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
               }`}
             >
@@ -1384,22 +1357,22 @@ export default function QuizPlayer({
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900">
-            <div className="border-b border-slate-200 px-4 py-3 dark:border-white/10">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+          <div className="overflow-hidden rounded-2xl md:rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900">
+            <div className="border-b border-slate-200 px-4 md:px-3 py-3 md:py-2.5 dark:border-white/10">
+              <p className="text-xs md:text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
                 Revisão das respostas
               </p>
             </div>
 
             <div
               className={`overflow-y-auto p-0 ${
-                isWide || isFullscreen ? "max-h-[55vh] lg:max-h-[60vh]" : "max-h-72"
+                isWide || isFullscreen ? "max-h-[55vh] lg:max-h-[60vh]" : "max-h-72 md:max-h-64"
               }`}
             >
               <div className={`divide-y divide-slate-200 dark:divide-white/5 ${isWide || isFullscreen ? "lg:grid lg:grid-cols-2 lg:divide-y-0 lg:divide-x" : ""}`}>
                 {submittedDetails.map((detail, idx) => (
-                  <div key={detail.questionId} className="px-4 py-3.5">
-                    <div className="flex items-start gap-3">
+                  <div key={detail.questionId} className="px-4 md:px-3 py-3.5 md:py-3">
+                    <div className="flex items-start gap-3 md:gap-2.5">
                       <div
                         className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                           detail.isCorrect
@@ -1411,16 +1384,16 @@ export default function QuizPlayer({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-600">
+                        <p className="text-[9px] md:text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-600">
                           {detail.kindLabel}
                         </p>
-                        <p className="mt-0.5 text-xs font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p className="mt-0.5 text-xs md:text-[11px] font-medium leading-relaxed text-slate-700 dark:text-slate-300">
                           {idx + 1}. <MathText text={detail.questionText} />
                         </p>
 
                         <div className="mt-1 space-y-1">
                           {detail.selectedAnswerTexts.length > 0 ? (
-                            <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                            <p className="text-[11px] md:text-[10px] text-rose-600 dark:text-rose-400">
                               A tua resposta:{" "}
                               {detail.selectedAnswerTexts.map((text, i) => (
                                 <span key={i}>
@@ -1430,13 +1403,13 @@ export default function QuizPlayer({
                               ))}
                             </p>
                           ) : (
-                            <p className="text-[11px] text-slate-500 dark:text-slate-500">
+                            <p className="text-[11px] md:text-[10px] text-slate-500 dark:text-slate-500">
                               Não respondeste a esta pergunta.
                             </p>
                           )}
 
                           {!detail.isCorrect && (
-                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                            <p className="text-[11px] md:text-[10px] text-emerald-600 dark:text-emerald-400">
                               Resposta correcta:{" "}
                               {detail.correctAnswerTexts.map((text, i) => (
                                 <span key={i}>
@@ -1449,7 +1422,7 @@ export default function QuizPlayer({
                         </div>
 
                         {detail.selectedAnswerFeedbacks.length > 0 && (
-                          <div className="mt-2 rounded-xl bg-white p-2 text-[11px] text-slate-600 shadow-sm dark:bg-white/5 dark:text-slate-400">
+                          <div className="mt-2 rounded-xl md:rounded-lg bg-white p-2 text-[11px] md:text-[10px] text-slate-600 shadow-sm dark:bg-white/5 dark:text-slate-400">
                             <p className="font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
                               Feedback
                             </p>
@@ -1464,7 +1437,7 @@ export default function QuizPlayer({
                         )}
 
                         {detail.questionExplanation && (
-                          <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
+                          <div className="mt-2 rounded-xl md:rounded-lg border border-blue-200 bg-blue-50 p-2 text-[11px] md:text-[10px] text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
                             <p className="font-semibold uppercase tracking-wider text-blue-700/80 dark:text-blue-200/80">
                               Explicação
                             </p>
@@ -1481,18 +1454,18 @@ export default function QuizPlayer({
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 md:gap-2">
             <button
               onClick={restart}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+              className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl border border-slate-300 bg-slate-50 py-3 md:py-2.5 text-sm md:text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             >
-              <RotateCcw size={14} /> Repetir
+              <RotateCcw size={14} className="md:h-3.5 md:w-3.5" /> Repetir
             </button>
             <button
               onClick={loadStats}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-sm font-bold text-white transition hover:bg-indigo-500"
+              className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl bg-indigo-600 py-3 md:py-2.5 text-sm md:text-xs font-bold text-white transition hover:bg-indigo-500"
             >
-              <BarChart2 size={14} /> Estatísticas
+              <BarChart2 size={14} className="md:h-3.5 md:w-3.5" /> Estatísticas
             </button>
           </div>
         </div>
@@ -1503,15 +1476,15 @@ export default function QuizPlayer({
   if (phase === "stats")
     return overlay(
       <div className="flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 dark:border-white/10 sm:px-5 sm:py-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3.5 md:px-3.5 md:py-3 dark:border-white/10 sm:px-5 sm:py-4">
+          <div className="flex items-center gap-2 md:gap-1.5">
             <button
               onClick={() => setPhase("results")}
-              className="rounded-xl p-1.5 text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-white"
+              className="rounded-xl md:rounded-lg p-1.5 text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-white"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={16} className="md:h-4 md:w-4" />
             </button>
-            <p className="text-sm font-bold text-slate-900 dark:text-white">
+            <p className="text-sm md:text-xs font-bold text-slate-900 dark:text-white">
               Estatísticas da turma
             </p>
           </div>
@@ -1519,28 +1492,28 @@ export default function QuizPlayer({
             {sizeControls}
             <button
               onClick={onClose}
-              className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+              className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
             >
-              <X size={16} />
+              <X size={16} className="md:h-4 md:w-4" />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 lg:p-6">
+        <div className="flex-1 space-y-4 md:space-y-3 overflow-y-auto p-4 md:p-3 sm:p-5 lg:p-6">
           {statsLoading ? (
-            <div className="flex items-center justify-center gap-2 py-12">
-              <Loader2 size={20} className="animate-spin text-blue-500 dark:text-blue-400" />
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center justify-center gap-2 py-12 md:py-10">
+              <Loader2 size={20} className="animate-spin text-blue-500 dark:text-blue-400 md:h-5 md:w-5" />
+              <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
                 A carregar estatísticas…
               </p>
             </div>
           ) : !stats ? (
-            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-500">
+            <p className="py-10 text-center text-sm md:text-xs text-slate-500 dark:text-slate-500">
               Sem dados suficientes ainda.
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="grid grid-cols-3 gap-2 md:gap-1.5 sm:gap-3">
                 {[
                   { label: "Tentativas", value: stats.totalAttempts, color: "text-blue-600 dark:text-blue-400" },
                   { label: "Média", value: `${stats.avgScore}%`, color: "text-emerald-600 dark:text-emerald-400" },
@@ -1552,27 +1525,27 @@ export default function QuizPlayer({
                 ].map(({ label, value, color }) => (
                   <div
                     key={label}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 text-center dark:border-white/10 dark:bg-white/5 sm:p-3"
+                    className="rounded-2xl md:rounded-xl border border-slate-200 bg-slate-50 p-2.5 md:p-2 text-center dark:border-white/10 dark:bg-white/5 sm:p-3"
                   >
-                    <p className={`text-base font-black sm:text-lg ${color}`}>{value}</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-500">{label}</p>
+                    <p className={`text-base md:text-sm font-black sm:text-lg ${color}`}>{value}</p>
+                    <p className="text-[10px] md:text-[9px] text-slate-500 dark:text-slate-500">{label}</p>
                   </div>
                 ))}
               </div>
 
-              <div className={`space-y-3 ${isWide || isFullscreen ? "lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0" : ""}`}>
+              <div className={`space-y-3 md:space-y-2.5 ${isWide || isFullscreen ? "lg:grid lg:grid-cols-2 lg:gap-3 md:gap-2.5 lg:space-y-0" : ""}`}>
                 {stats.questionStats.map((qs, idx) => (
                   <div
                     key={qs.questionId}
-                    className="space-y-2.5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900"
+                    className="space-y-2.5 md:space-y-2 rounded-2xl md:rounded-xl border border-slate-200 bg-slate-50 p-4 md:p-3 dark:border-white/10 dark:bg-slate-900"
                   >
-                    <p className="text-xs font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
+                    <p className="text-xs md:text-[11px] font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
                       {idx + 1}. <MathText text={qs.questionText} />
                     </p>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 md:gap-2">
                       <div className="flex-1">
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
+                        <div className="h-2 md:h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
                           <div
                             className={`h-full rounded-full transition-all ${
                               qs.correctRate >= 60
@@ -1586,7 +1559,7 @@ export default function QuizPlayer({
                         </div>
                       </div>
                       <span
-                        className={`shrink-0 text-sm font-bold tabular-nums ${
+                        className={`shrink-0 text-sm md:text-xs font-bold tabular-nums ${
                           qs.correctRate >= 60
                             ? "text-emerald-600 dark:text-emerald-400"
                             : qs.correctRate >= 40
@@ -1599,14 +1572,14 @@ export default function QuizPlayer({
                     </div>
 
                     {qs.correctRate < 50 && (
-                      <p className="flex items-center gap-1 text-[11px] text-amber-600/90 dark:text-amber-400/80">
-                        <AlertTriangle size={10} />
+                      <p className="flex items-center gap-1 text-[11px] md:text-[10px] text-amber-600/90 dark:text-amber-400/80">
+                        <AlertTriangle size={10} className="md:h-2.5 md:w-2.5" />
                         Muitos alunos erraram esta pergunta.
                       </p>
                     )}
 
                     {qs.topWrongAnswer && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-500">
+                      <p className="text-[11px] md:text-[10px] text-slate-500 dark:text-slate-500">
                         Resposta errada mais escolhida:{" "}
                         <span className="text-rose-600 dark:text-rose-400">
                           <MathText text={qs.topWrongAnswer} />
@@ -1624,11 +1597,11 @@ export default function QuizPlayer({
 
   if (!currentQ)
     return overlay(
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <p className="font-semibold text-slate-700 dark:text-slate-300">
+      <div className="flex flex-col items-center gap-3 px-6 py-16 md:py-12 text-center">
+        <p className="font-semibold text-slate-700 dark:text-slate-300 md:text-sm">
           Sem perguntas disponíveis.
         </p>
-        <button onClick={onClose} className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+        <button onClick={onClose} className="text-sm md:text-xs text-blue-600 hover:underline dark:text-blue-400">
           Fechar
         </button>
       </div>
@@ -1637,26 +1610,25 @@ export default function QuizPlayer({
   const showSidebar = isWide || isFullscreen;
 
   const questionContent = (
-    <div key={currentQ.id} className="space-y-4 overflow-visible p-4 pb-24 sm:space-y-5 sm:p-5 sm:pb-6 lg:p-6">
+    <div key={currentQ.id} className="space-y-4 md:space-y-3 overflow-visible p-4 md:p-3 pb-24 md:pb-20 sm:space-y-5 sm:p-5 sm:pb-6 lg:p-6">
       {questionKind && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <QuestionKindBadge info={questionKind} />
           {isMultiSelect && (
-            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] md:text-[9px] font-semibold text-slate-400 dark:text-slate-500">
               Seleciona {questionKind.correctCount} opções
             </span>
           )}
         </div>
       )}
 
-      {/* Cartão da pergunta — destaca o enunciado e dá mais espaço a fórmulas/matrizes */}
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03] sm:p-5">
-        <h2 className="break-words text-base font-semibold leading-relaxed text-slate-900 [&_.katex-display]:my-2 [&_.katex]:text-[1.05em] dark:text-white sm:text-lg lg:text-xl">
+      <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-slate-50/70 p-4 md:p-3 dark:border-white/10 dark:bg-white/[0.03] sm:p-5 md:p-4">
+        <h2 className="break-words text-base md:text-sm font-semibold leading-relaxed text-slate-900 [&_.katex-display]:my-2 [&_.katex]:text-[1.05em] dark:text-white sm:text-lg md:text-base lg:text-xl md:text-lg">
           <MathText text={currentQ.question_text} />
         </h2>
 
         {currentQ.metadata?.graph && (
-          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950">
+          <div className="mt-4 md:mt-3 overflow-x-auto rounded-xl md:rounded-lg border border-slate-200 bg-white p-3 md:p-2.5 dark:border-white/10 dark:bg-slate-950">
             <GraphSVG config={currentQ.metadata.graph} />
           </div>
         )}
@@ -1665,13 +1637,13 @@ export default function QuizPlayer({
           <img
             src={currentQ.metadata.image_url}
             alt="Diagrama da pergunta"
-            className="mt-4 max-h-80 w-full rounded-xl border border-slate-200 bg-white object-contain p-2 dark:border-white/10 dark:bg-slate-950"
+            className="mt-4 md:mt-3 max-h-80 md:max-h-72 w-full rounded-xl md:rounded-lg border border-slate-200 bg-white object-contain p-2 dark:border-white/10 dark:bg-slate-950"
           />
         )}
       </div>
 
       <div
-        className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3"
+        className="grid grid-cols-1 gap-2.5 md:gap-2 sm:grid-cols-2 sm:gap-3 md:gap-2"
         role={isMultiSelect ? "group" : "radiogroup"}
         aria-label="Opções de resposta"
       >
@@ -1712,15 +1684,15 @@ export default function QuizPlayer({
               aria-checked={isSelected}
               disabled={isLocked}
               onClick={() => saveAnswer(currentQ.id, ans.id, { multiple: isMultiSelect })}
-              className={`flex min-h-[3.25rem] w-full items-start gap-3 rounded-2xl border px-3.5 py-3 text-left text-sm transition-all active:scale-[0.99] disabled:cursor-not-allowed sm:px-4 sm:py-3.5 lg:text-base ${optionClasses}`}
+              className={`flex min-h-[3.25rem] md:min-h-[3rem] w-full items-start gap-3 md:gap-2.5 rounded-2xl md:rounded-xl border px-3.5 md:px-3 py-3 md:py-2.5 text-left text-sm md:text-xs transition-all active:scale-[0.99] disabled:cursor-not-allowed sm:px-4 sm:py-3.5 md:px-3.5 md:py-3 lg:text-base md:text-sm ${optionClasses}`}
             >
               {isMultiSelect ? (
-                <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${badgeClasses}`}>
-                  {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
+                <span className={`mt-0.5 flex h-7 w-7 md:h-6 md:w-6 shrink-0 items-center justify-center rounded-lg border ${badgeClasses}`}>
+                  {isSelected ? <CheckSquare size={15} className="md:h-3.5 md:w-3.5" /> : <Square size={15} className="md:h-3.5 md:w-3.5" />}
                 </span>
               ) : (
                 <span
-                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border text-[11px] font-bold transition ${badgeClasses}`}
+                  className={`mt-0.5 flex h-7 w-7 md:h-6 md:w-6 shrink-0 items-center justify-center rounded-xl md:rounded-lg border text-[11px] md:text-[10px] font-bold transition ${badgeClasses}`}
                 >
                   {String.fromCharCode(65 + idx)}
                 </span>
@@ -1729,7 +1701,7 @@ export default function QuizPlayer({
                 <MathText text={ans.answer_text} />
 
                 {ans.metadata?.graph && (
-                  <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950">
+                  <div className="mt-2 md:mt-1.5 overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 md:p-1.5 dark:border-white/10 dark:bg-slate-950">
                     <GraphSVG config={ans.metadata.graph} />
                   </div>
                 )}
@@ -1738,18 +1710,18 @@ export default function QuizPlayer({
                   <img
                     src={ans.metadata.image_url}
                     alt="Diagrama da resposta"
-                    className="mt-2 max-h-40 w-full rounded-xl border border-slate-200 object-contain dark:border-white/10"
+                    className="mt-2 md:mt-1.5 max-h-40 md:max-h-36 w-full rounded-xl md:rounded-lg border border-slate-200 object-contain dark:border-white/10"
                   />
                 )}
               </span>
               {showFeedback && isCorrectAnswer && (
-                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400 md:h-3.5 md:w-3.5" />
               )}
               {showFeedback && isSelected && !isCorrectAnswer && (
-                <XCircle size={15} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                <XCircle size={15} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400 md:h-3.5 md:w-3.5" />
               )}
               {!showFeedback && !isMultiSelect && isSelected && (
-                <Check size={15} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                <Check size={15} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400 md:h-3.5 md:w-3.5" />
               )}
             </button>
           );
@@ -1763,9 +1735,9 @@ export default function QuizPlayer({
           onClick={() =>
             setConfirmedQuestions((prev) => new Set(prev).add(currentQ.id))
           }
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+          className="flex w-full items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl border border-amber-300 bg-amber-50 py-3 md:py-2.5 text-sm md:text-xs font-bold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
         >
-          <CheckSquare size={15} />
+          <CheckSquare size={15} className="md:h-3.5 md:w-3.5" />
           Confirmar respostas ({selectedIds.length} selecionada{selectedIds.length === 1 ? "" : "s"})
         </button>
       )}
@@ -1775,7 +1747,7 @@ export default function QuizPlayer({
           ref={feedbackRef}
           role="status"
           aria-live="polite"
-          className={`rounded-2xl border p-4 ${
+          className={`rounded-2xl md:rounded-xl border p-4 md:p-3 ${
             isMultiSelect
               ? isCurrentAnswerFullyCorrect
                 ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5"
@@ -1785,14 +1757,14 @@ export default function QuizPlayer({
               : "border-amber-200 bg-amber-50 dark:border-amber-500/20 dark:bg-amber-500/5"
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:gap-1.5">
             {(isMultiSelect ? isCurrentAnswerFullyCorrect : currentSelectedOption?.is_correct) ? (
-              <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 md:h-4 md:w-4" />
             ) : (
-              <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
+              <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 md:h-4 md:w-4" />
             )}
             <p
-              className={`text-sm font-semibold ${
+              className={`text-sm md:text-xs font-semibold ${
                 (isMultiSelect ? isCurrentAnswerFullyCorrect : currentSelectedOption?.is_correct)
                   ? "text-emerald-700 dark:text-emerald-300"
                   : "text-amber-700 dark:text-amber-300"
@@ -1809,13 +1781,13 @@ export default function QuizPlayer({
           </div>
 
           {!isMultiSelect && currentSelectedOption?.feedback && (
-            <p className="mt-2 overflow-x-auto text-sm text-slate-700 [&_.katex]:text-[1.05em] dark:text-slate-300">
+            <p className="mt-2 md:mt-1.5 overflow-x-auto text-sm md:text-xs text-slate-700 [&_.katex]:text-[1.05em] dark:text-slate-300">
               <MathText text={currentSelectedOption.feedback} />
             </p>
           )}
 
           {isMultiSelect && (
-            <ul className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+            <ul className="mt-2 md:mt-1.5 space-y-1 text-sm md:text-xs text-slate-700 dark:text-slate-300">
               {currentQ.answers
                 .filter((a) => a.feedback && (a.is_correct || selectedIds.includes(a.id)))
                 .map((a) => (
@@ -1830,7 +1802,7 @@ export default function QuizPlayer({
           )}
 
           {currentQ.explanation && (
-            <div className="mt-3 overflow-x-auto rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 [&_.katex]:text-[1.05em] dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
+            <div className="mt-3 md:mt-2.5 overflow-x-auto rounded-xl md:rounded-lg border border-blue-200 bg-blue-50 p-3 md:p-2.5 text-sm md:text-xs text-blue-800 [&_.katex]:text-[1.05em] dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
               <p className="font-semibold">Explicação</p>
               <p className="mt-1 leading-relaxed">
                 <MathText text={currentQ.explanation} />
@@ -1843,13 +1815,13 @@ export default function QuizPlayer({
   );
 
   const desktopSidebar = (
-    <aside className="hidden w-[300px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-slate-200 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.02] lg:flex">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+    <aside className="hidden w-[300px] md:w-[280px] shrink-0 flex-col gap-4 md:gap-3 overflow-y-auto border-l border-slate-200 bg-slate-50/70 p-4 md:p-3 dark:border-white/10 dark:bg-white/[0.02] lg:flex">
+      <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-white p-4 md:p-3 dark:border-white/10 dark:bg-slate-950">
+        <p className="text-xs md:text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
           Navegação rápida
         </p>
 
-        <div className="mt-3 grid grid-cols-5 gap-1.5">
+        <div className="mt-3 md:mt-2.5 grid grid-cols-5 gap-1.5 md:gap-1">
           {orderedQuestions.map((q, idx) => {
             const answered = (session?.answers[q.id]?.length ?? 0) > 0;
             return (
@@ -1857,7 +1829,7 @@ export default function QuizPlayer({
                 key={q.id}
                 onClick={() => setQuestion(idx)}
                 aria-label={`Ir para pergunta ${idx + 1}`}
-                className={`flex h-9 items-center justify-center rounded-lg text-xs font-bold transition ${
+                className={`flex h-9 md:h-8 items-center justify-center rounded-lg md:rounded-md text-xs md:text-[11px] font-bold transition ${
                   idx === currentIndex
                     ? "bg-blue-600 text-white"
                     : answered
@@ -1872,11 +1844,11 @@ export default function QuizPlayer({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+      <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-white p-4 md:p-3 dark:border-white/10 dark:bg-slate-950">
+        <p className="text-xs md:text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
           Estado
         </p>
-        <div className="mt-2 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+        <div className="mt-2 md:mt-1.5 space-y-1 text-sm md:text-xs text-slate-700 dark:text-slate-300">
           <p>
             Respondidas:{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
@@ -1892,17 +1864,17 @@ export default function QuizPlayer({
           </p>
           {timeLeft !== null && (
             <p className="flex items-center gap-1">
-              <Clock size={12} /> Tempo restante: {formatTime(timeLeft)}
+              <Clock size={12} className="md:h-3 md:w-3" /> Tempo restante: {formatTime(timeLeft)}
             </p>
           )}
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+      <div className="rounded-2xl md:rounded-xl border border-slate-200 bg-white p-4 md:p-3 dark:border-white/10 dark:bg-slate-950">
+        <p className="text-xs md:text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
           Atalhos de teclado
         </p>
-        <ul className="mt-2 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <ul className="mt-2 md:mt-1.5 space-y-1.5 md:space-y-1 text-xs md:text-[11px] text-slate-500 dark:text-slate-400">
           <li>
             <kbd className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] dark:border-white/15 dark:bg-white/10">
               ←
@@ -1932,20 +1904,20 @@ export default function QuizPlayer({
 
   return overlay(
     <div className="flex flex-col overflow-hidden" style={{ height: "100%" }}>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex shrink-0 items-center justify-between gap-3 md:gap-2 border-b border-slate-200 px-4 md:px-3 py-3 md:py-2.5 dark:border-white/10">
+        <div className="flex min-w-0 items-center gap-3 md:gap-2">
           <button
             onClick={handleRequestClose}
-            className="shrink-0 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
+            className="shrink-0 rounded-xl md:rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
             aria-label="Fechar questionário"
           >
-            <X size={16} />
+            <X size={16} className="md:h-4 md:w-4" />
           </button>
 
           <button
             onClick={() => void toggleSave()}
             disabled={savingToggle || !profile?.id}
-            className={`rounded-xl p-2 transition disabled:opacity-40 ${
+            className={`rounded-xl md:rounded-lg p-2 md:p-1.5 transition disabled:opacity-40 ${
               isSaved
                 ? "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/15"
                 : "text-slate-400 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-amber-400"
@@ -1954,43 +1926,43 @@ export default function QuizPlayer({
             title={isSaved ? "Remover dos guardados" : "Guardar para mais tarde"}
           >
             {savingToggle ? (
-              <Loader2 size={14} className="animate-spin" />
+              <Loader2 size={14} className="animate-spin md:h-3.5 md:w-3.5" />
             ) : (
-              <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
+              <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} className="md:h-4 md:w-4" />
             )}
           </button>
 
           <div className="min-w-0">
-            <p className="truncate text-xs text-slate-500 dark:text-slate-500">
+            <p className="truncate text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
               {disciplineName} · {chapterTitle}
             </p>
-            <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <p className="truncate text-xs md:text-[11px] font-semibold text-slate-700 dark:text-slate-300">
               {title}
             </p>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 md:gap-1.5">
           {timeLeft !== null && (
             <div
-              className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold tabular-nums ${
+              className={`flex items-center gap-1.5 md:gap-1 rounded-xl md:rounded-lg px-2.5 md:px-2 py-1.5 md:py-1 text-xs md:text-[11px] font-bold tabular-nums ${
                 timeLeft < 60
                   ? "bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
                   : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300"
               }`}
             >
-              <Clock size={11} />
+              <Clock size={11} className="md:h-2.5 md:w-2.5" />
               {formatTime(timeLeft)}
             </div>
           )}
 
-          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+          <span className="text-xs md:text-[11px] font-semibold text-slate-400 dark:text-slate-500">
             {currentIndex + 1}/{orderedQuestions.length}
           </span>
 
           <button
             onClick={isSpeaking ? stopSpeech : speakCurrentQuestion}
-            className={`rounded-xl p-2 transition ${
+            className={`rounded-xl md:rounded-lg p-2 md:p-1.5 transition ${
               isSpeaking
                 ? "bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400"
                 : "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-white"
@@ -1998,7 +1970,7 @@ export default function QuizPlayer({
             title={isSpeaking ? "Parar narração" : "Ler em voz alta"}
             aria-label={isSpeaking ? "Parar narração" : "Ler em voz alta"}
           >
-            {isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {isSpeaking ? <VolumeX size={14} className="md:h-3.5 md:w-3.5" /> : <Volume2 size={14} className="md:h-3.5 md:w-3.5" />}
           </button>
 
           {sizeControls}
@@ -2017,48 +1989,48 @@ export default function QuizPlayer({
         {showSidebar && desktopSidebar}
       </div>
 
-      <div className="shrink-0 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/95">
-        <div className="flex items-center gap-2">
+      <div className="shrink-0 border-t border-slate-200 bg-white/95 px-4 md:px-3 py-3 md:py-2.5 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/95">
+        <div className="flex items-center gap-2 md:gap-1.5">
           <button
             onClick={() => setQuestion(currentIndex - 1)}
             disabled={currentIndex === 0}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-600 transition hover:bg-slate-100 disabled:opacity-30 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            className="flex h-11 w-11 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-xl md:rounded-lg border border-slate-300 bg-slate-50 text-slate-600 transition hover:bg-slate-100 disabled:opacity-30 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             aria-label="Pergunta anterior"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={16} className="md:h-4 md:w-4" />
           </button>
 
           {isLast ? (
             <button
               onClick={requestSubmit}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-2.5 text-sm font-bold text-white shadow-lg transition hover:bg-emerald-500 active:scale-[0.99]"
+              className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl bg-emerald-600 py-2.5 md:py-2 text-sm md:text-xs font-bold text-white shadow-lg transition hover:bg-emerald-500 active:scale-[0.99]"
             >
-              <Check size={15} />
+              <Check size={15} className="md:h-3.5 md:w-3.5" />
               Terminar ({answeredCount}/{orderedQuestions.length})
             </button>
           ) : (
             <button
               onClick={() => setQuestion(currentIndex + 1)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-2.5 text-sm font-bold text-white shadow-lg transition hover:bg-blue-500 active:scale-[0.99]"
+              className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl bg-blue-600 py-2.5 md:py-2 text-sm md:text-xs font-bold text-white shadow-lg transition hover:bg-blue-500 active:scale-[0.99]"
             >
-              Próxima <ChevronRight size={15} />
+              Próxima <ChevronRight size={15} className="md:h-3.5 md:w-3.5" />
             </button>
           )}
 
           {!isLast && (
             <button
               onClick={requestSubmit}
-              className="flex h-11 shrink-0 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
+              className="flex h-11 md:h-9 shrink-0 items-center justify-center rounded-xl md:rounded-lg border border-emerald-300 bg-emerald-50 px-3 md:px-2.5 text-xs md:text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
               title="Terminar agora"
               aria-label="Terminar questionário agora"
             >
-              <Check size={14} />
+              <Check size={14} className="md:h-3.5 md:w-3.5" />
             </button>
           )}
         </div>
 
         {!showSidebar && (
-          <div className="mt-2.5 flex justify-center gap-1">
+          <div className="mt-2.5 md:mt-2 flex justify-center gap-1">
             {orderedQuestions.map((q, idx) => (
               <button
                 key={q.id}
@@ -2066,7 +2038,7 @@ export default function QuizPlayer({
                 aria-label={`Ir para pergunta ${idx + 1}`}
                 className={`h-1.5 rounded-full transition-all ${
                   idx === currentIndex
-                    ? "w-5 bg-blue-500"
+                    ? "w-5 md:w-4 bg-blue-500"
                     : (session?.answers[q.id]?.length ?? 0) > 0
                     ? "w-1.5 bg-emerald-500/60"
                     : "w-1.5 bg-slate-300 dark:bg-white/15"

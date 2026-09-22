@@ -15,13 +15,18 @@ import {
   Headphones,
   Loader2,
   MessageSquare,
+  Users,
+  ScrollText,
+  FileCheck2,
 } from "lucide-react";
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
 import { isValidPersisted } from "@/app/lib/audioPersistedSchema";
 import { safeGet } from "@/app/lib/safeLocalStorage";
+import { useAdmin } from "@/app/lib/hooks/useAdmin";
 
 const FEEDBACK_URL = process.env.NEXT_PUBLIC_FEEDBACK_URL?.trim() ?? "";
 
+/* ── Navegação NORMAL (estudante) ── */
 const navItems = [
   { id: "home",        label: "Início",      icon: LayoutDashboard, path: "/"           },
   { id: "eventos",     label: "Eventos",     icon: Calendar,        path: "/eventos"    },
@@ -29,6 +34,15 @@ const navItems = [
   { id: "saved",       label: "Guardados",   icon: Bookmark,        path: "/guardados"  },
   { id: "my-course",   label: "Meu Curso",   icon: GraduationCap,   path: "/meu-curso"  },
   { id: "assessments", label: "Avaliações",  icon: ClipboardList,   path: "/avaliacoes" },
+];
+
+/* ── Navegação ADMIN (substitui tudo quando és admin) ── */
+const adminNavItems = [
+  { id: "adm-eventos",      label: "Eventos",      icon: Calendar,      path: "/admin/eventos"      },
+  { id: "adm-users",        label: "Utilizadores", icon: Users,         path: "/admin/utilizadores" },
+  { id: "adm-disc",         label: "Disciplinas",  icon: BookOpen,      path: "/admin/disciplinas"  },
+  { id: "adm-avaliacoes",   label: "Avaliações",   icon: FileCheck2,    path: "/admin/avaliacoes"   },
+  { id: "adm-regulamentos", label: "Regulamentos", icon: ScrollText,    path: "/admin/regulamentos" },
 ];
 
 type SidebarProps = {
@@ -39,6 +53,7 @@ type SidebarProps = {
 export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarProps) {
   const router   = useRouter();
   const pathname = usePathname() ?? "/";
+  const { isAdmin } = useAdmin();
 
   const isActive = (path: string) =>
     path === "/" ? pathname === "/" : pathname.startsWith(path);
@@ -47,6 +62,9 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
     router.push(path);
     if (closeMobile) setMobileOpen?.(false);
   };
+
+  // Admin vê a nav de administração; estudante vê a nav normal
+  const mainItems = isAdmin ? adminNavItems : navItems;
 
   return (
     <>
@@ -58,16 +76,22 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
         />
       )}
 
-      {/* Desktop */}
+      {/* ══════════════════════════════════════════
+          DESKTOP (rail 65px)
+      ══════════════════════════════════════════ */}
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-[65px] flex-col border-r border-slate-300 bg-slate-200 dark:border-white/8 dark:bg-[#13152A] md:flex">
         <div className="flex h-14 shrink-0 items-center justify-center">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+          <button
+            onClick={() => router.push(isAdmin ? "/admin/eventos" : "/")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600"
+            title="Início"
+          >
             <Image src="/logo_dark.svg" alt="b-ISAF" width={18} height={18} />
-          </div>
+          </button>
         </div>
 
         <nav className="flex flex-1 flex-col items-center justify-center gap-0 py-1.5">
-          {navItems.map((item) => {
+          {mainItems.map((item) => {
             const active = isActive(item.path);
             const Icon   = item.icon;
 
@@ -116,13 +140,16 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
           })}
         </nav>
 
+        {/* ── Rodapé: Feedback (sempre) + Último áudio (só estudante) ── */}
         <div className="flex shrink-0 flex-col items-center border-t border-slate-300 py-2.5 dark:border-white/8">
-          <FeedbackButton />
-          <LastAudioButton />
+          <FeedbackButton isAdmin={isAdmin} />
+          {!isAdmin && <LastAudioButton />}
         </div>
       </aside>
 
-      {/* Mobile */}
+      {/* ══════════════════════════════════════════
+          MOBILE (drawer)
+      ══════════════════════════════════════════ */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 flex w-64 flex-col
@@ -136,7 +163,14 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
               <Image src="/logo_dark.svg" alt="b-ISAF" width={18} height={18} />
             </div>
-            <span className="text-sm font-bold tracking-wide text-slate-900 dark:text-white">b-ISAF</span>
+            <span className="text-sm font-bold tracking-wide text-slate-900 dark:text-white">
+              b-ISAF
+              {isAdmin && (
+                <span className="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                  Admin
+                </span>
+              )}
+            </span>
           </div>
           <button
             onClick={() => setMobileOpen?.(false)}
@@ -148,7 +182,7 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
         </div>
 
         <nav className="flex flex-1 flex-col gap-[1.5px] overflow-y-auto px-1.5 py-2.5">
-          {navItems.map((item) => {
+          {mainItems.map((item) => {
             const active = isActive(item.path);
             const Icon   = item.icon;
 
@@ -190,51 +224,48 @@ export default function Sidebar({ mobileOpen = false, setMobileOpen }: SidebarPr
           })}
         </nav>
 
+        {/* ── Rodapé: Feedback (sempre) + Último áudio (só estudante) ── */}
         <div className="border-t border-slate-200 p-2.5 dark:border-white/10">
-          <FeedbackButton mobile />
-          <LastAudioButton mobile />
+          <FeedbackButton mobile isAdmin={isAdmin} />
+          {!isAdmin && <LastAudioButton mobile />}
         </div>
       </aside>
     </>
   );
 }
 
-function FeedbackButton({ mobile = false }: { mobile?: boolean }) {
-  const unavailableTitle = "Configure NEXT_PUBLIC_FEEDBACK_URL para ativar";
+/* ================================================================
+   FEEDBACK BUTTON
+   — estudante: formulário de envio (/feedback ou URL externo)
+   — admin:     lista de feedbacks recebidos (/admin/feedback)
+================================================================ */
+function FeedbackButton({ mobile = false, isAdmin = false }: { mobile?: boolean; isAdmin?: boolean }) {
+  const feedbackHref = isAdmin ? "/admin/feedback" : FEEDBACK_URL || "/feedback";
+  const isExternal   = !isAdmin && FEEDBACK_URL.length > 0;
 
   if (mobile) {
     return (
       <a
-        href={FEEDBACK_URL || undefined}
-        target={FEEDBACK_URL ? "_blank" : undefined}
-        rel={FEEDBACK_URL ? "noreferrer" : undefined}
-        aria-disabled={!FEEDBACK_URL}
-        title={FEEDBACK_URL ? "Enviar feedback" : unavailableTitle}
-        className={`mb-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all duration-150 ${
-          FEEDBACK_URL
-            ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
-            : "cursor-not-allowed bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-white/30"
-        }`}
+        href={feedbackHref}
+        target={isExternal ? "_blank" : undefined}
+        rel={isExternal ? "noreferrer" : undefined}
+        title={isAdmin ? "Ver feedbacks dos utilizadores" : "Enviar feedback"}
+        className="mb-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 transition-all duration-150 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
       >
         <MessageSquare size={15} />
-        Enviar feedback
+        {isAdmin ? "Feedbacks recebidos" : "Enviar feedback"}
       </a>
     );
   }
 
   return (
     <a
-      href={FEEDBACK_URL || undefined}
-      target={FEEDBACK_URL ? "_blank" : undefined}
-      rel={FEEDBACK_URL ? "noreferrer" : undefined}
-      aria-label="Enviar feedback"
-      aria-disabled={!FEEDBACK_URL}
-      title={FEEDBACK_URL ? "Enviar feedback" : unavailableTitle}
-      className={`group flex w-full flex-col items-center justify-center py-[5px] outline-none ${
-        FEEDBACK_URL
-          ? "text-slate-700 hover:text-indigo-600 dark:text-white/75 dark:hover:text-indigo-300"
-          : "cursor-not-allowed text-slate-600 dark:text-white/30"
-      }`}
+      href={feedbackHref}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noreferrer" : undefined}
+      aria-label={isAdmin ? "Ver feedbacks dos utilizadores" : "Enviar feedback"}
+      title={isAdmin ? "Ver feedbacks dos utilizadores" : "Enviar feedback"}
+      className="group flex w-full flex-col items-center justify-center py-[5px] text-slate-700 outline-none hover:text-indigo-600 dark:text-white/75 dark:hover:text-indigo-300"
     >
       <span className="flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-150 group-hover:bg-indigo-500/10">
         <MessageSquare size={18} />
@@ -247,7 +278,7 @@ function FeedbackButton({ mobile = false }: { mobile?: boolean }) {
 }
 
 /* ================================================================
-   LAST AUDIO BUTTON — totalmente funcional
+   LAST AUDIO BUTTON (só aparece para estudante)
 ================================================================ */
 function LastAudioButton({ mobile = false }: { mobile?: boolean }) {
   const audio = useAudioPlayer();
@@ -313,9 +344,12 @@ function LastAudioButton({ mobile = false }: { mobile?: boolean }) {
     if (!lastTrack || !hasLast) return;
     setIsLoading(true);
     try {
-      await audio.play({
-        ...lastTrack,
-      }, { startAt: lastPosition });
+      await audio.play(
+        {
+          ...lastTrack,
+        },
+        { startAt: lastPosition }
+      );
     } catch (err) {
       console.error("Erro ao reproduzir último áudio:", err);
     } finally {

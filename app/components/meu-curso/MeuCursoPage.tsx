@@ -1974,36 +1974,36 @@ function DisciplinePanel({
 /* ================================================================
    REGULAMENTOS — MODELO DE DADOS
 ================================================================ */
-type ContentBlock =
+export type ContentBlock =
   | { type: "p"; text: string }
   | { type: "list"; ordered?: boolean; items: string[] }
   | { type: "table"; headers: string[]; rows: string[][] }
   | { type: "note"; text: string }
   | { type: "formula"; text: string };
 
-type RegArticle = {
+export type RegArticle = {
   id: string;
   number: string;
   title?: string;
   blocks: ContentBlock[];
 };
 
-type RegSection = {
+export type RegSection = {
   id: string;
   title: string;
   articles: RegArticle[];
 };
 
-type RegChapter = {
+export type RegChapter = {
   id: string;
   title: string;
   sections?: RegSection[];
   articles?: RegArticle[];
 };
 
-type RegulationCategory = "academico" | "avaliacao" | "disciplinar";
+export type RegulationCategory = "academico" | "avaliacao" | "disciplinar";
 
-type RegulationDocument = {
+export type RegulationDocument = {
   id: string;
   category: RegulationCategory;
   title: string;
@@ -3069,7 +3069,7 @@ const REG_DISCIPLINAR: RegulationDocument = {
   signature: [{ role: "A Directora Geral", name: "Carla Cristina V. Queiroz" }],
 };
 
-const ALL_REGULATIONS: RegulationDocument[] = [
+export const ALL_REGULATIONS: RegulationDocument[] = [
   REG_ACADEMICO,
   REG_AVALIACAO,
   REG_INSTRUTIVO,
@@ -3331,7 +3331,46 @@ function RegulationViewer({ doc, onBack }: { doc: RegulationDocument; onBack: ()
 function RegulamentosSection() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const selectedDoc = ALL_REGULATIONS.find((d) => d.id === selectedId) ?? null;
+  const { supabase } = useSupabase();
+
+  // Documentos publicados na BD.
+  // null  = ainda a carregar
+  // []    = BD vazia → usa as constantes do código
+  const [dbDocs, setDbDocs] = useState<RegulationDocument[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("regulations")
+        .select("*")
+        .eq("is_published", true);          // só publicados (rascunhos não aparecem)
+      if (cancelled) return;
+      const docs = ((data as any[]) ?? []).map((r) => ({
+        id: r.id,
+        category: r.category,
+        title: r.title,
+        subtitle: r.subtitle ?? undefined,  // BD devolve null; o tipo espera undefined
+        meta: r.meta ?? undefined,
+        intro: r.intro ?? undefined,
+        chapters: (r.chapters ?? []) as RegulationDocument["chapters"],
+        closing: r.closing ?? undefined,
+        signature: r.signature ?? undefined,
+      }));
+      setDbDocs(docs);
+    })();
+    return () => { cancelled = true; };     // evita setState após unmount
+  }, [supabase]);
+
+  // Fonte de verdade: BD quando tem documentos; código enquanto estiver vazia.
+    const ALL_DOCS = useMemo(() => {
+    if (!dbDocs) return ALL_REGULATIONS;
+    const byId = new Map(ALL_REGULATIONS.map((d) => [d.id, d]));
+    for (const d of dbDocs) byId.set(d.id, d);   // BD ganha em caso de empate
+    return Array.from(byId.values());
+  }, [dbDocs]);
+
+  const selectedDoc = ALL_DOCS.find((d) => d.id === selectedId) ?? null;
 
   useEffect(() => {
     if (selectedDoc) {
@@ -3344,9 +3383,9 @@ function RegulamentosSection() {
   }
 
   const normalizedQuery = normalizeText(query);
-  const filtered = normalizedQuery
-    ? ALL_REGULATIONS.filter((d) => normalizeText(d.title).includes(normalizedQuery))
-    : ALL_REGULATIONS;
+    const filtered = normalizedQuery
+    ? ALL_DOCS.filter((d) => normalizeText(d.title).includes(normalizedQuery))
+    : ALL_DOCS;
 
   const grouped = new Map<RegulationCategory, RegulationDocument[]>();
   for (const doc of filtered) {

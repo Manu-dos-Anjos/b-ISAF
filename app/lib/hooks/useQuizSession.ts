@@ -143,8 +143,11 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
     const total = currentSession.questionIds.length;
     if (total === 0) return;
 
-    const answered = Object.keys(currentSession.answers).length;
-    const progressPercent = Math.min(100, Math.round((answered / total) * 100));
+    const answered = Object.values(currentSession.answers).filter(
+      (answerIds) => answerIds.length > 0
+    ).length;
+    const reached = Math.max(answered, currentSession.currentQuestionIndex);
+    const progressPercent = Math.min(100, Math.round((reached / total) * 100));
 
     try {
       const { error } = await supabase.from("student_progress").upsert(
@@ -160,6 +163,7 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
         { onConflict: "student_id,content_id" }
       );
       if (error) console.error("Erro ao gravar progresso parcial do quiz:", error);
+      else window.dispatchEvent(new CustomEvent("b-isaf:quiz-progress-updated"));
     } catch (err) {
       console.error("Falha na gravação de progresso parcial do quiz:", err);
     }
@@ -199,13 +203,17 @@ export function useQuizSession(contentId: string, timeLimitSeconds?: number | nu
 
   const setQuestion = useCallback(
     (index: number) => {
-      persist((prev) => ({
-        ...prev,
-        currentQuestionIndex: Math.max(
-          0,
-          Math.min(index, Math.max(prev.questionIds.length - 1, 0))
-        ),
-      }));
+      persist((prev) => {
+        const next = {
+          ...prev,
+          currentQuestionIndex: Math.max(
+            0,
+            Math.min(index, Math.max(prev.questionIds.length - 1, 0))
+          ),
+        };
+        void savePartialProgressRef.current(next);
+        return next;
+      });
     },
     [persist]
   );

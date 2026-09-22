@@ -83,8 +83,8 @@ export default function QuizHost({
   if (checking || view === null) {
     return (
       <QuizModalShell>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3">
-          <div className="rounded-2xl bg-slate-100 px-6 py-4 text-sm font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 md:gap-2.5">
+          <div className="rounded-2xl md:rounded-xl bg-slate-100 px-6 md:px-5 py-4 md:py-3 text-sm md:text-xs font-medium text-slate-600 dark:bg-white/5 dark:text-slate-300">
             A preparar questionário…
           </div>
         </div>

@@ -62,45 +62,45 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
   return (
     <QuizModalShell>
       {/* ── Header ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-white/10 px-5 py-4">
-        <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-white/10 px-5 md:px-4 py-4 md:py-3">
+        <div className="flex items-center gap-2 md:gap-1.5">
           <button
             onClick={onBack}
-            className="rounded-xl p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 dark:hover:text-white dark:hover:bg-white/10 transition"
+            className="rounded-xl md:rounded-lg p-1.5 md:p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 dark:hover:text-white dark:hover:bg-white/10 transition"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={16} className="md:h-4 md:w-4" />
           </button>
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+            <p className="text-[11px] md:text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
               Estatísticas dos Estudantes
             </p>
-            <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 line-clamp-1">
+            <p className="text-sm md:text-xs font-bold text-slate-900 dark:text-white mt-0.5 line-clamp-1">
               {title}
             </p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="rounded-xl p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 dark:hover:text-white dark:hover:bg-white/10 transition"
+          className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 dark:hover:text-white dark:hover:bg-white/10 transition"
         >
-          <X size={16} />
+          <X size={16} className="md:h-4 md:w-4" />
         </button>
       </div>
 
       {/* ── Conteúdo (único a fazer scroll) ── */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-5">
+      <div className="min-h-0 flex-1 overflow-y-auto p-5 md:p-4 space-y-5 md:space-y-4">
 
         {loading && (
-          <div className="flex flex-col items-center gap-3 py-16">
-            <Loader2 size={24} className="animate-spin text-blue-600 dark:text-blue-400" />
-            <p className="text-sm text-slate-500 dark:text-slate-400">A calcular estatísticas…</p>
+          <div className="flex flex-col items-center gap-3 md:gap-2.5 py-16 md:py-12">
+            <Loader2 size={24} className="animate-spin text-blue-600 dark:text-blue-400 md:h-5 md:w-5" />
+            <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">A calcular estatísticas…</p>
           </div>
         )}
 
         {!loading && !stats && (
-          <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <AlertTriangle size={24} className="text-amber-600 dark:text-amber-400" />
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+          <div className="flex flex-col items-center gap-3 md:gap-2.5 py-16 md:py-12 text-center">
+            <AlertTriangle size={24} className="text-amber-600 dark:text-amber-400 md:h-5 md:w-5" />
+            <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
               Sem dados suficientes ainda.<br />
               Sê o primeiro a completar este quiz!
             </p>
@@ -110,7 +110,7 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
         {!loading && stats && (
           <>
             {/* ── Métricas globais ── */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:gap-2.5 sm:grid-cols-4">
               {[
                 {
                   icon:  Users,
@@ -147,13 +147,13 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
               ].map(({ icon: Icon, label, value, color, bg }) => (
                 <div
                   key={label}
-                  className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-center dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
+                  className="rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm p-4 md:p-3 text-center dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
                 >
-                  <div className={`mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl ${bg}`}>
-                    <Icon size={16} className={color} />
+                  <div className={`mx-auto mb-2 md:mb-1.5 flex h-9 w-9 md:h-8 md:w-8 items-center justify-center rounded-xl md:rounded-lg ${bg}`}>
+                    <Icon size={16} className={color + " md:h-3.5 md:w-3.5"} />
                   </div>
-                  <p className={`text-xl font-black tabular-nums ${color}`}>{value}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{label}</p>
+                  <p className={`text-xl md:text-lg font-black tabular-nums ${color}`}>{value}</p>
+                  <p className="text-[11px] md:text-[10px] text-slate-500 mt-0.5">{label}</p>
                 </div>
               ))}
             </div>
@@ -161,60 +161,60 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
             {/* ── Desempenho por questão ── */}
             {stats.questionStats.length > 0 && (
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-3">
+                <p className="text-[11px] md:text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-3 md:mb-2.5">
                   Desempenho por questão
                 </p>
 
-                <div className="space-y-3">
+                <div className="space-y-3 md:space-y-2.5">
                   {stats.questionStats.map((qs, idx) => {
                     const { bar, text } = rateColor(qs.correctRate);
 
                     return (
                       <div
                         key={qs.questionId}
-                        className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-3 dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
+                        className="rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm p-4 md:p-3 space-y-3 md:space-y-2.5 dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
                       >
-                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
+                        <p className="text-xs md:text-[11px] font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
                           {idx + 1}. {qs.questionText}
                         </p>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 md:gap-2">
                           <div className="flex-1">
-                            <div className="mb-1 flex justify-between text-[10px] text-slate-500">
+                            <div className="mb-1 flex justify-between text-[10px] md:text-[9px] text-slate-500">
                               <span>Taxa de acerto</span>
                               <span>{qs.totalAttempts} resp.</span>
                             </div>
-                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
+                            <div className="h-2.5 md:h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
                               <div
                                 className={`h-full rounded-full transition-all duration-700 ${bar}`}
                                 style={{ width: `${qs.correctRate}%` }}
                               />
                             </div>
                           </div>
-                          <span className={`shrink-0 text-sm font-black tabular-nums ${text}`}>
+                          <span className={`shrink-0 text-sm md:text-xs font-black tabular-nums ${text}`}>
                             {qs.correctRate}%
                           </span>
                         </div>
 
                         {qs.answerDist.length > 0 && (
-                          <div className="space-y-1.5">
-                            <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-600 font-semibold">
+                          <div className="space-y-1.5 md:space-y-1">
+                            <p className="text-[10px] md:text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-600 font-semibold">
                               Distribuição
                             </p>
                             {qs.answerDist.map((ad) => (
-                              <div key={ad.answerId} className="flex items-center gap-2">
-                                <p className="w-32 shrink-0 truncate text-[11px] text-slate-600 dark:text-slate-400">
+                              <div key={ad.answerId} className="flex items-center gap-2 md:gap-1.5">
+                                <p className="w-32 md:w-28 shrink-0 truncate text-[11px] md:text-[10px] text-slate-600 dark:text-slate-400">
                                   {ad.text}
                                 </p>
                                 <div className="flex-1">
-                                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
+                                  <div className="h-1.5 md:h-1 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
                                     <div
                                       className="h-full rounded-full bg-blue-500/70 dark:bg-blue-500/50 transition-all duration-500"
                                       style={{ width: `${ad.pct}%` }}
                                     />
                                   </div>
                                 </div>
-                                <span className="w-10 shrink-0 text-right text-[11px] font-semibold text-slate-500 tabular-nums">
+                                <span className="w-10 md:w-9 shrink-0 text-right text-[11px] md:text-[10px] font-semibold text-slate-500 tabular-nums">
                                   {ad.pct}%
                                 </span>
                               </div>
@@ -223,9 +223,9 @@ export default function QuizStats({ contentId, title, onBack, onClose }: Props) 
                         )}
 
                         {qs.correctRate < 50 && qs.topWrongAnswer && (
-                          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-500/15 dark:bg-amber-500/8 px-3 py-2">
-                            <AlertTriangle size={11} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                            <p className="text-[11px] text-amber-700 dark:text-amber-400/80 leading-relaxed">
+                          <div className="flex items-start gap-2 md:gap-1.5 rounded-xl md:rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-500/15 dark:bg-amber-500/8 px-3 md:px-2.5 py-2 md:py-1.5">
+                            <AlertTriangle size={11} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400 md:h-2.5 md:w-2.5" />
+                            <p className="text-[11px] md:text-[10px] text-amber-700 dark:text-amber-400/80 leading-relaxed">
                               Muitos alunos escolheram{" "}
                               <span className="font-semibold text-amber-800 dark:text-amber-300">
                                 "{qs.topWrongAnswer}"

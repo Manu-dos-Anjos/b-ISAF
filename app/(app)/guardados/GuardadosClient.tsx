@@ -1,7 +1,7 @@
 // app/guardados/GuardadosClient.tsx
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bookmark,
@@ -22,12 +22,25 @@ import {
   ZoomOut,
   Expand,
   Shrink,
+  Star,
+  Calendar,
+  Clock,
+  MapPin,
+  Sparkles,
+  Ticket,
+  Share2,
+  ClipboardList,
+  CalendarPlus,
 } from "lucide-react";
 import type { Profile } from "@/src/types/database";
 import { removeSavedItem, type SavedItem } from "@/app/actions/saved";
 import { useAudioPlayer } from "@/app/lib/context/AudioPlayerContext";
+import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import SlideViewer from "@/app/components/slides/SlideViewer";
 import QuizPlayer from "@/app/components/quiz/QuizPlayer";
+import QuizModalShell from "@/app/components/quiz/QuizModalShell";
+import { CATEGORY_META, type EventCategory } from "@/app/lib/events/classifyCategory";
+import type { EventLink } from "@/app/lib/events/parseWhatsAppEvent";
 
 type Discipline = { id: string; name: string };
 
@@ -35,6 +48,29 @@ type Props = {
   profile: Profile;
   savedItems: SavedItem[];
   disciplines: Discipline[];
+};
+
+/* ================================================================
+   TIPOS DE EVENTOS MARCADOS
+================================================================ */
+
+type MarkedEvent = {
+  id: string;
+  title: string;
+  theme: string | null;
+  category: string;
+  description: string | null;
+  date_label: string | null;
+  date_start: string | null;
+  date_end: string | null;
+  time_label: string | null;
+  location: string | null;
+  price_label: string | null;
+  is_free: boolean | null;
+  links: EventLink[];
+  image_url: string | null;
+  is_featured: boolean;
+  marked_at: string;
 };
 
 /* ================================================================
@@ -88,6 +124,130 @@ const CONTENT_META: Record<
 };
 
 /* ================================================================
+   HELPERS DE EVENTO (espelham /eventos)
+================================================================ */
+
+const parseIso = (iso: string) => new Date(`${iso}T00:00:00`);
+
+const todayStart = () => {
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  return t;
+};
+
+const getStatus = (ev: MarkedEvent): "ongoing" | "today" | "upcoming" | "expired" => {
+  const today = todayStart().getTime();
+  const s = ev.date_start ? parseIso(ev.date_start).getTime() : null;
+  const e = ev.date_end ? parseIso(ev.date_end).getTime() : s;
+  if (s === null) return "upcoming";
+  if (today > (e ?? s)) return "expired";
+  if (s !== e && today >= s && today <= (e ?? s)) return "ongoing";
+  if (today === s) return "today";
+  return "upcoming";
+};
+
+const fmtDate = (iso: string) =>
+  parseIso(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" });
+
+const fmtRange = (ev: MarkedEvent): string => {
+  if (!ev.date_start) return ev.date_label || "Data a definir";
+  if (ev.date_end && ev.date_end !== ev.date_start)
+    return `${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}`;
+  return fmtDate(ev.date_start);
+};
+
+const catOf = (c: string): EventCategory =>
+  c in CATEGORY_META ? (c as EventCategory) : "comunidade";
+
+const ACCENT: Record<EventCategory, { bar: string; dot: string }> = {
+  formacao:        { bar: "border-l-blue-500",    dot: "bg-blue-500" },
+  palestra:        { bar: "border-l-violet-500",  dot: "bg-violet-500" },
+  financas:        { bar: "border-l-emerald-500", dot: "bg-emerald-500" },
+  empregabilidade: { bar: "border-l-amber-500",   dot: "bg-amber-500" },
+  academico:       { bar: "border-l-indigo-500",  dot: "bg-indigo-500" },
+  cultural:        { bar: "border-l-pink-500",    dot: "bg-pink-500" },
+  desporto:        { bar: "border-l-orange-500",  dot: "bg-orange-500" },
+  comunidade:      { bar: "border-l-slate-400",   dot: "bg-slate-400" },
+};
+
+const validLinks = (links: EventLink[]) =>
+  (links ?? []).filter((l) => /^https?:\/\//i.test(l.url ?? ""));
+
+const LINK_META: Record<EventLink["kind"], { label: string; icon: typeof MapPin }> = {
+  map:    { label: "Ver local no mapa", icon: MapPin },
+  stream: { label: "Assistir online",   icon: PlayCircle },
+  apply:  { label: "Candidatar-se",     icon: ClipboardList },
+  info:   { label: "Mais informações",  icon: ExternalLink },
+};
+
+const icsDate = (d: Date) =>
+  `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+
+function gcalUrl(ev: MarkedEvent): string {
+  const start = ev.date_start ? icsDate(parseIso(ev.date_start)) : "";
+  let end = "";
+  const endRaw = ev.date_end ?? ev.date_start;
+  if (endRaw) {
+    const d = parseIso(endRaw);
+    d.setDate(d.getDate() + 1);
+    end = icsDate(d);
+  }
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: ev.title,
+    dates: start && end ? `${start}/${end}` : start,
+    details: ev.description ?? "",
+    location: ev.location ?? "",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function downloadIcs(ev: MarkedEvent) {
+  const esc = (s: string) =>
+    s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  const endRaw = ev.date_end ?? ev.date_start;
+  let endLine = "";
+  if (endRaw) {
+    const d = parseIso(endRaw);
+    d.setDate(d.getDate() + 1);
+    endLine = `DTEND;VALUE=DATE:${icsDate(d)}`;
+  }
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//b-ISAF//Eventos//PT",
+    "BEGIN:VEVENT",
+    `UID:${ev.id}@b-isaf`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`,
+    ev.date_start ? `DTSTART;VALUE=DATE:${icsDate(parseIso(ev.date_start))}` : "",
+    endLine,
+    `SUMMARY:${esc(ev.title)}`,
+    ev.location ? `LOCATION:${esc(ev.location)}` : "",
+    ev.description ? `DESCRIPTION:${esc(ev.description)}` : "",
+    "END:VEVENT", "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${ev.title.slice(0, 40).replace(/[^\w-]+/g, "_")}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function shareEvent(ev: MarkedEvent) {
+  const text = `${ev.title} · ${fmtRange(ev)}${ev.location ? ` · ${ev.location}` : ""}`;
+  try {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ title: ev.title, text, url: window.location.href });
+      return;
+    }
+    await navigator.clipboard.writeText(`${text} — ${window.location.href}`);
+  } catch {
+    /* partilha cancelada */
+  }
+}
+
+/* ================================================================
    ZOOM CONTROLS
 ================================================================ */
 
@@ -135,6 +295,23 @@ function ZoomControls({
 }
 
 /* ================================================================
+   SKELETON DE CARD DE EVENTO
+================================================================ */
+
+function EventCardSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/40">
+      <div className="h-40 bg-slate-200 dark:bg-white/10 md:h-36" />
+      <div className="space-y-2.5 p-3.5">
+        <div className="h-4 w-4/5 rounded bg-slate-200 dark:bg-white/10" />
+        <div className="h-3 w-3/5 rounded bg-slate-200 dark:bg-white/10" />
+        <div className="h-3 w-2/5 rounded bg-slate-200 dark:bg-white/10" />
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
    COMPONENTE PRINCIPAL
 ================================================================ */
 
@@ -145,6 +322,7 @@ export default function GuardadosClient({
 }: Props) {
   const router = useRouter();
   const audioPlayer = useAudioPlayer();
+  const { supabase } = useSupabase();
 
   const [items, setItems] = useState<SavedItem[]>(initialItems);
   const [search, setSearch] = useState("");
@@ -159,8 +337,42 @@ export default function GuardadosClient({
 
   const [activeQuiz, setActiveQuiz] = useState<SavedItem | null>(null);
 
+  /* ── Eventos marcados ── */
+  const [markedEvents, setMarkedEvents] = useState<MarkedEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [unmarkingId, setUnmarkingId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<MarkedEvent | null>(null);
+  const [imgFailed, setImgFailed] = useState<Set<string>>(new Set());
+
   const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? "Aluno";
 
+  /* ── Carregar eventos marcados ── */
+  const loadEvents = useCallback(async () => {
+    setEventsLoading(true);
+    const { data } = await supabase
+      .from("event_marks")
+      .select("event_id, created_at, events(*)")
+      .order("created_at", { ascending: false });
+    const mapped: MarkedEvent[] = ((data as any[]) ?? [])
+      .filter((r) => r.events && r.events.is_published)
+      .map((r) => ({ ...(r.events as any), marked_at: r.created_at }));
+    setMarkedEvents(mapped);
+    setEventsLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    void loadEvents();
+  }, [loadEvents]);
+
+  const handleUnmark = async (ev: MarkedEvent) => {
+    setUnmarkingId(ev.id);
+    await supabase.from("event_marks").delete().eq("event_id", ev.id);
+    setMarkedEvents((prev) => prev.filter((e) => e.id !== ev.id));
+    setUnmarkingId(null);
+    if (selectedEvent?.id === ev.id) setSelectedEvent(null);
+  };
+
+  /* ── Resto do comportamento original ── */
   const handleRemove = useCallback(async (savedId: string) => {
     setRemovingId(savedId);
     await removeSavedItem(savedId);
@@ -271,6 +483,8 @@ export default function GuardadosClient({
     return counts;
   }, [items]);
 
+  const totalMarked = markedEvents.length;
+
   const typeOptions = [
     { key: "all", label: "Todos" },
     { key: "audio", label: "Áudios" },
@@ -278,6 +492,160 @@ export default function GuardadosClient({
     { key: "quiz", label: "Quizzes" },
     { key: "interactive", label: "Interativos" },
   ];
+
+  /* ── Helpers visuais de eventos (espelhados de /eventos) ── */
+  const statusChip = (ev: MarkedEvent) => {
+    const st = getStatus(ev);
+    if (st === "ongoing")
+      return <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">A decorrer</span>;
+    if (st === "today")
+      return <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">Hoje</span>;
+    if (st === "expired")
+      return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-white/10 dark:text-slate-400">Realizado</span>;
+    return null;
+  };
+
+  const banner = (ev: MarkedEvent, cls: string) =>
+    ev.image_url && !imgFailed.has(ev.id) ? (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={ev.image_url}
+        alt=""
+        onError={() => setImgFailed((p) => new Set(p).add(ev.id))}
+        className={cls}
+      />
+    ) : (
+      <div className={`${cls} bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800`} />
+    );
+
+  /* ── Card de evento marcado (grelha com banner grande) ── */
+  const renderMarkedCard = (ev: MarkedEvent) => {
+    const c = catOf(ev.category);
+    const d = ev.date_start ? parseIso(ev.date_start) : null;
+    const st = getStatus(ev);
+
+    return (
+      <article
+        key={ev.id}
+        className={`group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg dark:border-white/10 dark:bg-slate-950/40 dark:hover:border-white/20 ${
+          st === "expired" ? "opacity-70" : ""
+        }`}
+      >
+        {/* Banner */}
+        <button
+          type="button"
+          onClick={() => setSelectedEvent(ev)}
+          className="relative block h-40 w-full shrink-0 overflow-hidden md:h-36"
+        >
+          {banner(ev, "h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]")}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent" />
+
+          <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-800 shadow-sm backdrop-blur dark:bg-slate-900/95 dark:text-slate-200">
+              <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[c].dot}`} />
+              {CATEGORY_META[c].label}
+            </span>
+            {ev.is_free && (
+              <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+                Gratuita
+              </span>
+            )}
+          </div>
+
+          {d ? (
+            <div className="absolute bottom-2.5 left-2.5 flex flex-col items-center rounded-lg bg-white/95 px-2.5 py-1.5 shadow-sm backdrop-blur dark:bg-slate-900/95">
+              <span className="text-lg font-bold leading-none tabular-nums text-slate-900 dark:text-white">
+                {d.getDate()}
+              </span>
+              <span className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                {d.toLocaleDateString("pt-PT", { month: "short" }).replace(".", "")}
+              </span>
+            </div>
+          ) : (
+            <div className="absolute bottom-2.5 left-2.5 rounded-lg bg-white/95 px-2.5 py-1.5 shadow-sm backdrop-blur dark:bg-slate-900/95">
+              <Calendar size={16} className="text-slate-400 dark:text-slate-500" />
+            </div>
+          )}
+
+          <div className="absolute bottom-2.5 right-2.5">
+            {st === "ongoing" && (
+              <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+                A decorrer
+              </span>
+            )}
+            {st === "today" && (
+              <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+                Hoje
+              </span>
+            )}
+            {st === "expired" && (
+              <span className="rounded-full bg-slate-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+                Realizado
+              </span>
+            )}
+          </div>
+        </button>
+
+        {/* Corpo */}
+        <div className="flex flex-1 flex-col gap-1.5 p-3.5 md:p-3">
+          <button type="button" onClick={() => setSelectedEvent(ev)} className="text-left">
+            <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-slate-900 dark:text-white md:text-sm">
+              {ev.title}
+            </h3>
+          </button>
+
+          {ev.theme && (
+            <p className="line-clamp-1 text-[11px] italic leading-snug text-slate-600 dark:text-slate-400 md:text-[10px]">
+              <span className="not-italic font-semibold text-amber-700 dark:text-amber-400">Tema:</span>{" "}
+              {ev.theme}
+            </p>
+          )}
+
+          <div className="mt-auto space-y-1 pt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="flex items-center gap-1.5 tabular-nums">
+              <Calendar size={12} className="shrink-0" /> {fmtRange(ev)}
+              {ev.time_label && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-600">·</span>
+                  <Clock size={12} className="shrink-0" /> {ev.time_label}
+                </>
+              )}
+            </p>
+            {ev.location && (
+              <p className="flex items-center gap-1.5">
+                <MapPin size={12} className="shrink-0" />
+                <span className="truncate">{ev.location}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-slate-100 px-3.5 py-2.5 dark:border-white/5 md:px-3">
+          <button
+            type="button"
+            onClick={() => setSelectedEvent(ev)}
+            className="text-[11px] font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-400 md:text-[10px]"
+          >
+            Ver detalhes
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleUnmark(ev)}
+            disabled={unmarkingId === ev.id}
+            title="Remover dos marcados"
+            className="rounded-lg p-1.5 text-amber-500 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50 dark:hover:bg-rose-500/10"
+          >
+            {unmarkingId === ev.id ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Star size={15} fill="currentColor" />
+            )}
+          </button>
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-5">
@@ -296,14 +664,14 @@ export default function GuardadosClient({
               Olá, {firstName}
             </h1>
             <p className="mt-1 hidden max-w-2xl text-sm text-slate-600 dark:text-slate-400 sm:block md:text-xs md:max-w-xl">
-              Acede rapidamente aos áudios, slides e quizzes que guardaste para
-              rever mais tarde, organizados por disciplina e capítulo.
+              Acede rapidamente aos áudios, slides, quizzes e eventos que guardaste
+              para rever mais tarde.
             </p>
           </div>
 
           <div className="flex shrink-0 flex-col items-end text-right">
             <p className="text-2xl font-bold leading-none text-slate-900 dark:text-white sm:text-3xl md:text-2xl">
-              {items.length}
+              {items.length + totalMarked}
             </p>
             <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 sm:text-[11px] md:text-[10px]">
               guardados
@@ -313,12 +681,13 @@ export default function GuardadosClient({
 
         {/* Stats */}
         <div
-          className={`relative z-10 mt-3 flex gap-1.5 overflow-x-auto sm:mt-5 md:mt-4 sm:grid sm:grid-cols-4 sm:gap-2 md:gap-1.5 sm:overflow-visible ${SCROLLBAR_X}`}
+          className={`relative z-10 mt-3 flex gap-1.5 overflow-x-auto sm:mt-5 md:mt-4 sm:grid sm:grid-cols-5 sm:gap-2 md:gap-1.5 sm:overflow-visible ${SCROLLBAR_X}`}
         >
           {[
             { label: "Áudios", value: typeCount["audio"] ?? 0, icon: Headphones },
             { label: "Slides", value: typeCount["slide"] ?? 0, icon: FileText },
             { label: "Quizzes", value: typeCount["quiz"] ?? 0, icon: Trophy },
+            { label: "Eventos", value: totalMarked, icon: Star },
             { label: "Disciplinas", value: disciplinesWithItems.length, icon: Bookmark },
           ].map(({ label, value, icon: Icon }) => (
             <div
@@ -400,21 +769,76 @@ export default function GuardadosClient({
       </section>
 
       {/* ══════════════════════════════════════════
-          LISTA
+          EVENTOS MARCADOS (grelha com banner)
+      ══════════════════════════════════════════ */}
+      {(totalMarked > 0 || eventsLoading) && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
+                <Star size={15} />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-white md:text-xs">
+                  Eventos marcados
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 md:text-[10px]">
+                  {eventsLoading
+                    ? "A carregar…"
+                    : `${totalMarked} evento${totalMarked !== 1 ? "s" : ""} que marcaste com ⭐`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/eventos")}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-indigo-500/30 dark:hover:text-indigo-300"
+            >
+              Ver todos <ChevronRight size={12} />
+            </button>
+          </div>
+
+          {eventsLoading ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-2.5">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <EventCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-2.5">
+              {markedEvents.map(renderMarkedCard)}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════
+          LISTA DE CONTEÚDOS
       ══════════════════════════════════════════ */}
       <div className="space-y-4 md:space-y-3">
-        {grouped.length === 0 ? (
+        {grouped.length === 0 && items.length > 0 ? (
+          <div className="flex min-h-[32vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-white/10 dark:bg-white/[0.03] sm:min-h-[38vh] md:min-h-[34vh] sm:p-8 md:p-6 md:rounded-2xl">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04] sm:h-16 sm:w-16 md:h-14 md:w-14 md:rounded-2xl">
+              <Search size={26} className="text-slate-400 dark:text-slate-500 md:h-6 md:w-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white sm:text-lg md:text-base">
+              Nenhum conteúdo corresponde
+            </h3>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500 md:text-xs md:max-w-sm">
+              Ajusta os filtros ou a pesquisa para encontrares os teus áudios, slides e quizzes.
+            </p>
+          </div>
+        ) : grouped.length === 0 && items.length === 0 && totalMarked === 0 ? (
           <div className="flex min-h-[32vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-white/10 dark:bg-white/[0.03] sm:min-h-[38vh] md:min-h-[34vh] sm:p-8 md:p-6 md:rounded-2xl">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04] sm:h-16 sm:w-16 md:h-14 md:w-14 md:rounded-2xl">
               <Bookmark size={26} className="text-slate-400 dark:text-slate-500 md:h-6 md:w-6" />
             </div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white sm:text-lg md:text-base">
-              Nenhum item guardado
+              Ainda não guardaste nada
             </h3>
             <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500 md:text-xs md:max-w-sm">
-              {items.length === 0
-                ? "Ainda não guardaste nenhum conteúdo. Usa o ícone de marcador nas disciplinas para guardar áudios, slides e quizzes."
-                : "Nenhum item corresponde aos filtros selecionados."}
+              Usa o ícone de marcador nas disciplinas para guardar áudios, slides e quizzes,
+              ou a ⭐ nos eventos para os guardares aqui.
             </p>
           </div>
         ) : (
@@ -433,7 +857,6 @@ export default function GuardadosClient({
                       : "border-slate-200 dark:border-white/10"
                   }`}
                 >
-                  {/* cabeçalho acordeão */}
                   <button
                     onClick={() => toggleDisc(discId, index)}
                     className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition sm:gap-4 md:gap-3 sm:px-5 md:px-4 sm:py-4 md:py-3 ${
@@ -461,7 +884,6 @@ export default function GuardadosClient({
                     }
                   </button>
 
-                  {/* corpo */}
                   {isOpen && (
                     <div className="divide-y divide-slate-100 bg-slate-50/60 dark:divide-white/5 dark:bg-slate-950/30">
                       {Array.from(group.chapters.entries()).map(([chTitle, chItems]) => (
@@ -652,6 +1074,147 @@ export default function GuardadosClient({
             </div>
           </div>
         </>
+      )}
+
+      {/* ══════════════════════════════════════════
+          MODAL: EVENTO
+      ══════════════════════════════════════════ */}
+      {selectedEvent && (
+        <QuizModalShell>
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10 md:px-3.5 md:py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ACCENT[catOf(selectedEvent.category)].dot}`} />
+              <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {CATEGORY_META[catOf(selectedEvent.category)].label}
+              </span>
+              {statusChip(selectedEvent)}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedEvent(null)}
+              aria-label="Fechar"
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {selectedEvent.image_url && !imgFailed.has(selectedEvent.id) && (
+              <div className="relative flex items-center justify-center border-b border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-slate-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedEvent.image_url}
+                  alt={`Cartaz do evento: ${selectedEvent.title}`}
+                  onError={() => setImgFailed((p) => new Set(p).add(selectedEvent.id))}
+                  className="max-h-[55vh] w-full object-contain md:max-h-[48vh]"
+                />
+                <a
+                  href={selectedEvent.image_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Abrir imagem original"
+                  className="absolute right-2 top-2 rounded-lg bg-black/50 p-1.5 text-white backdrop-blur transition hover:bg-black/70"
+                >
+                  <ExternalLink size={13} />
+                </a>
+              </div>
+            )}
+
+            <div className="space-y-4 p-4 md:space-y-3 md:p-3.5">
+              <h2 className="text-lg font-bold leading-snug text-slate-900 dark:text-white md:text-base">
+                {selectedEvent.title}
+              </h2>
+              {selectedEvent.theme && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/20 dark:bg-amber-500/[0.06]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    Tema
+                  </p>
+                  <p className="mt-1 text-sm leading-snug text-slate-800 dark:text-slate-200 md:text-xs">
+                    {selectedEvent.theme}
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 dark:border-white/10 dark:bg-white/10">
+                {[
+                  { icon: Calendar, label: "Data", value: fmtRange(selectedEvent) },
+                  { icon: Clock, label: "Hora", value: selectedEvent.time_label ?? "A definir" },
+                  { icon: MapPin, label: "Local", value: selectedEvent.location ?? "A definir" },
+                  { icon: Ticket, label: "Preço", value: selectedEvent.price_label ?? (selectedEvent.is_free ? "Gratuita" : "Pago") },
+                ].map(({ icon: Icon, label, value }) => (
+                  <div key={label} className="bg-white p-3 dark:bg-slate-950">
+                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                      <Icon size={11} /> {label}
+                    </p>
+                    <p className="mt-1 text-xs font-medium leading-snug text-slate-800 dark:text-slate-200">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {selectedEvent.description && (
+                <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-300 md:text-xs">
+                  {selectedEvent.description}
+                </p>
+              )}
+
+              {validLinks(selectedEvent.links).length > 0 && (
+                <div className="space-y-1.5">
+                  {validLinks(selectedEvent.links).map((l, i) => {
+                    const lm = LINK_META[l.kind];
+                    const Icon = lm.icon;
+                    return (
+                      <a
+                        key={i}
+                        href={l.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-indigo-500/40 dark:hover:text-indigo-300 md:py-2"
+                      >
+                        <Icon size={14} className="shrink-0" />
+                        <span className="flex-1">{lm.label}</span>
+                        <ExternalLink size={12} className="shrink-0 text-slate-300 dark:text-slate-600" />
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 grid grid-cols-4 gap-1.5 border-t border-slate-200 p-3 dark:border-white/10 md:p-2.5">
+            <button
+              type="button"
+              onClick={() => void handleUnmark(selectedEvent)}
+              disabled={unmarkingId === selectedEvent.id}
+              className="col-span-1 flex flex-col items-center gap-1 rounded-lg bg-amber-50 py-2 text-[10px] font-semibold text-amber-700 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            >
+              <Star size={15} fill="currentColor" />
+              Marcado
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadIcs(selectedEvent)}
+              className="flex flex-col items-center gap-1 rounded-lg bg-slate-100 py-2 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            >
+              <CalendarPlus size={15} /> .ics
+            </button>
+            <a
+              href={gcalUrl(selectedEvent)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1 rounded-lg bg-slate-100 py-2 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            >
+              <Calendar size={15} /> Google
+            </a>
+            <button
+              type="button"
+              onClick={() => void shareEvent(selectedEvent)}
+              className="flex flex-col items-center gap-1 rounded-lg bg-slate-100 py-2 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            >
+              <Share2 size={15} /> Partilhar
+            </button>
+          </div>
+        </QuizModalShell>
       )}
     </div>
   );

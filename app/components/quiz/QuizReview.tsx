@@ -287,9 +287,9 @@ export default function QuizReview({
   if (loading) {
     return (
       <QuizModalShell>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3">
-          <Loader2 size={24} className="animate-spin text-blue-600 dark:text-blue-400" />
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 md:gap-2.5">
+          <Loader2 size={24} className="animate-spin text-blue-600 dark:text-blue-400 md:h-5 md:w-5" />
+          <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
             A carregar revisão…
           </p>
         </div>
@@ -300,20 +300,20 @@ export default function QuizReview({
   if (!result) {
     return (
       <QuizModalShell>
-        <div className="flex shrink-0 items-center justify-end px-5 py-4">
+        <div className="flex shrink-0 items-center justify-end px-5 md:px-4 py-4 md:py-3">
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+            className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            <X size={16} />
+            <X size={16} className="md:h-4 md:w-4" />
           </button>
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-          <AlertCircle size={24} className="text-slate-400 dark:text-slate-600" />
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 md:gap-2.5 px-6 md:px-5 text-center">
+          <AlertCircle size={24} className="text-slate-400 dark:text-slate-600 md:h-5 md:w-5" />
+          <p className="text-sm md:text-xs text-slate-500 dark:text-slate-400">
             Nenhum resultado encontrado.
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-500">
+          <p className="text-xs md:text-[11px] text-slate-500 dark:text-slate-500">
             Usa o botão do capítulo para iniciar o questionário.
           </p>
         </div>
@@ -328,20 +328,20 @@ export default function QuizReview({
   return (
     <QuizModalShell>
       {/* ── Header ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-white/10 px-5 py-4">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 dark:border-white/10 px-5 md:px-4 py-4 md:py-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <p className="text-[11px] md:text-[10px] font-semibold uppercase tracking-wider text-slate-500">
             Revisão
           </p>
-          <p className="mt-0.5 line-clamp-1 text-sm font-bold text-slate-900 dark:text-white">
+          <p className="mt-0.5 line-clamp-1 text-sm md:text-xs font-bold text-slate-900 dark:text-white">
             {title}
           </p>
         </div>
         <button
           onClick={onClose}
-          className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+          className="rounded-xl md:rounded-lg p-2 md:p-1.5 text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
         >
-          <X size={16} />
+          <X size={16} className="md:h-4 md:w-4" />
         </button>
       </div>
 
@@ -349,15 +349,15 @@ export default function QuizReview({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* Score card */}
         <div
-          className={`mx-5 mt-5 rounded-2xl border p-5 ${
+          className={`mx-5 md:mx-4 mt-5 md:mt-4 rounded-2xl md:rounded-xl border p-5 md:p-4 ${
             pass
               ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5"
               : "border-rose-200 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/5"
           }`}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 md:gap-3">
             <div
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+              className={`flex h-14 w-14 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-2xl md:rounded-xl ${
                 pass
                   ? "bg-emerald-100 dark:bg-emerald-500/15"
                   : "bg-rose-100 dark:bg-rose-500/15"
@@ -365,17 +365,17 @@ export default function QuizReview({
             >
               <Trophy
                 size={24}
-                className={
+                className={`md:h-6 md:w-6 ${
                   pass
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-rose-600 dark:text-rose-400"
-                }
+                }`}
               />
             </div>
 
             <div className="flex-1">
               <p
-                className={`text-4xl font-black tabular-nums ${
+                className={`text-4xl md:text-3xl font-black tabular-nums ${
                   pass
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-rose-600 dark:text-rose-400"
@@ -383,22 +383,22 @@ export default function QuizReview({
               >
                 {pct}%
               </p>
-              <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+              <p className="mt-0.5 text-xs md:text-[11px] text-slate-600 dark:text-slate-400">
                 {result.correct_answers} de {result.total_questions} correctas
               </p>
             </div>
 
             <div className="text-right">
-              <p className={`text-sm font-bold ${perf.color}`}>{perf.text}</p>
+              <p className={`text-sm md:text-xs font-bold ${perf.color}`}>{perf.text}</p>
               {result.time_spent_seconds != null && (
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] md:text-[10px] text-slate-500">
                   ⏱ {formatTime(result.time_spent_seconds)}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
+          <div className="mt-3 md:mt-2.5 h-2 md:h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/5">
             <div
               className={`h-full rounded-full transition-all duration-700 ${
                 pass ? "bg-emerald-500" : "bg-rose-500"
@@ -409,8 +409,8 @@ export default function QuizReview({
         </div>
 
         {/* Lista de perguntas */}
-        <div className="space-y-2 px-5 py-4">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="space-y-2 md:space-y-1.5 px-5 md:px-4 py-4 md:py-3">
+          <p className="mb-3 md:mb-2.5 text-[11px] md:text-[10px] font-semibold uppercase tracking-wider text-slate-500">
             Revisão questão a questão
           </p>
 
@@ -420,44 +420,52 @@ export default function QuizReview({
             return (
               <div
                 key={d.questionId}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
+                className="overflow-hidden rounded-2xl md:rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
               >
                 <button
                   onClick={() => toggle(d.questionId)}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50 dark:hover:bg-white/5"
+                  className="flex w-full items-center gap-3 md:gap-2.5 px-4 md:px-3 py-3.5 md:py-3 text-left transition hover:bg-slate-50 dark:hover:bg-white/5"
                 >
                   <div
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                    className={`flex h-6 w-6 md:h-5 md:w-5 shrink-0 items-center justify-center rounded-full ${
                       d.isCorrect
                         ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"
                         : "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
                     }`}
                   >
-                    {d.isCorrect ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                    {d.isCorrect ? (
+                      <CheckCircle2 size={13} className="md:h-3 md:w-3" />
+                    ) : (
+                      <XCircle size={13} className="md:h-3 md:w-3" />
+                    )}
                   </div>
 
-                  <p className="flex-1 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-2">
+                  <p className="flex-1 text-xs md:text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-2">
                     {idx + 1}. {d.questionText}
                   </p>
 
                   <div className="shrink-0 text-slate-400 dark:text-slate-600">
-                    {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {open ? (
+                      <ChevronUp size={14} className="md:h-3.5 md:w-3.5" />
+                    ) : (
+                      <ChevronDown size={14} className="md:h-3.5 md:w-3.5" />
+                    )}
                   </div>
                 </button>
 
                 {open && (
-                  <div className="space-y-2 border-t border-slate-200 dark:border-white/5 px-4 py-3">
+                  <div className="space-y-2 md:space-y-1.5 border-t border-slate-200 dark:border-white/5 px-4 md:px-3 py-3 md:py-2.5">
                     {!d.isCorrect && d.selectedText && (
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-2 md:gap-1.5">
                         <XCircle
                           size={12}
-                          className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400"
+                          className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400 md:h-3 md:w-3"
                         />
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-500">
+                          <p className="text-[10px] md:text-[9px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-500">
                             A tua resposta
                           </p>
-                          <p className="mt-0.5 text-xs text-rose-700 dark:text-rose-300">
+                          <p className="mt-0.5 text-xs md:text-[11px] text-rose-700 dark:text-rose-300">
                             {d.selectedText}
                           </p>
                         </div>
@@ -465,32 +473,32 @@ export default function QuizReview({
                     )}
 
                     {!d.isCorrect && !d.selectedText && (
-                      <p className="text-[11px] italic text-slate-500">
+                      <p className="text-[11px] md:text-[10px] italic text-slate-500">
                         Não respondeste a esta pergunta.
                       </p>
                     )}
 
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-2 md:gap-1.5">
                       <CheckCircle2
                         size={12}
-                        className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                        className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400 md:h-3 md:w-3"
                       />
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">
+                        <p className="text-[10px] md:text-[9px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">
                           Resposta correcta
                         </p>
-                        <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                        <p className="mt-0.5 text-xs md:text-[11px] text-emerald-700 dark:text-emerald-300">
                           {d.correctText}
                         </p>
                       </div>
                     </div>
 
                     {d.selectedFeedback && (
-                      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <div className="rounded-xl md:rounded-lg bg-slate-50 px-3 md:px-2.5 py-2 md:py-1.5 dark:bg-white/5">
+                        <p className="text-[10px] md:text-[9px] font-semibold uppercase tracking-wider text-slate-500">
                           Feedback
                         </p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p className="mt-1 text-xs md:text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
                           {d.selectedFeedback}
                         </p>
                       </div>
@@ -499,22 +507,22 @@ export default function QuizReview({
                     {!d.isCorrect &&
                       d.correctFeedback &&
                       d.correctFeedback !== d.selectedFeedback && (
-                        <div className="rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                        <div className="rounded-xl md:rounded-lg bg-emerald-50 px-3 md:px-2.5 py-2 md:py-1.5 dark:bg-emerald-500/10">
+                          <p className="text-[10px] md:text-[9px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
                             Comentário da resposta correcta
                           </p>
-                          <p className="mt-1 text-xs leading-relaxed text-emerald-800 dark:text-emerald-200">
+                          <p className="mt-1 text-xs md:text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-200">
                             {d.correctFeedback}
                           </p>
                         </div>
                       )}
 
                     {d.questionExplanation && (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-500/20 dark:bg-blue-500/10">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-200">
+                      <div className="rounded-xl md:rounded-lg border border-blue-200 bg-blue-50 px-3 md:px-2.5 py-2 md:py-1.5 dark:border-blue-500/20 dark:bg-blue-500/10">
+                        <p className="text-[10px] md:text-[9px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-200">
                           Explicação
                         </p>
-                        <p className="mt-1 text-xs leading-relaxed text-blue-800 dark:text-blue-200">
+                        <p className="mt-1 text-xs md:text-[11px] leading-relaxed text-blue-800 dark:text-blue-200">
                           {d.questionExplanation}
                         </p>
                       </div>
@@ -528,18 +536,18 @@ export default function QuizReview({
       </div>
 
       {/* ── Acções (sempre visíveis, nunca exigem scroll) ── */}
-      <div className="flex shrink-0 gap-3 border-t border-slate-200 dark:border-white/10 px-5 py-4">
+      <div className="flex shrink-0 gap-3 md:gap-2 border-t border-slate-200 dark:border-white/10 px-5 md:px-4 py-4 md:py-3">
         <button
           onClick={onRepeat}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-slate-100 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+          className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl border border-slate-300 bg-slate-100 py-3 md:py-2.5 text-sm md:text-xs font-semibold text-slate-700 transition hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
         >
-          <RotateCcw size={14} /> Repetir
+          <RotateCcw size={14} className="md:h-3.5 md:w-3.5" /> Repetir
         </button>
         <button
           onClick={onStats}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-sm font-bold text-white transition hover:bg-indigo-500"
+          className="flex flex-1 items-center justify-center gap-2 md:gap-1.5 rounded-2xl md:rounded-xl bg-indigo-600 py-3 md:py-2.5 text-sm md:text-xs font-bold text-white transition hover:bg-indigo-500"
         >
-          <BarChart2 size={14} /> Ver estatísticas
+          <BarChart2 size={14} className="md:h-3.5 md:w-3.5" /> Ver estatísticas
         </button>
       </div>
     </QuizModalShell>
