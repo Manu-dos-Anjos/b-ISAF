@@ -124,7 +124,7 @@ class ModalErrorBoundary extends React.Component<EBProps, EBState> {
       return (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 md:p-6 text-center">
           <div className="flex h-14 w-14 md:h-12 md:w-12 items-center justify-center rounded-2xl md:rounded-xl border border-rose-300 bg-rose-50 dark:border-rose-500/20 dark:bg-rose-500/10">
-            <span className="text-2xl md:text-xl">⚠️</span>
+            <span className="text-sm font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300">Aviso</span>
           </div>
           <div>
             <p className="text-base md:text-sm font-bold text-slate-900 dark:text-white">Ocorreu um erro inesperado</p>

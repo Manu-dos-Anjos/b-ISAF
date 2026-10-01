@@ -1,12 +1,12 @@
 // app/(app)/admin/disciplinas/page.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen, ChevronDown, ChevronRight, ExternalLink, Loader2, Plus,
-  ShieldAlert, Trash2, FileText, Headphones, Trophy, PlayCircle, Layers,
-  Pencil, Check, X, ListTree, FileStack,
+  ShieldAlert, Trash2, FileText, Headphones, Trophy, PlayCircle,
+  Pencil, Check, X, ListTree, FileStack, Search, RefreshCw,
 } from "lucide-react";
 import { useAdmin } from "@/app/lib/hooks/useAdmin";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
@@ -40,6 +40,9 @@ export default function AdminDisciplinasPage() {
 
   const [tree, setTree] = useState<DisciplineRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [query, setQuery] = useState("");
   const [openDisc, setOpenDisc] = useState<Set<string>>(new Set());
   const [openChap, setOpenChap] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -54,19 +57,66 @@ export default function AdminDisciplinasPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("disciplines")
-      .select("id, name, chapters(id, title, topics(id, title, contents(id, type, title, file_url)))")
-      .order("name");
-    setTree((data as DisciplineRow[]) ?? []);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const { data, error } = await supabase
+        .from("disciplines")
+        .select("id, name, chapters(id, title, topics(id, title, contents(id, type, title, file_url)))")
+        .order("name");
+      if (error) throw error;
+      setTree((data as DisciplineRow[]) ?? []);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Não foi possível carregar as disciplinas.");
+    } finally {
+      setLoading(false);
+    }
   }, [supabase]);
 
-  useEffect(() => { if (isAdmin) void load(); }, [isAdmin, load]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    const timeoutId = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [isAdmin, load]);
+
+  const visibleTree = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    if (!term) return tree;
+
+    const matches = (value: string) => value.toLocaleLowerCase().includes(term);
+    return tree.flatMap((discipline) => {
+      if (matches(discipline.name)) return [discipline];
+
+      const chapters = discipline.chapters.flatMap((chapter) => {
+        if (matches(chapter.title)) return [chapter];
+
+        const topics = chapter.topics.flatMap((topic) => {
+          if (matches(topic.title)) return [topic];
+          const contents = topic.contents.filter((content) =>
+            matches(`${content.title} ${content.type}`)
+          );
+          return contents.length ? [{ ...topic, contents }] : [];
+        });
+        return topics.length ? [{ ...chapter, topics }] : [];
+      });
+
+      return chapters.length ? [{ ...discipline, chapters }] : [];
+    });
+  }, [tree, query]);
+
+  const expandAll = () => {
+    setOpenDisc(new Set(tree.map((discipline) => discipline.id)));
+    setOpenChap(new Set(tree.flatMap((discipline) => discipline.chapters.map((chapter) => chapter.id))));
+  };
+
+  const collapseAll = () => {
+    setOpenDisc(new Set());
+    setOpenChap(new Set());
+  };
 
   const toggle = (set: Set<string>, id: string, apply: (s: Set<string>) => void) => {
     const next = new Set(set);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
     apply(next);
   };
 
@@ -77,10 +127,17 @@ export default function AdminDisciplinasPage() {
   ) => {
     if (!confirm(`Apagar "${label}" e tudo o que está dentro? Esta ação é irreversível.`)) return;
     setBusyId(id);
-    const { error } = await supabase.rpc(fn, { p_id: id });
-    if (error) alert(error.message);
-    setBusyId(null);
-    void load();
+    setNotice(null);
+    try {
+      const { error } = await supabase.rpc(fn, { p_id: id });
+      if (error) throw error;
+      setNotice({ type: "success", text: `“${label}” foi removido.` });
+      await load();
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível remover este item." });
+    } finally {
+      setBusyId(null);
+    }
   };
 
  const startAdd = (kind: TargetKind, id: string | null) => {
@@ -91,23 +148,29 @@ export default function AdminDisciplinasPage() {
   const confirmAdd = async () => {
     if (!adding || !addTitle.trim()) return;
     setBusyId(adding.id ?? "new");
-    let error: { message: string } | null = null;
-
-    if (adding.kind === "discipline") {
-      ({ error } = await supabase.from("disciplines").insert({ name: addTitle.trim() }));
-    } else if (adding.kind === "chapter") {
-      ({ error } = await supabase.from("chapters").insert({ discipline_id: adding.id, title: addTitle.trim() }));
-    } else if (adding.kind === "topic") {
-      ({ error } = await supabase.from("topics").insert({ chapter_id: adding.id, title: addTitle.trim() }));
-    } else if (adding.kind === "content") {
-      ({ error } = await supabase.from("contents").insert({
-        topic_id: adding.id, type: addType, title: addTitle.trim(), file_url: null, is_active: true,
-      }));
+    setNotice(null);
+    try {
+      let error: { message: string } | null = null;
+      if (adding.kind === "discipline") {
+        ({ error } = await supabase.from("disciplines").insert({ name: addTitle.trim() }));
+      } else if (adding.kind === "chapter") {
+        ({ error } = await supabase.from("chapters").insert({ discipline_id: adding.id, title: addTitle.trim() }));
+      } else if (adding.kind === "topic") {
+        ({ error } = await supabase.from("topics").insert({ chapter_id: adding.id, title: addTitle.trim() }));
+      } else if (adding.kind === "content") {
+        ({ error } = await supabase.from("contents").insert({
+          topic_id: adding.id, type: addType, title: addTitle.trim(), file_url: null, is_active: true,
+        }));
+      }
+      if (error) throw error;
+      setNotice({ type: "success", text: "Item criado com sucesso." });
+      setAdding(null);
+      await load();
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível criar este item." });
+    } finally {
+      setBusyId(null);
     }
-
-    if (error) alert(error.message);
-    setAdding(null); setBusyId(null);
-    void load();
   };
 
   const startEdit = (t: EditTarget, current: string, url?: string | null) => {
@@ -117,23 +180,29 @@ export default function AdminDisciplinasPage() {
   const confirmEdit = async () => {
     if (!editing || !editText.trim()) return;
     setBusyId(editing.id);
-    let error: { message: string } | null = null;
-
-    if (editing.kind === "discipline") {
-      ({ error } = await supabase.from("disciplines").update({ name: editText.trim() }).eq("id", editing.id));
-    } else if (editing.kind === "chapter") {
-      ({ error } = await supabase.from("chapters").update({ title: editText.trim() }).eq("id", editing.id));
-    } else if (editing.kind === "topic") {
-      ({ error } = await supabase.from("topics").update({ title: editText.trim() }).eq("id", editing.id));
-    } else if (editing.kind === "content") {
-      ({ error } = await supabase.from("contents")
-        .update({ title: editText.trim(), file_url: editUrl.trim() || null })
-        .eq("id", editing.id));
+    setNotice(null);
+    try {
+      let error: { message: string } | null = null;
+      if (editing.kind === "discipline") {
+        ({ error } = await supabase.from("disciplines").update({ name: editText.trim() }).eq("id", editing.id));
+      } else if (editing.kind === "chapter") {
+        ({ error } = await supabase.from("chapters").update({ title: editText.trim() }).eq("id", editing.id));
+      } else if (editing.kind === "topic") {
+        ({ error } = await supabase.from("topics").update({ title: editText.trim() }).eq("id", editing.id));
+      } else if (editing.kind === "content") {
+        ({ error } = await supabase.from("contents")
+          .update({ title: editText.trim(), file_url: editUrl.trim() || null })
+          .eq("id", editing.id));
+      }
+      if (error) throw error;
+      setNotice({ type: "success", text: "Item atualizado com sucesso." });
+      setEditing(null);
+      await load();
+    } catch (error) {
+      setNotice({ type: "error", text: error instanceof Error ? error.message : "Não foi possível atualizar este item." });
+    } finally {
+      setBusyId(null);
     }
-
-    if (error) alert(error.message);
-    setEditing(null); setBusyId(null);
-    void load();
   };
 
   /* ── Linha de adicionar inline ── */
@@ -196,15 +265,47 @@ const editRow = (kind: TargetKind, id: string) =>
   return (
     <div className="space-y-4">
       {/* ── Cabeçalho ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-slate-900 dark:text-white sm:text-xl">Disciplinas & Conteúdos</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">Criar, renomear, adicionar filhos e apagar em qualquer nível.</p>
         </div>
-        <button onClick={() => void load()} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-          Atualizar
-        </button>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="relative min-w-[220px] flex-1 sm:w-64 sm:flex-none">
+            <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar disciplina, capítulo, tema ou conteúdo"
+              aria-label="Buscar na árvore de disciplinas"
+              className={`${inputCls} w-full py-2 pl-9 pr-3`}
+            />
+          </div>
+          <button type="button" onClick={expandAll} disabled={tree.length === 0} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+            Expandir tudo
+          </button>
+          <button type="button" onClick={collapseAll} disabled={openDisc.size === 0 && openChap.size === 0} className="rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-[11px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+            Recolher
+          </button>
+          <button type="button" onClick={() => void load()} disabled={loading} title="Atualizar árvore" aria-label="Atualizar árvore" className="rounded-lg border border-slate-300 bg-white p-2 text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
+
+      {notice && (
+        <div role={notice.type === "error" ? "alert" : "status"} className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs ${notice.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300" : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"}`}>
+          <span>{notice.text}</span>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Fechar aviso" className="rounded p-1 opacity-70 hover:opacity-100"><X size={13} /></button>
+        </div>
+      )}
+
+      {loadError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void load()} className="font-semibold underline">Tentar novamente</button>
+        </div>
+      )}
 
       {/* ── Legenda de níveis ── */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] dark:border-white/10 dark:bg-white/[0.02]">
@@ -251,8 +352,8 @@ const editRow = (kind: TargetKind, id: string) =>
                 </div>
               )}
 
-              {tree.map((disc) => {
-                const discOpen = openDisc.has(disc.id);
+              {visibleTree.map((disc) => {
+                const discOpen = openDisc.has(disc.id) || query.trim().length > 0;
                 return (
                   <div key={disc.id}>
                     {/* Linha da disciplina */}
@@ -325,7 +426,7 @@ const editRow = (kind: TargetKind, id: string) =>
                           ) : (
                             <div className="space-y-1.5">
                               {disc.chapters.map((chap) => {
-                                const chapOpen = openChap.has(chap.id);
+                                const chapOpen = openChap.has(chap.id) || query.trim().length > 0;
                                 return (
                                   <div key={chap.id} className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/40">
                                     {/* Linha do capítulo */}
@@ -477,8 +578,10 @@ const editRow = (kind: TargetKind, id: string) =>
                 );
               })}
 
-              {tree.length === 0 && (
-                <p className="py-8 text-center text-xs text-slate-500">Nenhuma disciplina encontrada.</p>
+              {visibleTree.length === 0 && (
+                <p className="py-8 text-center text-xs text-slate-500">
+                  {query.trim() ? "Nenhum resultado para esta pesquisa." : "Nenhuma disciplina encontrada."}
+                </p>
               )}
             </div>
           </section>

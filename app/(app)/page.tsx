@@ -9,6 +9,7 @@ import {
   BookOpen,
   ClipboardList,
   GraduationCap,
+  Calendar,
   Headphones,
   Flame,
   Loader2,
@@ -439,6 +440,17 @@ useEffect(() => {
 
   const quickActions = [
     {
+      href: "/eventos",
+      title: "Eventos",
+      desc: "Descobre atividades e oportunidades",
+      icon: Calendar,
+      mobileClass:
+        "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20",
+      desktopClass:
+        "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 shadow-sm dark:border-white/10 dark:bg-slate-900 dark:hover:border-white/20 dark:hover:bg-slate-800",
+      iconClass: "text-rose-600 dark:text-rose-400",
+    },
+    {
       href: "/disciplinas",
       title: "Disciplinas",
       desc: "Capítulos, slides e áudios",
@@ -501,7 +513,7 @@ useEffect(() => {
                 Biblioteca Virtual
               </div>
               <h1 className="mt-2 text-base font-bold tracking-tight text-slate-900 dark:text-white">
-                Olá, <span className="text-indigo-600 dark:text-indigo-400">{userName}</span> 👋
+                Olá, <span className="text-indigo-600 dark:text-indigo-400">{userName}</span>
               </h1>
               <p className="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                 Acede rapidamente aos teus conteúdos.
@@ -550,14 +562,21 @@ useEffect(() => {
 
             <div className="space-y-1">
               <h1 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl dark:text-white">
-                Olá, {userName} 👋
+                Olá, {userName}
               </h1>
               <p className="max-w-2xl text-xs leading-relaxed text-slate-700 dark:text-slate-400">
                 Organiza o teu estudo, retoma os conteúdos mais recentes e acompanha o teu progresso.
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/eventos"
+                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+              >
+                <Calendar size={14} />
+                Eventos
+              </Link>
               <Link
                 href="/disciplinas"
                 className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500"

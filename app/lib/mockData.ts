@@ -13,7 +13,7 @@ export interface TopicContent {
   title: string;
   url?: string;
   timeLimitSeconds?: number | null;
-  durationSeconds?: number | null; // ✅ NOVO
+  durationSeconds?: number | null;
 }
 
 export interface Topic {

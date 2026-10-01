@@ -6,6 +6,7 @@ import Sidebar from "@/app/components/Sidebar";
 import Header, { type UserProfile } from "@/app/components/header/Header";
 import Breadcrumbs from "@/app/components/header/Breadcrumbs";
 import AcademicPeriodPrompt from "@/app/components/AcademicPeriodPrompt";
+import FloatingSupportPrompt from "@/app/components/FloatingSupportPrompt";
 import { UserProvider, useUser } from "@/app/lib/context/UserContext";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import {
@@ -123,6 +124,8 @@ function ShellInner({ children }: { children: React.ReactNode }) {
         maxYear={course?.duration_years ?? 4}
         updateProfile={updateProfile}
       />
+
+      <FloatingSupportPrompt />
 
       {/*
         ── Padding-top compensa header + breadcrumb (ambos fixos) ──

@@ -16,7 +16,7 @@ export type ContentRow = {
   file_key: string | null;
   order_index: number;
   time_limit_seconds: number | null;
-  duration_seconds: number | null; // ✅ NOVO
+  duration_seconds: number | null;
   progress_percent: number;
   completed: boolean;
 };
@@ -63,7 +63,7 @@ type DBTopicContent = {
   file_key: string | null;
   order_index: number;
   time_limit_seconds: number | null;
-  duration_seconds: number | null; // ✅ NOVO
+  duration_seconds: number | null;
 };
 
 type DBChapterContent = DBTopicContent & {

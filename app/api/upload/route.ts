@@ -1,7 +1,7 @@
 // app/api/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import * as mm from "music-metadata"; // ✅ NOVO
+import * as mm from "music-metadata"; // Mantém a leitura de metadados
 import {
   getR2Client,
   R2_BUCKET,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       key,
       type,
       disciplineId,
-      durationSeconds, // ✅ NOVO
+      durationSeconds,
     });
   } catch (err) {
     console.error("Erro no upload:", err);

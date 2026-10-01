@@ -51,16 +51,16 @@ export async function writeProgressPayload(
   supabase: SupabaseClient,
   payload: ProgressPayload
 ): Promise<boolean> {
-  console.log("📦 writeProgressPayload chamado:", payload);
+  console.log("writeProgressPayload chamado:", payload);
   try {
     const { error } = await supabase.from("student_progress").upsert(payload, {
       onConflict: "student_id,content_id",
     });
     if (error) {
-      console.error("❌ Upsert falhou:", error);
+      console.error("Upsert falhou:", error);
       throw error;
     }
-    console.log("✅ Upsert bem-sucedido para", payload.content_id);
+    console.log("Upsert bem-sucedido para", payload.content_id);
     clearQueueEntry(payload.content_id);
     return true;
   } catch (err) {
@@ -74,7 +74,7 @@ export async function flushProgressQueue(supabase: SupabaseClient): Promise<void
   const pending = readQueue();
   if (pending.length === 0) return;
 
-  console.log("🔄 A processar fila de progresso:", pending.length, "itens");
+  console.log("A processar fila de progresso:", pending.length, "itens");
 
   for (const payload of pending) {
     await writeProgressPayload(supabase, payload);

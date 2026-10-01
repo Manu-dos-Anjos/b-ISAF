@@ -1,5 +1,5 @@
 // app/lib/r2.ts
-// ⚠️ SERVER-ONLY: este módulo usa credenciais privadas do R2.
+// SERVER-ONLY: este módulo usa credenciais privadas do R2.
 // Nunca importar em componentes "use client".
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 

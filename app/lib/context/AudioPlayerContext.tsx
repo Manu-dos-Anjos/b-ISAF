@@ -175,7 +175,7 @@ export function AudioPlayerProvider({
 
         if (error) {
           console.warn(
-            "⚠️ Não foi possível obter a sessão:",
+            "Aviso: não foi possível obter a sessão:",
             error.message
           );
 
@@ -202,7 +202,7 @@ export function AudioPlayerProvider({
          * derrubar o AudioPlayer.
          */
         console.warn(
-          "⚠️ Erro ao carregar sessão:",
+          "Aviso: erro ao carregar sessão:",
           error
         );
 
@@ -437,7 +437,7 @@ export function AudioPlayerProvider({
         MAX_PROGRESS_RETRIES
       ) {
         console.warn(
-          "⚠️ Número máximo de retries de progresso atingido."
+          "Número máximo de retries de progresso atingido."
         );
 
         retryCountRef.current = 0;
@@ -492,12 +492,12 @@ export function AudioPlayerProvider({
 
         if (!success) {
           console.warn(
-            "⚠️ Progresso não foi guardado. Foi colocado na fila."
+            "Progresso não foi guardado. Foi colocado na fila."
           );
         }
       } catch (error) {
         console.error(
-          "❌ Erro inesperado ao guardar progresso:",
+          "Erro inesperado ao guardar progresso:",
           error
         );
       }
@@ -576,7 +576,7 @@ export function AudioPlayerProvider({
           fn();
         } catch (error) {
           console.error(
-            "❌ Erro num listener do audio player:",
+            "Erro num listener do audio player:",
             error
           );
         }
@@ -878,7 +878,7 @@ export function AudioPlayerProvider({
       }
     } catch (error) {
       console.error(
-        "❌ Erro ao restaurar estado do player:",
+        "Erro ao restaurar estado do player:",
         error
       );
 
@@ -1315,7 +1315,7 @@ export function AudioPlayerProvider({
                 playbackRate;
             } catch (error) {
               console.warn(
-                "⚠️ Não foi possível definir posição inicial:",
+                "Não foi possível definir posição inicial:",
                 error
               );
             }
@@ -1362,7 +1362,7 @@ export function AudioPlayerProvider({
         }, 3000);
       } catch (error) {
         console.error(
-          "❌ Erro ao iniciar áudio:",
+          "Erro ao iniciar áudio:",
           error
         );
 
@@ -1407,7 +1407,7 @@ export function AudioPlayerProvider({
           setIsPlaying(true);
         } catch (error) {
           console.error(
-            "❌ Erro ao retomar áudio:",
+            "Erro ao retomar áudio:",
             error
           );
         }

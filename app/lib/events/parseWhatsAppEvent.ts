@@ -27,6 +27,10 @@ export type ParsedEvent = {
 const MONTHS: Record<string, number> = {
   janeiro: 0, fevereiro: 1, marco: 2, abril: 3, maio: 4, junho: 5,
   julho: 6, agosto: 7, setembro: 8, outubro: 9, novembro: 10, dezembro: 11,
+  jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5,
+  jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11,
+  january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+  july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
 };
 
 const norm = (s: string) =>
@@ -43,9 +47,25 @@ const todayStart = () => {
   return t;
 };
 
+function normalizeLines(raw: string): string[] {
+  return raw
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, "")
+    .split(/\r?\n/)
+    .map((line) => line
+      .replace(/^\s*\[?(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?)\]?\s*(?:-|–)\s*[^:]{1,100}:\s*/, "")
+      .trim())
+    .filter(Boolean);
+}
+
+function strictDate(year: number, month: number, day: number): Date | null {
+  const date = new Date(year, month, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) return null;
+  return date;
+}
+
 /* ── Labels ESTRUTURAIS (filtrar da descrição, usados para extrair metadados) ── */
 const STRUCTURAL_LABELS =
-  /^(data|dia|hor[aá]rio|local|participa[cç][aã]o|investimento|pre[cç]o|link|via|inscri[cç][oõ]es?|plataforma[s]?|formato|lot[aç][aã]o|certificado[s]?|prazo|per[ií]odo|candidatura[s]?|prazo para candidaturas|per[ií]odo de candidatura[s]?|mais informa[cç][oõ]es|edi[tç][aã]o|edital)\s*:/i;
+  /^(data|dia|date|horario|time|local|location|participacao|investimento|preco|price|link|via|inscricoes?|plataformas?|formato|format|lotacao|certificados?|prazo|deadline|periodo|candidaturas?|mais informacoes|edicao|edital)\s*:/i;
 
 /* ── Labels de CONTEÚDO (manter na descrição, só tiramos o prefixo do label) ── */
 const CONTENT_LABELS =
@@ -62,10 +82,12 @@ const CONTENT_EMOJIS = /[📌🎙️🎤🗣️👨‍🎓👩‍🎓💼🔎⚠
  * Linha de metadado estrutural (filtrar da descrição).
  */
 function isStructuralMeta(line: string): boolean {
-  const t = line.trim();
-  if (STRUCTURAL_LABELS.test(t)) return true;
+  const t = line.trim()
+    .replace(/^[\s>#*_\p{Extended_Pictographic}\uFE0F]+/u, "")
+    .replace(/^\*\*(.*?)\*\*\s*/, "$1");
+  if (STRUCTURAL_LABELS.test(norm(t))) return true;
   if (CONTENT_LABELS.test(t)) return false;
-  if (STRUCTURAL_EMOJIS.test(t) && !CONTENT_EMOJIS.test(t)) return true;
+  if (STRUCTURAL_EMOJIS.test(line.trim()) && !CONTENT_EMOJIS.test(line.trim())) return true;
   if (/^https?:\/\//i.test(t)) return true;
   if (/^[a-z0-9-]+(?:\.[a-z0-9-]+)+\.[a-z]{2,}(?:\/[^\s]*)?$/i.test(t)) return true;
   return false;
@@ -105,50 +127,63 @@ function parseDateRange(label: string, today: Date): { start: Date | null; end: 
   let n = norm(label);
   n = n.replace(/\(.*?\)/g, " ").replace(/\s+/g, " ").trim();
 
+  const isoDate = n.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+  if (isoDate) {
+    const date = strictDate(+isoDate[1], +isoDate[2] - 1, +isoDate[3]);
+    if (date) return { start: date, end: date };
+  }
+
+  const range = n.match(/(\d{1,2})\s*(?:a|ate|ao|-|–|—)\s*(\d{1,2})\s+(?:de\s+)?([a-z]+)(?:\s+de\s+(\d{4}))?/);
+  if (range) {
+    const month = MONTHS[range[3]];
+    if (month !== undefined) {
+      let year = range[4] ? +range[4] : today.getFullYear();
+      let start = strictDate(year, month, +range[1]);
+      let end = strictDate(year, month, +range[2]);
+      if (!range[4] && end && end.getTime() < today.getTime() - 86400000) {
+        year += 1;
+        start = strictDate(year, month, +range[1]);
+        end = strictDate(year, month, +range[2]);
+      }
+      if (start && end && end >= start) return { start, end };
+    }
+  }
+
+  const single = n.match(/\b(\d{1,2})\s*(?:º|o)?\s+(?:de\s+)?([a-z]+)(?:\s+de\s+(\d{4}))?/);
+  if (single) {
+    const month = MONTHS[single[2]];
+    if (month !== undefined) {
+      let year = single[3] ? +single[3] : today.getFullYear();
+      let date = strictDate(year, month, +single[1]);
+      if (date && !single[3] && date.getTime() < today.getTime() - 86400000) {
+        year += 1;
+        date = strictDate(year, month, +single[1]);
+      }
+      if (date) return { start: date, end: date };
+    }
+  }
+
+  const numeric = n.match(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b/);
+  if (numeric) {
+    const year = +numeric[3] < 100 ? 2000 + +numeric[3] : +numeric[3];
+    const date = strictDate(year, +numeric[2] - 1, +numeric[1]);
+    if (date) return { start: date, end: date };
+  }
+
+  const numericWithoutYear = n.match(/\b(\d{1,2})[/.\-](\d{1,2})\b/);
+  if (numericWithoutYear) {
+    let year = today.getFullYear();
+    let date = strictDate(year, +numericWithoutYear[2] - 1, +numericWithoutYear[1]);
+    if (date && date.getTime() < today.getTime() - 86400000) {
+      year += 1;
+      date = strictDate(year, +numericWithoutYear[2] - 1, +numericWithoutYear[1]);
+    }
+    if (date) return { start: date, end: date };
+  }
+
   if (/\bhoje\b/.test(n)) return { start: today, end: today };
   if (/\bdepois de amanha\b/.test(n)) { const t = new Date(today); t.setDate(t.getDate() + 2); return { start: t, end: t }; }
   if (/\bamanha\b/.test(n)) { const t = new Date(today); t.setDate(t.getDate() + 1); return { start: t, end: t }; }
-
-  const between = n.match(/entre\s+([a-z]+)\s+(\d{4})(?:\s+(?:e|a)\s+[a-z]+\s+\d{4})?/);
-  if (between) {
-    const m = MONTHS[between[1]];
-    if (m !== undefined) return { start: new Date(+between[2], m, 1), end: new Date(+between[2], m, 1) };
-  }
-
-  const range = n.match(/(\d{1,2})\s*(?:a|ate|ao|-|–|—)\s*(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/);
-  if (range) {
-    const m = MONTHS[range[3]];
-    if (m !== undefined) return { start: new Date(+range[4], m, +range[1]), end: new Date(+range[4], m, +range[2]) };
-  }
-
-  const rangeNoYear = n.match(/(\d{1,2})\s*(?:a|ate|ao|-|–|—)\s*(\d{1,2})\s+de\s+([a-z]+)/);
-  if (rangeNoYear) {
-    const m = MONTHS[rangeNoYear[3]];
-    if (m !== undefined) {
-      let y = today.getFullYear();
-      if (new Date(y, m, +rangeNoYear[2]).getTime() < today.getTime() - 86400000) y += 1;
-      return { start: new Date(y, m, +rangeNoYear[1]), end: new Date(y, m, +rangeNoYear[2]) };
-    }
-  }
-
-  const single = n.match(/(\d{1,2})\s+de\s+([a-z]+)(?:\s+de\s+(\d{4}))?/);
-  if (single) {
-    const m = MONTHS[single[2]];
-    if (m !== undefined) {
-      let y = single[3] ? +single[3] : today.getFullYear();
-      let d = new Date(y, m, +single[1]);
-      if (!single[3] && d.getTime() < today.getTime() - 86400000) d = new Date(y + 1, m, +single[1]);
-      return { start: d, end: d };
-    }
-  }
-
-  const num = n.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
-  if (num) {
-    let y = num[3] ? (+num[3] < 100 ? 2000 + +num[3] : +num[3]) : today.getFullYear();
-    let d = new Date(y, +num[2] - 1, +num[1]);
-    if (!num[3] && d.getTime() < today.getTime() - 86400000) d = new Date(y + 1, +num[2] - 1, +num[1]);
-    return { start: d, end: d };
-  }
 
   const wd = (["domingo","segunda","terca","quarta","quinta","sexta","sabado"] as const).find(
     (k) => new RegExp(`\\b${k}(-feira)?\\b`).test(n)
@@ -165,13 +200,14 @@ function parseDateRange(label: string, today: Date): { start: Date | null; end: 
 }
 
 function findDateLine(lines: string[]): string | null {
-  return (
-    lines.find((l) => /[📅🗓📆]/u.test(l)) ??
-    lines.find((l) => /^(data|dia|prazo|prazo para candidaturas|per[ií]odo|per[ií]odo de candidatura[s]?)\s*:/i.test(l.trim())) ??
-    lines.find((l) => /\b(segunda|terca|quarta|quinta|sexta|sabado|domingo)(-feira)?,\s*\d{1,2}\s+de\s+/i.test(norm(l))) ??
-    lines.find((l) => l.length < 80 && /\b\d{1,2}\s*(a|ate|ao)?\s*\d{0,2}\s*de\s+[a-z]+/i.test(norm(l)) && !/\d{1,2}[h:]\d{2}/.test(l)) ??
-    null
-  );
+  const candidates = [
+    ...lines.filter((line) => /^(?:[\s\p{Extended_Pictographic}\uFE0F]*)(?:data|dia|date)\s*:/iu.test(line)),
+    ...lines.filter((line) => /[📅🗓📆]/u.test(line)),
+    ...lines.filter((line) => /\b\d{1,2}\s*(?:º|o)?\s*(?:de\s+)?(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i.test(line)),
+    ...lines.filter((line) => /\b\d{1,2}[/.\-]\d{1,2}(?:[/.\-]\d{2,4})?\b/.test(line)),
+    ...lines.filter((line) => /^(?:prazo|deadline|per[ií]odo|candidaturas?)\s*:/i.test(line.trim())),
+  ];
+  return candidates.find((line) => parseDateRange(line, todayStart()).start !== null) ?? null;
 }
 
 /* ================================================================
@@ -214,7 +250,7 @@ function parseLocation(lines: string[], raw: string): string | null {
     lines.find((l) => /📍/u.test(l)) ??
     lines.find((l) => /^local\s*:/i.test(l.trim()));
   if (explicit) {
-    let value = explicit.replace(/📍/g, "").replace(/^local\s*:/i, "").trim();
+    let value = explicit.replace(/📍/g, "").trim().replace(/^local\s*:/i, "").trim();
     const pipeMatch = value.match(/^(.+?)\s*\|\s*https?:\/\//);
     if (pipeMatch) value = pipeMatch[1].trim();
     const bareMatch = value.match(/^(.+?)\s*\|\s*[a-z0-9-]+(?:\.[a-z0-9-]+)+\.[a-z]{2,}/i);
@@ -296,7 +332,11 @@ function parsePrice(lines: string[], raw: string): { label: string | null; isFre
 
 function isFillerGreeting(line: string): boolean {
   const n = norm(line);
-  return /^(prezad|cordiais saudacoes|cordiais saud|caros|caras|ola a todos|bom dia|boa tarde|boa noite)\b/.test(n);
+  return /^(prezad|cordiais saudacoes|cordiais saud|caros|caras|ola a todos|bom dia|boa tarde|boa noite|dear|greetings)/.test(n);
+}
+
+function isSignoff(line: string): boolean {
+  return /^(departamento de actividade|departamento de atividades|isaf\s*\||academia bai|contamos com a vossa|contamos com sua|boa sorte|desejamos boa sorte)/i.test(norm(line));
 }
 
 function parseTitle(
@@ -307,7 +347,7 @@ function parseTitle(
 
   const upper = lines.find((l) => {
     const t = l.trim();
-    return t.length > 10 && t === t.toUpperCase() && /[A-Z]/.test(t) && !isFillerGreeting(t) && !isStructuralMeta(t);
+    return t.length > 10 && t.length < 180 && t === t.toUpperCase() && /[A-Z]/.test(t) && !isFillerGreeting(t) && !isSignoff(t) && !isStructuralMeta(t);
   });
   if (upper) {
     const pretty = upper.replace(/\s*\|\s*/g, " — ");
@@ -322,10 +362,10 @@ function parseTitle(
     return { title: clean(pretty), titleLines: [piped.trim()] };
   }
 
-  const block = firstBlock.filter((l) => !isStructuralMeta(l) && !isFillerGreeting(l)).slice(0, 2);
+  const block = firstBlock.filter((l) => !isStructuralMeta(l) && !isFillerGreeting(l) && !isSignoff(l)).slice(0, 2);
   if (block.length > 0) return { title: block.map(clean).join(" — "), titleLines: block };
 
-  const first = lines.find((l) => !isStructuralMeta(l) && !isFillerGreeting(l) && !/^https?:/.test(l.trim()));
+  const first = lines.find((l) => !isStructuralMeta(l) && !isFillerGreeting(l) && !isSignoff(l) && !/^https?:/.test(l.trim()));
   const fallback = first ?? lines[0] ?? "Evento";
   return { title: clean(fallback), titleLines: [fallback.trim()] };
 }
@@ -349,34 +389,14 @@ function parseDescription(
   titleLines: Set<string>
 ): { theme: string | null; description: string } {
   const isFiller = (l: string) => /ler mais|ver mais|leia mais/i.test(l);
-  const isSignoff = (l: string) =>
-    /^(departamento de actividade|isaf\s*\||academia bai|contamos com a vossa|boa sorte|desejamos boa sorte)/i.test(norm(l));
-
-  // ── Formato antigo: saudação → corpo → "Abaixo, mais detalhes:" ──
-  const greetIdx = lines.findIndex((l) => /prezad|cordiais saud/i.test(l));
-  if (greetIdx >= 0) {
-    const endIdx = lines.findIndex((l, i) => i > greetIdx && /abaixo,?\s*(mais\s*)?detalhes/i.test(l));
-    const body = lines
-      .slice(greetIdx + 1, endIdx > greetIdx ? endIdx : undefined)
-      .map((l) => l.trim())
-      .filter((l) => l && !isFiller(l) && !/^cordiais saudacoes\.?$/i.test(l));
-
-    const afterDetails = endIdx > greetIdx ? lines.slice(endIdx + 1) : [];
-    const extraContent = afterDetails
-      .map((l) => l.trim())
-      .filter((l) => l && !isStructuralMeta(l) && !isFiller(l) && !isSignoff(l));
-
-    const all = [...body, ...extraContent].map((l) => stripContentLabel(l));
-    const { theme, cleaned } = extractTheme(all);
-    return { theme, description: cleaned.join("\n").trim() };
-  }
-
-  // ── Formato novo: tudo o que não é título nem metadado estrutural ──
+  const detailsHeading = /abaixo,?\s*(mais\s*)?detalhes|more details\s*:?/i;
   const processed = lines
     .filter((l) => !titleLines.has(l.trim()))
     .filter((l) => !isStructuralMeta(l))
     .filter((l) => !isFillerGreeting(l))
     .filter((l) => !isSignoff(l))
+    .filter((l) => !detailsHeading.test(l))
+    .filter((l) => !/^cordiais sauda[cç][õo]es\.?$/i.test(l.trim()))
     .map((l) => l.trim())
     .filter((l) => l && !isFiller(l) && !/^cordiais saudacoes\.?$/i.test(l))
     .map((l) => stripContentLabel(l));
@@ -391,12 +411,13 @@ function parseDescription(
 
 export function parseWhatsAppEvent(raw: string): ParsedEvent {
   const warnings: string[] = [];
-  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = normalizeLines(raw);
+  const normalizedRaw = lines.join("\n");
   const today = todayStart();
 
   const blocks: string[][] = [];
   let current: string[] = [];
-  for (const l of raw.split(/\r?\n/)) {
+  for (const l of normalizedRaw.split(/\r?\n/)) {
     const t = l.trim();
     if (!t) {
       if (current.length) blocks.push(current);
@@ -408,7 +429,7 @@ export function parseWhatsAppEvent(raw: string): ParsedEvent {
   if (current.length) blocks.push(current);
 
   const { title, titleLines } = parseTitle(lines, blocks[0] ?? []);
-  const { category } = classifyCategory(raw);
+  const { category } = classifyCategory(normalizedRaw);
 
   const dateLine = findDateLine(lines);
   const { start, end } = dateLine ? parseDateRange(dateLine, today) : { start: null, end: null };
@@ -417,11 +438,11 @@ export function parseWhatsAppEvent(raw: string): ParsedEvent {
   const timeLine = findTimeLine(lines);
   const timeLabel = timeLine ? parseTimeLabel(timeLine) : null;
 
-  const location = parseLocation(lines, raw);
+  const location = parseLocation(lines, normalizedRaw);
 
-  const { label: priceLabel, isFree } = parsePrice(lines, raw);
+  const { label: priceLabel, isFree } = parsePrice(lines, normalizedRaw);
 
-  const links = extractUrls(raw).map((url) => ({ url, kind: classifyLink(url) }));
+  const links = extractUrls(normalizedRaw).map((url) => ({ url, kind: classifyLink(url) }));
 
   const { theme, description } = parseDescription(lines, new Set(titleLines));
   if (!description) warnings.push("Descrição vazia — o parser não encontrou corpo de texto.");

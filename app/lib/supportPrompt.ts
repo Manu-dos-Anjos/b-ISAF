@@ -1,0 +1,1 @@
+export const OPEN_SUPPORT_PROMPT_EVENT = "b-isaf:open-support-prompt";

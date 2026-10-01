@@ -6,7 +6,7 @@ import {
   Search, SlidersHorizontal, Bell, Menu, X, BookOpen, Headphones,
   FileText, Trophy, Clock, Users, Loader2, Inbox, Megaphone,
   ChevronDown, ChevronLeft, Mail, Shield, PencilLine, LogOut, Check,
-  Camera, AlertCircle, ChevronRight, RefreshCw, Sun, Moon, ArrowRight,
+  Camera, AlertCircle, ChevronRight, RefreshCw, Sun, Moon, ArrowRight, Heart,
   Calendar,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
@@ -15,6 +15,8 @@ import React from "react";
 import { useTheme } from "@/app/lib/hooks/useTheme";
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { useUser } from "@/app/lib/context/UserContext";
+import { isEventDateExpired } from "@/app/lib/events/eventVisibility";
+import { OPEN_SUPPORT_PROMPT_EVENT } from "@/app/lib/supportPrompt";
 
 /* ================================================================
    TIPOS PÚBLICOS
@@ -60,7 +62,7 @@ export type SearchResult = {
 
 export type HeaderNotification = {
   id: string;
-  type: "quiz" | "audio" | "slide" | "default" | "event";
+  type: "quiz" | "audio" | "slide" | "default" | "event" | "support" | "donation";
   title: string;
   time: string;
   createdAt: string;
@@ -136,6 +138,8 @@ function getNotifIcon(type?: string) {
     case "audio":  return Headphones;
     case "slide":  return FileText;
     case "event":  return Calendar;
+    case "support": return Megaphone;
+    case "donation": return Heart;
     case "class":  return Clock;
     case "invite": return Users;
     default:       return Bell;
@@ -154,6 +158,13 @@ function formatRelativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-PT");
 }
 
+function getWeekStart(date: Date): string {
+  const monday = new Date(date);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+}
+
 /* ================================================================
    AVATAR
 ================================================================ */
@@ -166,15 +177,22 @@ function Avatar({
   className?: string;
 }) {
   const dims = {
-    sm: "h-7 w-7 text-[10px]",
-    md: "h-9 w-9 text-xs",
-    lg: "h-12 w-12 text-sm",
+    sm: "h-7 w-7 shrink-0 aspect-square text-[10px]",
+    md: "h-9 w-9 shrink-0 aspect-square text-xs",
+    lg: "h-12 w-12 shrink-0 aspect-square text-sm",
   }[size];
 
   return (
     <div className={`relative overflow-hidden rounded-full border border-slate-300 bg-slate-200 dark:border-white/10 dark:bg-slate-800 ${dims} ${className}`}>
       {src ? (
-        <Image src={src} alt={name ?? "avatar"} fill className="object-cover" unoptimized />
+        <Image
+          src={src}
+          alt={name ?? "avatar"}
+          fill
+          sizes={size === "sm" ? "28px" : size === "md" ? "36px" : "48px"}
+          className="object-cover object-center"
+          unoptimized={src.startsWith("blob:") || src.startsWith("data:")}
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600 font-semibold text-white">
           {getInitials(name)}
@@ -617,7 +635,7 @@ const Header = memo(function Header({
         runEventSearch
           ? supabase
               .from("events")
-              .select("id, title, theme, description, date_start, time_label, location, category, image_url, is_published")
+              .select("id, title, theme, description, date_start, date_end, time_label, location, category, image_url, is_featured, is_published")
               .eq("is_published", true)
               .or(
                 `title.ilike.%${term}%,description.ilike.%${term}%,location.ilike.%${term}%,theme.ilike.%${term}%`
@@ -641,20 +659,22 @@ const Header = memo(function Header({
           durationSeconds: c.duration_seconds,
         }));
 
-      const eventRows: SearchResult[] = ((eventResult.data ?? []) as any[]).map(
-        (e) => ({
-          id: e.id,
-          type: "event",
-          isEvent: true,
-          title: e.title,
-          dateStart: e.date_start,
-          timeLabel: e.time_label,
-          location: e.location,
-          category: e.category,
-          theme: e.theme,
-          imageUrl: e.image_url,
-        })
-      );
+      const eventRows: SearchResult[] = ((eventResult.data ?? []) as any[])
+        .filter((event) => !isEventDateExpired(event.date_start, event.date_end) || event.is_featured)
+        .map(
+          (e) => ({
+            id: e.id,
+            type: "event",
+            isEvent: true,
+            title: e.title,
+            dateStart: e.date_start,
+            timeLabel: e.time_label,
+            location: e.location,
+            category: e.category,
+            theme: e.theme,
+            imageUrl: e.image_url,
+          })
+        );
 
       setSearchResults([...eventRows, ...contentRows]);
     } catch (err) {
@@ -688,18 +708,14 @@ const Header = memo(function Header({
   }, [searchOpen]);
 
   /* ================================================================
-     NOTIFICAÇÕES DE EVENTOS MARCADOS
+     NOTIFICAÇÕES DE EVENTOS E AVISOS
   ================================================================ */
   const fetchEventNotifs = useCallback(async () => {
-    const { data: marks } = await supabase.from("event_marks").select("event_id");
-    const ids = ((marks ?? []) as { event_id: string }[]).map((m) => m.event_id);
-    if (ids.length === 0) return [];
-
     const { data } = await supabase
       .from("events")
-      .select("id, title, date_start, date_end, time_label, location, is_published")
-      .in("id", ids)
-      .eq("is_published", true);
+      .select("id, title, date_start, date_end, time_label, location, is_published, is_featured, created_at")
+      .eq("is_published", true)
+      .order("created_at", { ascending: false });
 
     const events = (data ?? []) as {
       id: string;
@@ -709,46 +725,57 @@ const Header = memo(function Header({
       time_label: string | null;
       location: string | null;
       is_published: boolean;
+      is_featured: boolean;
+      created_at: string;
     }[];
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayMs = today.getTime();
+    const nowMs = Date.now();
+    const noticeMaxAgeMs = 48 * 60 * 60 * 1000;
 
     const notifs: HeaderNotification[] = [];
 
     for (const ev of events) {
-      if (!ev.date_start) continue;
-      const start = new Date(`${ev.date_start}T00:00:00`);
-      const end = ev.date_end ? new Date(`${ev.date_end}T00:00:00`) : start;
-      const startMs = start.getTime();
-      const endMs = end.getTime();
-
-      if (todayMs > endMs) continue;
-
+      const id = `event-${ev.id}`;
       let title = "";
-      let createdAt = start.toISOString();
+      let createdAt = ev.created_at;
 
-      if (startMs === todayMs && endMs === todayMs) {
-        title = `Hoje${ev.time_label ? ` às ${ev.time_label}` : ""}: ${ev.title}`;
-        createdAt = new Date().toISOString();
-      } else if (startMs <= todayMs && endMs >= todayMs && startMs < endMs) {
-        title = `A decorrer: ${ev.title}`;
-        createdAt = new Date().toISOString();
+      if (!ev.date_start) {
+        if (nowMs - new Date(ev.created_at).getTime() >= noticeMaxAgeMs) continue;
+        title = `Novo aviso: ${ev.title}`;
       } else {
-        const daysUntil = Math.round((startMs - todayMs) / 86400000);
-        if (daysUntil === 1) {
-          title = `Amanhã${ev.time_label ? ` às ${ev.time_label}` : ""}: ${ev.title}`;
-        } else if (daysUntil <= 7) {
-          title = `Daqui a ${daysUntil} dias: ${ev.title}`;
+        const start = new Date(`${ev.date_start}T00:00:00`);
+        const end = ev.date_end ? new Date(`${ev.date_end}T00:00:00`) : start;
+        const startMs = start.getTime();
+        const endMs = end.getTime();
+
+        if (isEventDateExpired(ev.date_start, ev.date_end) && !ev.is_featured) continue;
+
+        if (isEventDateExpired(ev.date_start, ev.date_end)) {
+          title = `Evento destacado: ${ev.title}`;
+          createdAt = ev.created_at;
+        } else if (startMs === today.getTime() && endMs === today.getTime()) {
+          title = `Hoje${ev.time_label ? ` às ${ev.time_label}` : ""}: ${ev.title}`;
+          createdAt = new Date().toISOString();
+        } else if (startMs <= today.getTime() && endMs >= today.getTime() && startMs < endMs) {
+          title = `A decorrer: ${ev.title}`;
+          createdAt = new Date().toISOString();
         } else {
-          continue;
+          const daysUntil = Math.round((startMs - today.getTime()) / 86400000);
+          if (daysUntil === 1) {
+            title = `Amanhã${ev.time_label ? ` às ${ev.time_label}` : ""}: ${ev.title}`;
+          } else if (daysUntil <= 7) {
+            title = `Daqui a ${daysUntil} dias: ${ev.title}`;
+          } else {
+            const dateLabel = start.toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
+            title = `Próximo evento (${dateLabel}): ${ev.title}`;
+          }
         }
       }
 
       if (ev.location) title += ` · ${ev.location}`;
 
-      const id = `event-${ev.id}`;
       notifs.push({
         id,
         type: "event",
@@ -820,8 +847,55 @@ const Header = memo(function Header({
       notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       const eventNotifs = await fetchEventNotifs();
+      const weekStart = getWeekStart(new Date());
+      const isAdminViewer = profile?.role === "admin" || profile?.role === "superadmin";
+      const supportAndDonationNotifs: HeaderNotification[] = [];
 
-      const all = [...eventNotifs, ...notifs];
+      if (isAdminViewer) {
+        const { data: donationRows } = await supabase
+          .from("user_feedback")
+          .select("id, created_at, profiles(full_name)")
+          .eq("feedback_type", "donation")
+          .eq("donation_status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        for (const row of donationRows ?? []) {
+          const donation = row as { id: string; created_at: string; profiles: { full_name: string | null } | null };
+          const id = `donation-${donation.id}`;
+          supportAndDonationNotifs.push({
+            id,
+            type: "donation",
+            title: `Doação para validar: ${donation.profiles?.full_name ?? "Utilizador"}`,
+            time: formatRelativeTime(donation.created_at),
+            createdAt: donation.created_at,
+            read: readNotificationIds.has(id),
+          });
+        }
+      } else {
+        const { data: donationRows } = await supabase
+          .from("user_feedback")
+          .select("donation_status")
+          .eq("student_id", studentId)
+          .eq("feedback_type", "donation")
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const hasConfirmedDonation = donationRows?.[0]?.donation_status === "confirmed";
+
+        if (!hasConfirmedDonation) {
+          const supportId = `support-${studentId}-${weekStart}`;
+          supportAndDonationNotifs.push({
+            id: supportId,
+            type: "support",
+            title: "Ajude a plataforma a crescer: considere fazer uma doação voluntária. Não há cobrança nem pagamento automático.",
+            time: "Esta semana",
+            createdAt: new Date().toISOString(),
+            read: readNotificationIds.has(supportId),
+          });
+        }
+      }
+
+      const all = [...eventNotifs, ...notifs, ...supportAndDonationNotifs];
       all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setNotifications(all.slice(0, 20));
@@ -832,11 +906,39 @@ const Header = memo(function Header({
     } finally {
       setNotifLoading(false);
     }
-  }, [supabase, profile?.id, user?.id, readNotificationIds, fetchEventNotifs]);
+  }, [supabase, profile, user?.id, readNotificationIds, fetchEventNotifs]);
 
   useEffect(() => {
-    if (notifOpen) void fetchNotifs();
+    if (!notifOpen) return;
+    const timeoutId = window.setTimeout(() => void fetchNotifs(), 0);
+    return () => window.clearTimeout(timeoutId);
   }, [notifOpen, fetchNotifs]);
+
+  useEffect(() => {
+    const studentId = profile?.id ?? user?.id;
+    if (!studentId) return;
+
+    const initialFetchId = window.setTimeout(() => void fetchNotifs(), 0);
+    const channel = supabase
+      .channel(`header-events-${studentId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
+        void fetchNotifs();
+      })
+      .subscribe();
+    const refreshIntervalId = window.setInterval(() => void fetchNotifs(), 5 * 60 * 1000);
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") void fetchNotifs();
+    };
+    document.addEventListener("visibilitychange", refreshOnFocus);
+
+    return () => {
+      window.clearTimeout(initialFetchId);
+      window.clearInterval(refreshIntervalId);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, profile?.id, user?.id, fetchNotifs]);
 
   const markNotificationRead = (notificationId: string) => {
     setReadNotificationIds((previous) => {
@@ -1160,9 +1262,15 @@ const Header = memo(function Header({
                           type="button"
                           onClick={() => {
                             markNotificationRead(n.id);
-                            if (n.type === "event") {
+                            if (n.type === "event" && n.eventId) {
                               setNotifOpen(false);
-                              router.push("/eventos");
+                              router.push(`/eventos?open=${encodeURIComponent(n.eventId)}`);
+                            } else if (n.type === "support") {
+                              setNotifOpen(false);
+                              window.dispatchEvent(new Event(OPEN_SUPPORT_PROMPT_EVENT));
+                            } else if (n.type === "donation") {
+                              setNotifOpen(false);
+                              router.push("/admin/feedback#doacoes");
                             }
                           }}
                           className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-none transition dark:border-white/10 ${!n.read ? "bg-blue-50/50 dark:bg-blue-950/20" : ""} hover:bg-slate-50 dark:hover:bg-slate-800/60`}
@@ -1170,6 +1278,8 @@ const Header = memo(function Header({
                           <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                             n.type === "event"
                               ? "bg-amber-100 dark:bg-amber-500/15"
+                              : n.type === "donation"
+                                ? "bg-rose-100 dark:bg-rose-500/15"
                               : n.type === "quiz"
                                 ? "bg-amber-50 dark:bg-amber-500/10"
                                 : n.type === "slide"
@@ -1179,6 +1289,8 @@ const Header = memo(function Header({
                             <Icon size={15} className={
                               n.type === "event"
                                 ? "text-amber-600 dark:text-amber-400"
+                                : n.type === "donation"
+                                  ? "text-rose-600 dark:text-rose-400"
                                 : "text-slate-500 dark:text-slate-400"
                             } />
                           </div>

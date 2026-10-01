@@ -8,7 +8,7 @@ import MiniPlayer from "@/app/components/audio/MiniPlayer";
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SupabaseProvider>
-      <UserProvider>                  {/* ✅ NOVO — tem de vir antes do AudioPlayerProvider */}
+      <UserProvider>                  {/* O provider de utilizador deve vir antes do AudioPlayerProvider */}
         <AudioPlayerProvider>
           {children}
           <MiniPlayer />

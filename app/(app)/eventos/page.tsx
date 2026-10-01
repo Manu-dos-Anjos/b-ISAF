@@ -11,6 +11,7 @@ import {
 import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { CATEGORY_META, type EventCategory } from "@/app/lib/events/classifyCategory";
 import type { EventLink } from "@/app/lib/events/parseWhatsAppEvent";
+import { isEventDateExpired } from "@/app/lib/events/eventVisibility";
 import QuizModalShell from "@/app/components/quiz/QuizModalShell";
 
 /* ================================================================
@@ -69,7 +70,7 @@ function getStatus(ev: EventRow): EventStatus {
   const s = ev.date_start ? parseIso(ev.date_start).getTime() : null;
   const e = ev.date_end ? parseIso(ev.date_end).getTime() : s;
   if (s === null) return "upcoming";
-  if (today > (e ?? s)) return "expired";
+  if (isEventDateExpired(ev.date_start, ev.date_end)) return "expired";
   if (s !== e && today >= s && today <= (e ?? s)) return "ongoing";
   if (today === s) return "today";
   return "upcoming";
@@ -291,7 +292,10 @@ function EventosContent() {
   };
 
   /* ── Derivados ── */
-  const upcoming = useMemo(() => events.filter((e) => getStatus(e) !== "expired"), [events]);
+  const upcoming = useMemo(
+    () => events.filter((event) => getStatus(event) !== "expired" || event.is_featured),
+    [events]
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

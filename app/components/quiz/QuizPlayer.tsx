@@ -1348,7 +1348,7 @@ export default function QuizPlayer({
               }`}
             >
               {finalSummary.pct >= 90
-                ? "Excelente! 🏆"
+                ? "Excelente!"
                 : finalSummary.pct >= 70
                 ? "Muito bem!"
                 : finalSummary.pct >= 50

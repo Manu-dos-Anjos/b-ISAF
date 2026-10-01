@@ -4,11 +4,19 @@
 import Link from "next/link";
 import {
   ShieldCheck, Calendar, BookOpen, Users, ScrollText,
-  ChevronRight, Loader2, ShieldAlert,
+  ChevronRight, Loader2, ShieldAlert, MessageSquare,
+  LayoutDashboard, FileCheck2, KeyRound,
 } from "lucide-react";
 import { useAdmin } from "@/app/lib/hooks/useAdmin";
 
 const CARDS = [
+  {
+    href: "/admin",
+    icon: LayoutDashboard,
+    title: "Dashboard",
+    desc: "Resumo do painel, permissões e acesso rápido às operações principais.",
+    ready: true,
+  },
   {
     href: "/admin/eventos",
     icon: Calendar,
@@ -24,23 +32,40 @@ const CARDS = [
     ready: true,
   },
   {
-    href: "#",
+    href: "/admin/utilizadores",
     icon: Users,
     title: "Utilizadores",
     desc: "Gerir estudantes, roles e suspensões.",
-    ready: false,
+    ready: true,
   },
   {
-    href: "#",
+    href: "/admin/regulamentos",
     icon: ScrollText,
     title: "Regulamentos",
     desc: "Editar documentos oficiais sem tocar em código.",
-    ready: false,
+    ready: true,
+  },
+  {
+    href: "/admin/feedback",
+    icon: MessageSquare,
+    title: "Feedback",
+    desc: "Rever sugestões e mensagens dos utilizadores em tempo real.",
+    ready: true,
+  },
+  {
+    href: "/admin/avaliacoes",
+    icon: FileCheck2,
+    title: "Avaliações",
+    desc: "Acompanhar e gerir avaliações, provas e contexto académico.",
+    ready: true,
   },
 ];
 
 export default function AdminHubPage() {
-  const { isAdmin, loading } = useAdmin();
+  const { isAdmin, loading, role, isSuperAdmin } = useAdmin();
+
+  const roleLabel = role === "superadmin" ? "Super Admin" : role === "admin" ? "Admin" : "Sem acesso";
+  const permissionLabel = isSuperAdmin ? "Permissão total" : "Permissão de gestão";
 
   if (loading) {
     return (
@@ -79,8 +104,29 @@ export default function AdminHubPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Gestão total da plataforma: eventos, disciplinas, temas e conteúdos.
+              Gestão central da plataforma: eventos, utilizadores, conteúdos, regulamentos e feedback.
             </p>
+          </div>
+        </div>
+
+        <div className="relative z-10 mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-slate-900/40">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              <ShieldCheck size={12} /> Perfil
+            </div>
+            <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{roleLabel}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-slate-900/40">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              <KeyRound size={12} /> Nível
+            </div>
+            <div className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{permissionLabel}</div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-slate-900/40">
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              <LayoutDashboard size={12} /> Estado
+            </div>
+            <div className="mt-2 text-sm font-bold text-emerald-600 dark:text-emerald-400">Painel activo</div>
           </div>
         </div>
       </section>
@@ -119,6 +165,20 @@ export default function AdminHubPage() {
             <div key={title} className={cls}>{body}</div>
           );
         })}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900/30 dark:text-slate-300">
+        <p className="font-semibold text-slate-900 dark:text-white">Permissões disponíveis</p>
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+          <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-1 font-medium text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">Eventos</span>
+          <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-1 font-medium text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">Utilizadores</span>
+          <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-1 font-medium text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">Disciplinas</span>
+          <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-1 font-medium text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">Regulamentos</span>
+          <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-1 font-medium text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">Feedback</span>
+          {isSuperAdmin && (
+            <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 font-medium text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">Permissões avançadas</span>
+          )}
+        </div>
       </div>
     </div>
   );

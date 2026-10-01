@@ -1,7 +1,7 @@
 // components/audio/MiniPlayer.tsx
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react"; // ✅ adiciona useCallback
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Bookmark,

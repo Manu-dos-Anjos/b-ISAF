@@ -25,7 +25,7 @@ export default function SlideCard({
 }: SlideCardProps) {
   return (
     <Link
-      href={`/disciplinas/${disciplinaId}?openSlide=${id}`} // ✅ query param em vez de rota inexistente
+      href={`/disciplinas/${disciplinaId}?openSlide=${id}`} // Usa query param em vez de rota inexistente
       className="group relative flex w-[280px] flex-shrink-0 flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-md shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-xl hover:shadow-slate-300/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-none dark:hover:border-white/20 dark:hover:shadow-none"
     >
       <div className="relative h-40 overflow-hidden bg-slate-200 dark:bg-white/5">

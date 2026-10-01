@@ -38,11 +38,13 @@ const navItems = [
 
 /* ── Navegação ADMIN (substitui tudo quando és admin) ── */
 const adminNavItems = [
+  { id: "adm-dashboard",   label: "Dashboard",    icon: LayoutDashboard, path: "/admin" },
   { id: "adm-eventos",      label: "Eventos",      icon: Calendar,      path: "/admin/eventos"      },
   { id: "adm-users",        label: "Utilizadores", icon: Users,         path: "/admin/utilizadores" },
   { id: "adm-disc",         label: "Disciplinas",  icon: BookOpen,      path: "/admin/disciplinas"  },
-  { id: "adm-avaliacoes",   label: "Avaliações",   icon: FileCheck2,    path: "/admin/avaliacoes"   },
   { id: "adm-regulamentos", label: "Regulamentos", icon: ScrollText,    path: "/admin/regulamentos" },
+  { id: "adm-feedback",    label: "Feedback",     icon: MessageSquare, path: "/admin/feedback"     },
+  { id: "adm-avaliacoes",   label: "Avaliações",   icon: FileCheck2,    path: "/admin/avaliacoes"   },
 ];
 
 type SidebarProps = {

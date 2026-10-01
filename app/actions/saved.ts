@@ -37,7 +37,7 @@ type ContentRow = {
   type: string;
   file_url: string | null;
   topic_id: string | null;
-  chapter_id: string | null; // ✅ ADICIONADO
+  chapter_id: string | null; // Adicionado
   duration_seconds: number | null;
 };
 

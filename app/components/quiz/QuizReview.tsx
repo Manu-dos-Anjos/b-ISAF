@@ -272,11 +272,11 @@ export default function QuizReview({
 
   function perfMessage(pct: number) {
     if (pct >= 90)
-      return { text: "Excelente! 🏆", color: "text-amber-600 dark:text-amber-400" };
+      return { text: "Excelente!", color: "text-amber-600 dark:text-amber-400" };
     if (pct >= 75)
-      return { text: "Muito bem! 🎉", color: "text-emerald-600 dark:text-emerald-400" };
+      return { text: "Muito bem!", color: "text-emerald-600 dark:text-emerald-400" };
     if (pct >= 50)
-      return { text: "Aprovado! 👍", color: "text-blue-600 dark:text-blue-400" };
+      return { text: "Aprovado!", color: "text-blue-600 dark:text-blue-400" };
     return { text: "Continua a estudar!", color: "text-rose-600 dark:text-rose-400" };
   }
 

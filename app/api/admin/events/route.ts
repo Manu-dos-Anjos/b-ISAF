@@ -20,6 +20,8 @@ type EventDraftPayload = {
   isFeatured: boolean;
 };
 
+const ADMIN_ROLES = new Set(["admin", "superadmin"]);
+
 async function getAdminContext() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -42,7 +44,7 @@ async function getAdminContext() {
     .eq("id", user.id)
     .maybeSingle();
 
-  return { supabase, user, isAdmin: profile?.role === "admin" };
+  return { supabase, user, isAdmin: !!profile?.role && ADMIN_ROLES.has(profile.role) };
 }
 
 /* ================================================================

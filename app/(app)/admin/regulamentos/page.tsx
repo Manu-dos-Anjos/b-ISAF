@@ -392,7 +392,7 @@ export default function AdminRegulamentosPage() {
                 <span className="font-semibold uppercase tracking-wider">ID:</span>
                 <code className="font-mono text-[10px]">{draft.id}</code>
                 <span className="ml-auto">
-                  {dbById.has(draft.id) ? "📁 Na BD" : "💻 Só no código"}
+                  {dbById.has(draft.id) ? "Na BD" : "Só no código"}
                 </span>
               </div>
 
@@ -466,12 +466,12 @@ export default function AdminRegulamentosPage() {
 
               {jsonError && (
                 <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300">
-                  ⚠️ {jsonError}
+                  Aviso: {jsonError}
                 </p>
               )}
               {saved && !jsonError && (
                 <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
-                  ✅ Guardado com sucesso. Estudantes verão a versão atualizada ao recarregar.
+                  Guardado com sucesso. Estudantes verão a versão atualizada ao recarregar.
                 </p>
               )}
 
