@@ -43,11 +43,16 @@ type Draft = {
   dateLabel: string;
   dateStart: string;
   dateEnd: string;
+  registrationLabel: string;
+  registrationStart: string;
+  registrationEnd: string;
   timeLabel: string;
   location: string;
   priceLabel: string;
   isFree: boolean | null;
   links: EventLink[];
+  mediaImages: string[];
+  mediaVideos: string[];
   isFeatured: boolean;
 };
 
@@ -59,11 +64,16 @@ const EMPTY_DRAFT: Draft = {
   dateLabel: "",
   dateStart: "",
   dateEnd: "",
+  registrationLabel: "",
+  registrationStart: "",
+  registrationEnd: "",
   timeLabel: "",
   location: "",
   priceLabel: "",
   isFree: null,
   links: [],
+  mediaImages: [],
+  mediaVideos: [],
   isFeatured: false,
 };
 
@@ -88,6 +98,18 @@ function isExpired(ev: EventRow): boolean {
   const last = ev.date_end ?? ev.date_start;
   if (!last) return false;
   return parseIso(last) < todayStart();
+}
+
+function fmtRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "agora mesmo";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d} d`;
+  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "short" });
 }
 
 const LINK_META: Record<EventLink["kind"], { label: string; icon: typeof MapPin }> = {
@@ -117,7 +139,9 @@ export default function AdminEventosPage() {
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [imgInputKey, setImgInputKey] = useState(0);
+  const [mediaInputKey, setMediaInputKey] = useState(0);
 
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -137,7 +161,7 @@ export default function AdminEventosPage() {
     const { data } = await supabase
       .from("events")
       .select("id, title, theme, category, date_start, date_end, time_label, location, image_url, is_featured, is_published, created_at")
-      .order("date_start", { ascending: false });
+      .order("created_at", { ascending: false });
     setEvents((data as EventRow[]) ?? []);
     setLoadingList(false);
   }, [supabase]);
@@ -169,11 +193,16 @@ export default function AdminEventosPage() {
       dateLabel: p.dateLabel ?? "",
       dateStart: p.dateStart ?? "",
       dateEnd: p.dateEnd ?? "",
+      registrationLabel: p.registrationLabel ?? "",
+      registrationStart: p.registrationStart ?? "",
+      registrationEnd: p.registrationEnd ?? "",
       timeLabel: p.timeLabel ?? "",
       location: p.location ?? "",
       priceLabel: p.priceLabel ?? "",
       isFree: p.isFree,
       links: p.links,
+      mediaImages: p.images,
+      mediaVideos: p.videos,
       isFeatured: false,
     });
     setWarnings(p.warnings);
@@ -187,6 +216,8 @@ export default function AdminEventosPage() {
     setWarnings([]);
     setParsed(false);
     handleImage(null);
+    setMediaFiles([]);
+    setMediaInputKey((key) => key + 1);
     setImgInputKey((k) => k + 1);
     setPublishOk(false);
     setPublishError(null);
@@ -209,15 +240,21 @@ export default function AdminEventosPage() {
         dateLabel: draft.dateLabel || null,
         dateStart: draft.dateStart || null,
         dateEnd: draft.dateEnd || null,
+        registrationLabel: draft.registrationLabel || null,
+        registrationStart: draft.registrationStart || null,
+        registrationEnd: draft.registrationEnd || null,
         timeLabel: draft.timeLabel || null,
         location: draft.location || null,
         priceLabel: draft.priceLabel || null,
         isFree: draft.isFree,
         links: draft.links,
+        mediaImages: draft.mediaImages,
+        mediaVideos: draft.mediaVideos,
         isFeatured: draft.isFeatured,
       })
     );
     if (imageFile) form.append("image", imageFile);
+    mediaFiles.forEach((file) => form.append("mediaFiles", file));
 
     try {
       const res = await fetch("/api/admin/events", { method: "POST", body: form });
@@ -387,28 +424,38 @@ export default function AdminEventosPage() {
                 </select>
               </div>
               <div>
-  <label className={labelCls}>Tema (opcional)</label>
-  <input
-    value={draft.theme}
-    onChange={(e) => set("theme", e.target.value)}
-    placeholder="Ex: Da Estruturação aos Resultados..."
-    className={inputCls}
-  />
-  <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
-    Extraído automaticamente do campo "Tema:" da mensagem. Aparece destacado nos cards.
-  </p>
-</div>
+                <label className={labelCls}>Tema (opcional)</label>
+                <input
+                  value={draft.theme}
+                  onChange={(e) => set("theme", e.target.value)}
+                  placeholder="Ex: Da Estruturação aos Resultados..."
+                  className={inputCls}
+                />
+                <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                  Extraído automaticamente do campo "Tema:" da mensagem. Aparece destacado nos cards.
+                </p>
+              </div>
               <div>
-                <label className={labelCls}>Preço</label>
+                <label className={labelCls}>Preço (opcional)</label>
                 <select
-                  value={draft.isFree === null ? "auto" : draft.isFree ? "sim" : "nao"}
-                  onChange={(e) => set("isFree", e.target.value === "auto" ? null : e.target.value === "sim")}
+                  value={
+                    draft.isFree === null
+                      ? "nao_especificado"
+                      : draft.isFree ? "sim" : "nao"
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    set("isFree", val === "nao_especificado" ? null : val === "sim");
+                  }}
                   className={inputCls}
                 >
-                  <option value="auto">Automático</option>
+                  <option value="nao_especificado">Não especificado</option>
                   <option value="sim">Gratuito</option>
                   <option value="nao">Pago</option>
                 </select>
+                <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                  Se não especificares, o parser tenta detetar automaticamente.
+                </p>
               </div>
             </div>
 
@@ -420,6 +467,23 @@ export default function AdminEventosPage() {
               <div>
                 <label className={labelCls}>Fim (opcional)</label>
                 <input type="date" value={draft.dateEnd} onChange={(e) => set("dateEnd", e.target.value)} className={inputCls} />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelCls}>Data aproximada (quando só houver mês/ano)</label>
+              <input value={draft.dateLabel} onChange={(e) => set("dateLabel", e.target.value)} placeholder="Ex.: Outubro 2026" className={inputCls} />
+              <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Usa este campo se a divulgação não indicar o dia; o evento não será colocado num dia inventado.</p>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-white/10">
+              <div>
+                <label className={labelCls}>Prazo/período de inscrição (separado da data do evento)</label>
+                <input value={draft.registrationLabel} onChange={(e) => set("registrationLabel", e.target.value)} placeholder="Ex.: Candidaturas até 4 de outubro" className={inputCls} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className={labelCls}>Início das inscrições (opcional)</label><input type="date" value={draft.registrationStart} onChange={(e) => set("registrationStart", e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Fim das inscrições (opcional)</label><input type="date" value={draft.registrationEnd} onChange={(e) => set("registrationEnd", e.target.value)} className={inputCls} /></div>
               </div>
             </div>
 
@@ -467,6 +531,17 @@ export default function AdminEventosPage() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {(draft.mediaImages.length > 0 || draft.mediaVideos.length > 0) && (
+              <div className="space-y-1.5">
+                <label className={labelCls}>Mídia reconhecida no texto</label>
+                {[...draft.mediaImages.map((url) => ({ url, type: "Imagem" })), ...draft.mediaVideos.map((url) => ({ url, type: "Vídeo" }))].map((media) => (
+                  <div key={media.url} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] dark:border-white/10 dark:bg-white/5">
+                    <span className="shrink-0 font-semibold text-slate-500">{media.type}</span><span className="min-w-0 truncate text-slate-600 dark:text-slate-300">{media.url}</span>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -531,6 +606,29 @@ export default function AdminEventosPage() {
             )}
           </div>
 
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/40">
+            <label htmlFor="event-media-input" className={labelCls}>4 · Imagens adicionais e vídeos (múltiplos)</label>
+            <input
+              key={mediaInputKey}
+              id="event-media-input"
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,video/3gpp"
+              onChange={(event) => setMediaFiles((previous) => [...previous, ...Array.from(event.target.files ?? [])])}
+              className="sr-only"
+            />
+            <label htmlFor="event-media-input" className="flex min-h-16 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-white/10 dark:bg-white/[0.02] dark:text-slate-300 dark:hover:border-indigo-500/30">
+              <ImageIcon size={18} /><span className="text-xs font-semibold">Adicionar imagens ou vídeos</span>
+              <span className="text-[10px] text-slate-500">JPEG, PNG, WebP até 5 MB · MP4, WebM, MOV ou 3GP até 100 MB</span>
+            </label>
+            {mediaFiles.length > 0 && <div className="mt-2 space-y-1.5">{mediaFiles.map((file, index) => (
+              <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] dark:border-white/10">
+                <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{file.name}</span><span className="shrink-0 text-slate-400">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                <button type="button" onClick={() => setMediaFiles((previous) => previous.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remover ${file.name}`} className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"><X size={12} /></button>
+              </div>
+            ))}</div>}
+          </div>
+
           {/* Acções */}
           <div className="space-y-2">
             {publishError && (
@@ -570,7 +668,7 @@ export default function AdminEventosPage() {
           <div>
             <p className={labelCls}>Pré-visualização</p>
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/40">
-                            <div className="relative flex min-h-[9rem] items-center justify-center bg-slate-100 dark:bg-slate-900">
+              <div className="relative flex min-h-[9rem] items-center justify-center bg-slate-100 dark:bg-slate-900">
                 {imagePreview ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -597,42 +695,42 @@ export default function AdminEventosPage() {
                 )}
               </div>
               <div className="space-y-2 p-3">
-  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${catMeta.chipClasses}`}>
-    {catMeta.label}
-  </span>
-  <p className="text-sm font-bold leading-snug text-slate-900 dark:text-white">
-    {draft.title || "Título do evento"}
-  </p>
+                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${catMeta.chipClasses}`}>
+                  {catMeta.label}
+                </span>
+                <p className="text-sm font-bold leading-snug text-slate-900 dark:text-white">
+                  {draft.title || "Título do evento"}
+                </p>
 
-  {draft.theme && (
-    <p className="line-clamp-2 text-[11px] italic leading-snug text-slate-600 dark:text-slate-400">
-      <span className="not-italic font-semibold text-amber-700 dark:text-amber-400">Tema:</span>{" "}
-      {draft.theme}
-    </p>
-  )}
+                {draft.theme && (
+                  <p className="line-clamp-2 text-[11px] italic leading-snug text-slate-600 dark:text-slate-400">
+                    <span className="not-italic font-semibold text-amber-700 dark:text-amber-400">Tema:</span>{" "}
+                    {draft.theme}
+                  </p>
+                )}
 
-  <div className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-    {(draft.dateStart || draft.dateLabel) && (
-      <p className="flex items-center gap-1.5">
-        <Calendar size={11} />
-        {draft.dateStart
-          ? `${fmtDate(draft.dateStart)}${draft.dateEnd && draft.dateEnd !== draft.dateStart ? ` – ${fmtDate(draft.dateEnd)}` : ""}`
-          : draft.dateLabel}
-      </p>
-    )}
-    {draft.timeLabel && (
-      <p className="flex items-center gap-1.5"><Clock size={11} /> {draft.timeLabel}</p>
-    )}
-    {draft.location && (
-      <p className="flex items-center gap-1.5"><MapPin size={11} /> {draft.location}</p>
-    )}
-    {draft.isFree && (
-      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-        Gratuita
-      </span>
-    )}
-  </div>
-</div>
+                <div className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  {(draft.dateStart || draft.dateLabel) && (
+                    <p className="flex items-center gap-1.5">
+                      <Calendar size={11} />
+                      {draft.dateStart
+                        ? `${fmtDate(draft.dateStart)}${draft.dateEnd && draft.dateEnd !== draft.dateStart ? ` – ${fmtDate(draft.dateEnd)}` : ""}`
+                        : draft.dateLabel}
+                    </p>
+                  )}
+                  {draft.timeLabel && (
+                    <p className="flex items-center gap-1.5"><Clock size={11} /> {draft.timeLabel}</p>
+                  )}
+                  {draft.location && (
+                    <p className="flex items-center gap-1.5"><MapPin size={11} /> {draft.location}</p>
+                  )}
+                  {draft.isFree && (
+                    <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      Gratuita
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -697,21 +795,22 @@ export default function AdminEventosPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{ev.title}</p>
                         <p className="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500">
-  <span className={`rounded-full border px-1.5 py-px font-semibold uppercase ${meta.chipClasses}`}>
-    {meta.label}
-  </span>
-  {ev.date_start && <span>{fmtDate(ev.date_start)}</span>}
-  {expired && (
-    <span className="rounded-full bg-slate-200 px-1.5 py-px font-semibold uppercase text-slate-600 dark:bg-white/10 dark:text-slate-300">
-      Expirado
-    </span>
-  )}
-</p>
-{(ev as any).theme && (
-  <p className="mt-0.5 line-clamp-1 text-[10px] italic text-slate-500 dark:text-slate-400">
-    {(ev as any).theme}
-  </p>
-)}
+                          <span className={`rounded-full border px-1.5 py-px font-semibold uppercase ${meta.chipClasses}`}>
+                            {meta.label}
+                          </span>
+                          {ev.date_start && <span>{fmtDate(ev.date_start)}</span>}
+                          <span className="text-slate-400">· Publicado {fmtRelative(ev.created_at)}</span>
+                          {expired && (
+                            <span className="rounded-full bg-slate-200 px-1.5 py-px font-semibold uppercase text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                              Expirado
+                            </span>
+                          )}
+                        </p>
+                        {(ev as any).theme && (
+                          <p className="mt-0.5 line-clamp-1 text-[10px] italic text-slate-500 dark:text-slate-400">
+                            {(ev as any).theme}
+                          </p>
+                        )}
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <button

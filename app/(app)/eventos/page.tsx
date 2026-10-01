@@ -42,13 +42,18 @@ type EventRow = {
   date_label: string | null;
   date_start: string | null;
   date_end: string | null;
+  registration_label?: string | null;
+  registration_start?: string | null;
+  registration_end?: string | null;
   time_label: string | null;
   location: string | null;
   price_label: string | null;
   is_free: boolean | null;
   links: EventLink[];
   image_url: string | null;
+  media?: { url: string; key?: string | null; kind: "image" | "video" }[] | null;
   is_featured: boolean;
+  created_at: string;
 };
 
 type EventStatus = "ongoing" | "today" | "upcoming" | "expired";
@@ -56,6 +61,12 @@ type EventStatus = "ongoing" | "today" | "upcoming" | "expired";
 /* ================================================================
    HELPERS DE DATA / ESTADO
 ================================================================ */
+
+function isRecentlyPublished(ev: EventRow, days = 7): boolean {
+  if (!ev.created_at) return false;
+  const diff = Date.now() - new Date(ev.created_at).getTime();
+  return diff >= 0 && diff <= days * 86400000;
+}
 
 const parseIso = (iso: string) => new Date(`${iso}T00:00:00`);
 
@@ -94,9 +105,6 @@ function fmtRange(ev: EventRow): string {
     return `${fmtDate(ev.date_start)} – ${fmtDate(ev.date_end)}`;
   return fmtDate(ev.date_start);
 }
-
-const monthLabel = (iso: string) =>
-  parseIso(iso).toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
 
 const catOf = (c: string): EventCategory =>
   c in CATEGORY_META ? (c as EventCategory) : "comunidade";
@@ -307,7 +315,8 @@ function EventosContent() {
         (e.location ?? "").toLowerCase().includes(q) ||
         (e.description ?? "").toLowerCase().includes(q)
       )
-      .sort((a, b) => (a.date_start ?? "9999").localeCompare(b.date_start ?? "9999"));
+      // Mais recentes publicados primeiro
+      .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
   }, [upcoming, cat, query]);
 
   const markedList = useMemo(
@@ -327,17 +336,6 @@ function EventosContent() {
     () => (featured ? filtered.filter((e) => e.id !== featured.id) : filtered),
     [filtered, featured]
   );
-
-  const groups = useMemo(() => {
-    const map = new Map<string, EventRow[]>();
-    for (const ev of listWithoutFeatured) {
-      const key = ev.date_start ? monthLabel(ev.date_start) : "Sem data confirmada";
-      const list = map.get(key) ?? [];
-      list.push(ev);
-      map.set(key, list);
-    }
-    return Array.from(map.entries());
-  }, [listWithoutFeatured]);
 
   const catCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -406,6 +404,11 @@ function EventosContent() {
               <span className={`h-1.5 w-1.5 rounded-full ${ACCENT[c].dot}`} />
               {CATEGORY_META[c].label}
             </span>
+            {isRecentlyPublished(ev) && (
+              <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+                Novo
+              </span>
+            )}
             {ev.is_free && (
               <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
                 Gratuita
@@ -718,8 +721,8 @@ function EventosContent() {
             </article>
           )}
 
-          {/* Lista por mês */}
-          {groups.length === 0 ? (
+          {/* Grelha plana (ordenada por publicação) */}
+          {listWithoutFeatured.length === 0 ? (
             <div className="flex min-h-[32vh] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-white/10 dark:bg-white/[0.03] sm:min-h-[38vh] sm:p-8 md:min-h-[34vh] md:rounded-xl md:p-6">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04] sm:h-16 sm:w-16 md:h-14 md:w-14 md:rounded-2xl">
                 <Calendar size={26} className="text-slate-400 dark:text-slate-500 md:h-6 md:w-6" />
@@ -732,24 +735,8 @@ function EventosContent() {
               </p>
             </div>
           ) : (
-            <div className="space-y-6 md:space-y-5">
-              {groups.map(([month, rows]) => (
-                <section key={month}>
-                  <div className="sticky top-24 z-10 -mx-1 mb-2.5 rounded-lg bg-slate-50/90 px-1 py-1.5 backdrop-blur dark:bg-[#050816]/90">
-                    <div className="flex items-baseline justify-between">
-                      <h2 className="text-xs font-bold uppercase tracking-widest text-slate-600 first-letter:uppercase dark:text-slate-300">
-                        {month}
-                      </h2>
-                      <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500">
-                        {rows.length} evento{rows.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-2.5">
-                    {rows.map(renderCard)}
-                  </div>
-                </section>
-              ))}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-2.5">
+              {listWithoutFeatured.map(renderCard)}
             </div>
           )}
         </>
@@ -845,6 +832,35 @@ function EventosContent() {
                   </div>
                 ))}
               </div>
+
+              {(selected.registration_label || selected.registration_start || selected.registration_end) && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-500/20 dark:bg-indigo-500/[0.06]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">Inscrições</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-800 dark:text-slate-200">
+                    {selected.registration_label || [selected.registration_start, selected.registration_end].filter(Boolean).join(" – ")}
+                  </p>
+                </div>
+              )}
+
+              {(selected.media ?? []).filter((item) => item.url !== selected.image_url).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Imagens e vídeos</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {(selected.media ?? []).filter((item) => item.url !== selected.image_url).map((item, index) => (
+                      <div key={`${item.url}-${index}`} className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900">
+                        {item.kind === "image" ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <a href={item.url} target="_blank" rel="noopener noreferrer"><img src={item.url} alt={`${selected.title} — imagem ${index + 1}`} className="max-h-64 w-full object-contain" /></a>
+                        ) : /\.(mp4|m4v|mov|webm|3gp)(?:[?#]|$)/i.test(item.url) ? (
+                          <video src={item.url} controls preload="metadata" className="max-h-64 w-full" aria-label={`Vídeo: ${selected.title}`} />
+                        ) : (
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex min-h-20 items-center justify-center gap-2 p-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-white/5"><Play size={15} /> Abrir vídeo externo <ExternalLink size={12} /></a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {selected.description && (
                 <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-300 md:text-xs">

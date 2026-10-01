@@ -51,15 +51,17 @@ export type UploadFolder =
   | "disciplines/audios"
   | "disciplines/slides"
   | "events/banners"
+  | "events/videos"
   | "avatars";
 
-export type UploadType = "cover" | "audio" | "slide" | "event-banner" | "avatar";
+export type UploadType = "cover" | "audio" | "slide" | "event-banner" | "event-video" | "avatar";
 
 export const UPLOAD_FOLDER_MAP: Record<UploadType, UploadFolder> = {
   cover: "disciplines/covers",
   audio: "disciplines/audios",
   slide: "disciplines/slides",
   "event-banner": "events/banners",
+  "event-video": "events/videos",
   avatar: "avatars",
 };
 
@@ -68,6 +70,7 @@ export const ALLOWED_MIME_TYPES: Record<UploadType, string[]> = {
   audio: ["audio/mpeg", "audio/mp3", "audio/ogg", "audio/wav"],
   slide: ["application/pdf"],
   "event-banner": ["image/jpeg", "image/png", "image/webp"],
+  "event-video": ["video/mp4", "video/webm", "video/quicktime", "video/3gpp"],
   avatar: ["image/jpeg", "image/png", "image/webp", "image/gif"],
 };
 
@@ -76,6 +79,7 @@ export const MAX_FILE_SIZE: Record<UploadType, number> = {
   audio: 100 * 1024 * 1024,
   slide: 50 * 1024 * 1024,
   "event-banner": 5 * 1024 * 1024,
+  "event-video": 100 * 1024 * 1024,
   avatar: 2 * 1024 * 1024,
 };
 

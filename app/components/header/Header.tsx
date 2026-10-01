@@ -7,7 +7,7 @@ import {
   FileText, Trophy, Clock, Users, Loader2, Inbox, Megaphone,
   ChevronDown, ChevronLeft, Mail, Shield, PencilLine, LogOut, Check,
   Camera, AlertCircle, ChevronRight, RefreshCw, Sun, Moon, ArrowRight, Heart,
-  Calendar,
+  Calendar, CheckCheck,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,12 @@ import { useSupabase } from "@/app/lib/context/SupabaseContext";
 import { useUser } from "@/app/lib/context/UserContext";
 import { isEventDateExpired } from "@/app/lib/events/eventVisibility";
 import { OPEN_SUPPORT_PROMPT_EVENT } from "@/app/lib/supportPrompt";
+import {
+  getReadNotificationIds,
+  READ_NOTIFICATION_IDS_KEY,
+  READ_NOTIFICATION_STATE_EVENT,
+  saveReadNotificationIds,
+} from "@/app/lib/notifications/readState";
 
 /* ================================================================
    TIPOS PÚBLICOS
@@ -116,7 +122,6 @@ const ROLE_BADGE: Record<UserRole, string> = {
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_FILE_SIZE_MB = 2;
-const READ_NOTIFICATIONS_KEY = "b-isaf:header:read-notifications:v1";
 const ROLE_STORAGE_KEY = "b-isaf:role";
 
 const SCROLLBAR_THIN = "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-300/60 hover:scrollbar-thumb-slate-400/80 dark:scrollbar-thumb-slate-700/40 dark:hover:scrollbar-thumb-slate-600/60 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/60 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/80 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700/40 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600/60";
@@ -575,16 +580,21 @@ const Header = memo(function Header({
   const hasNotifs = dynamicCount > 0;
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(READ_NOTIFICATIONS_KEY) ?? "[]");
-      if (Array.isArray(stored)) {
-        // Sincroniza as notificações lidas persistidas no navegador.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setReadNotificationIds(new Set(stored.filter((id): id is string => typeof id === "string")));
-      }
-    } catch {
-      setReadNotificationIds(new Set());
-    }
+    const syncReadIds = (event?: Event) => {
+      const detail = (event as CustomEvent<string[]> | undefined)?.detail;
+      setReadNotificationIds(Array.isArray(detail) ? new Set(detail) : getReadNotificationIds());
+    };
+    const timeoutId = window.setTimeout(() => syncReadIds(), 0);
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === READ_NOTIFICATION_IDS_KEY) syncReadIds();
+    };
+    window.addEventListener(READ_NOTIFICATION_STATE_EVENT, syncReadIds);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener(READ_NOTIFICATION_STATE_EVENT, syncReadIds);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   /* ================================================================
@@ -944,10 +954,18 @@ const Header = memo(function Header({
     setReadNotificationIds((previous) => {
       const next = new Set(previous);
       next.add(notificationId);
-      try { localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      saveReadNotificationIds(next);
       return next;
     });
     setNotifications((previous) => previous.map((item) => item.id === notificationId ? { ...item, read: true } : item));
+  };
+
+  const markAllNotificationsRead = () => {
+    const next = new Set(readNotificationIds);
+    for (const notification of notifications) next.add(notification.id);
+    saveReadNotificationIds(next);
+    setReadNotificationIds(next);
+    setNotifications((previous) => previous.map((item) => ({ ...item, read: true })));
   };
 
   /* ================================================================
@@ -1226,6 +1244,17 @@ const Header = memo(function Header({
                     <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Notificações</h3>
                     <div className="flex items-center gap-1.5">
                       {hasNotifs && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">{dynamicCount} nova{dynamicCount !== 1 ? "s" : ""}</span>}
+                      {dynamicCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={markAllNotificationsRead}
+                          title="Marcar todas como lidas"
+                          aria-label="Marcar todas as notificações como lidas"
+                          className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-emerald-600 dark:hover:bg-slate-800 dark:hover:text-emerald-400"
+                        >
+                          <CheckCheck size={13} />
+                        </button>
+                      )}
                       <button type="button" onClick={() => void fetchNotifs()} title="Atualizar" className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800">
                         <RefreshCw size={12} className={notifLoading ? "animate-spin" : ""} />
                       </button>
@@ -1257,25 +1286,28 @@ const Header = memo(function Header({
                     {!notifLoading && !notifError && notifications.map((n) => {
                       const Icon = getNotifIcon(n.type);
                       return (
-                        <button
+                        <div
                           key={n.id}
-                          type="button"
-                          onClick={() => {
-                            markNotificationRead(n.id);
-                            if (n.type === "event" && n.eventId) {
-                              setNotifOpen(false);
-                              router.push(`/eventos?open=${encodeURIComponent(n.eventId)}`);
-                            } else if (n.type === "support") {
-                              setNotifOpen(false);
-                              window.dispatchEvent(new Event(OPEN_SUPPORT_PROMPT_EVENT));
-                            } else if (n.type === "donation") {
-                              setNotifOpen(false);
-                              router.push("/admin/feedback#doacoes");
-                            }
-                          }}
-                          className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-none transition dark:border-white/10 ${!n.read ? "bg-blue-50/50 dark:bg-blue-950/20" : ""} hover:bg-slate-50 dark:hover:bg-slate-800/60`}
+                          className={`flex w-full items-stretch border-b border-slate-100 last:border-none dark:border-white/10 ${!n.read ? "bg-blue-50/50 dark:bg-blue-950/20" : ""}`}
                         >
-                          <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                          <button
+                            type="button"
+                            onClick={() => {
+                              markNotificationRead(n.id);
+                              if (n.type === "event" && n.eventId) {
+                                setNotifOpen(false);
+                                router.push(`/eventos?open=${encodeURIComponent(n.eventId)}`);
+                              } else if (n.type === "support") {
+                                setNotifOpen(false);
+                                window.dispatchEvent(new Event(OPEN_SUPPORT_PROMPT_EVENT));
+                              } else if (n.type === "donation") {
+                                setNotifOpen(false);
+                                router.push("/admin/feedback#doacoes");
+                              }
+                            }}
+                            className="flex min-w-0 flex-1 gap-3 px-4 py-3 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          >
+                            <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                             n.type === "event"
                               ? "bg-amber-100 dark:bg-amber-500/15"
                               : n.type === "donation"
@@ -1285,21 +1317,33 @@ const Header = memo(function Header({
                                 : n.type === "slide"
                                   ? "bg-emerald-50 dark:bg-emerald-500/10"
                                   : "bg-slate-100 dark:bg-slate-800"
-                          }`}>
-                            <Icon size={15} className={
+                            }`}>
+                              <Icon size={15} className={
                               n.type === "event"
                                 ? "text-amber-600 dark:text-amber-400"
                                 : n.type === "donation"
                                   ? "text-rose-600 dark:text-rose-400"
                                 : "text-slate-500 dark:text-slate-400"
-                            } />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-xs font-medium leading-snug text-slate-800 dark:text-slate-100">{n.title}</p>
-                            <p className="mt-0.5 text-[11px] text-slate-500">{n.time}</p>
-                          </div>
-                          {!n.read && <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />}
-                        </button>
+                              } />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium leading-snug text-slate-800 dark:text-slate-100">{n.title}</p>
+                              <p className="mt-0.5 text-[11px] text-slate-500">{n.time}</p>
+                            </div>
+                            {!n.read && <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />}
+                          </button>
+                          {!n.read && (
+                            <button
+                              type="button"
+                              onClick={() => markNotificationRead(n.id)}
+                              title="Marcar como lida"
+                              aria-label={`Marcar como lida: ${n.title}`}
+                              className="flex w-9 shrink-0 items-center justify-center text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-400"
+                            >
+                              <Check size={14} />
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

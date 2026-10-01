@@ -12,6 +12,11 @@ export type ParsedEvent = {
   dateLabel: string | null;
   dateStart: string | null;
   dateEnd: string | null;
+  registrationLabel: string | null;
+  registrationStart: string | null;
+  registrationEnd: string | null;
+  images: string[];
+  videos: string[];
   timeLabel: string | null;
   location: string | null;
   priceLabel: string | null;
@@ -32,6 +37,9 @@ const MONTHS: Record<string, number> = {
   january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
   july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
 };
+
+const MONTH_NAMES = Object.keys(MONTHS).sort((a, b) => b.length - a.length);
+const CANONICAL_MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -65,7 +73,7 @@ function strictDate(year: number, month: number, day: number): Date | null {
 
 /* ── Labels ESTRUTURAIS (filtrar da descrição, usados para extrair metadados) ── */
 const STRUCTURAL_LABELS =
-  /^(data|dia|date|horario|time|local|location|participacao|investimento|preco|price|link|via|inscricoes?|plataformas?|formato|format|lotacao|certificados?|prazo|deadline|periodo|candidaturas?|mais informacoes|edicao|edital)\s*:/i;
+  /^(data|dia|date|data do evento|event date|horario|time|local|location|participacao|investimento|preco|price|link|via|inscricoes?|plataformas?|formato|format|lotacao|certificados?|prazo|deadline|periodo|candidaturas?|prazo de candidaturas?|prazo de inscricao|periodo de candidaturas?|periodo de inscricao|mais informacoes|edicao|edital)\s*:/i;
 
 /* ── Labels de CONTEÚDO (manter na descrição, só tiramos o prefixo do label) ── */
 const CONTENT_LABELS =
@@ -123,14 +131,42 @@ function extractTheme(lines: string[]): { theme: string | null; cleaned: string[
    DATA
 ================================================================ */
 
-function parseDateRange(label: string, today: Date): { start: Date | null; end: Date | null } {
+type DateParseResult = { start: Date | null; end: Date | null; label: string | null };
+
+function monthYearLabel(monthName: string, year: number): string {
+  const month = MONTHS[monthName];
+  if (month === undefined) return `${monthName} ${year}`;
+  return `${CANONICAL_MONTHS[month]} ${year}`;
+}
+
+function monthYearDate(monthName: string, year: number, lastDay = false): Date | null {
+  const month = MONTHS[monthName];
+  if (month === undefined) return null;
+  return new Date(year, month + (lastDay ? 1 : 0), lastDay ? 0 : 1);
+}
+
+function parseDateRange(label: string, today: Date): DateParseResult {
   let n = norm(label);
   n = n.replace(/\(.*?\)/g, " ").replace(/\s+/g, " ").trim();
 
   const isoDate = n.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
   if (isoDate) {
     const date = strictDate(+isoDate[1], +isoDate[2] - 1, +isoDate[3]);
-    if (date) return { start: date, end: date };
+    if (date) return { start: date, end: date, label: null };
+  }
+
+  const monthRange = n.match(new RegExp(`(?:entre\\s+)?(${MONTH_NAMES.join("|")})\\s+(?:de\\s+)?(\\d{4})\\s+(?:e|a|ate|–|—|-)\\s+(${MONTH_NAMES.join("|")})\\s+(?:de\\s+)?(\\d{4})`, "i"));
+  if (monthRange) {
+    const start = monthYearDate(monthRange[1], +monthRange[2]);
+    const end = monthYearDate(monthRange[3], +monthRange[4], true);
+    if (start && end) return { start, end, label: `${monthYearLabel(monthRange[1], +monthRange[2])} – ${monthYearLabel(monthRange[3], +monthRange[4])}` };
+  }
+
+  const monthYear = n.match(new RegExp(`\\b(${MONTH_NAMES.join("|")})(?:\\s+de)?\\s+(\\d{4})\\b`, "i"));
+  if (monthYear) {
+    const start = monthYearDate(monthYear[1], +monthYear[2]);
+    const end = monthYearDate(monthYear[1], +monthYear[2], true);
+    if (start && end) return { start: null, end: null, label: monthYearLabel(monthYear[1], +monthYear[2]) };
   }
 
   const range = n.match(/(\d{1,2})\s*(?:a|ate|ao|-|–|—)\s*(\d{1,2})\s+(?:de\s+)?([a-z]+)(?:\s+de\s+(\d{4}))?/);
@@ -145,7 +181,7 @@ function parseDateRange(label: string, today: Date): { start: Date | null; end: 
         start = strictDate(year, month, +range[1]);
         end = strictDate(year, month, +range[2]);
       }
-      if (start && end && end >= start) return { start, end };
+      if (start && end && end >= start) return { start, end, label: null };
     }
   }
 
@@ -159,7 +195,7 @@ function parseDateRange(label: string, today: Date): { start: Date | null; end: 
         year += 1;
         date = strictDate(year, month, +single[1]);
       }
-      if (date) return { start: date, end: date };
+      if (date) return { start: date, end: date, label: null };
     }
   }
 
@@ -167,7 +203,7 @@ function parseDateRange(label: string, today: Date): { start: Date | null; end: 
   if (numeric) {
     const year = +numeric[3] < 100 ? 2000 + +numeric[3] : +numeric[3];
     const date = strictDate(year, +numeric[2] - 1, +numeric[1]);
-    if (date) return { start: date, end: date };
+    if (date) return { start: date, end: date, label: null };
   }
 
   const numericWithoutYear = n.match(/\b(\d{1,2})[/.\-](\d{1,2})\b/);
@@ -178,12 +214,12 @@ function parseDateRange(label: string, today: Date): { start: Date | null; end: 
       year += 1;
       date = strictDate(year, +numericWithoutYear[2] - 1, +numericWithoutYear[1]);
     }
-    if (date) return { start: date, end: date };
+    if (date) return { start: date, end: date, label: null };
   }
 
-  if (/\bhoje\b/.test(n)) return { start: today, end: today };
-  if (/\bdepois de amanha\b/.test(n)) { const t = new Date(today); t.setDate(t.getDate() + 2); return { start: t, end: t }; }
-  if (/\bamanha\b/.test(n)) { const t = new Date(today); t.setDate(t.getDate() + 1); return { start: t, end: t }; }
+  if (/\bhoje\b/.test(n)) return { start: today, end: today, label: null };
+  if (/\bdepois de amanha\b/.test(n)) { const t = new Date(today); t.setDate(t.getDate() + 2); return { start: t, end: t, label: null }; }
+  if (/\bamanha\b/.test(n)) { const t = new Date(today); t.setDate(t.getDate() + 1); return { start: t, end: t, label: null }; }
 
   const wd = (["domingo","segunda","terca","quarta","quinta","sexta","sabado"] as const).find(
     (k) => new RegExp(`\\b${k}(-feira)?\\b`).test(n)
@@ -193,21 +229,30 @@ function parseDateRange(label: string, today: Date): { start: Date | null; end: 
     let diff = (target - today.getDay() + 7) % 7;
     if (diff === 0) diff = 7;
     const d = new Date(today); d.setDate(d.getDate() + diff);
-    return { start: d, end: d };
+    return { start: d, end: d, label: null };
   }
 
-  return { start: null, end: null };
+  return { start: null, end: null, label: null };
 }
 
-function findDateLine(lines: string[]): string | null {
-  const candidates = [
-    ...lines.filter((line) => /^(?:[\s\p{Extended_Pictographic}\uFE0F]*)(?:data|dia|date)\s*:/iu.test(line)),
-    ...lines.filter((line) => /[📅🗓📆]/u.test(line)),
-    ...lines.filter((line) => /\b\d{1,2}\s*(?:º|o)?\s*(?:de\s+)?(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i.test(line)),
-    ...lines.filter((line) => /\b\d{1,2}[/.\-]\d{1,2}(?:[/.\-]\d{2,4})?\b/.test(line)),
-    ...lines.filter((line) => /^(?:prazo|deadline|per[ií]odo|candidaturas?)\s*:/i.test(line.trim())),
-  ];
-  return candidates.find((line) => parseDateRange(line, todayStart()).start !== null) ?? null;
+function isRegistrationDateLine(line: string): boolean {
+  return /\b(inscri[cç][aã]o|candidatura|candidaturas|prazo|deadline|application)\b/i.test(norm(line));
+}
+
+function findDateLine(lines: string[], kind: "event" | "registration"): string | null {
+  const candidates = lines.filter((line) => {
+    const registration = isRegistrationDateLine(line);
+    if (kind === "registration" ? !registration : registration) return false;
+    const normalized = norm(line).replace(/^[^a-z0-9]+/, "");
+    const explicitEvent = /^(data|dia|date|data do evento|event date)\s*:/.test(normalized);
+    const explicitRegistration = /^(prazo|periodo|inscricoes?|candidaturas?|deadline|application)\b/.test(normalized);
+    const dateShape = new RegExp(`(?:\\b\\d{1,2}\\s*(?:º|o)?\\s*(?:de\\s+)?(?:${MONTH_NAMES.join("|")})\\b|\\b(?:${MONTH_NAMES.join("|")})\\s+(?:de\\s+)?\\d{4}\\b|\\b\\d{1,2}[/.\\-]\\d{1,2}(?:[/.\\-]\\d{2,4})?\\b|\\b\\d{4}-\\d{1,2}-\\d{1,2}\\b)`, "i").test(line);
+    return explicitEvent || explicitRegistration || /[📅🗓📆]/u.test(line) || dateShape;
+  });
+  return candidates.find((line) => {
+    const parsed = parseDateRange(line, todayStart());
+    return parsed.start !== null || parsed.label !== null;
+  }) ?? null;
 }
 
 /* ================================================================
@@ -230,6 +275,18 @@ function parseTimeLabel(text: string): string | null {
   if (/\btarde\b/.test(n)) return "14:00 – 18:00";
   if (/\bnoite\b/.test(n)) return "18:00 – 21:00";
   return null;
+}
+
+function parseMediaUrls(text: string): { images: string[]; videos: string[] } {
+  const urls = extractUrls(text);
+  const images: string[] = [];
+  const videos: string[] = [];
+  for (const url of urls) {
+    const pathname = url.split(/[?#]/, 1)[0].toLowerCase();
+    if (/\.(png|jpe?g|gif|webp|avif)(?:$|\/)/.test(pathname)) images.push(url);
+    else if (/\.(mp4|m4v|mov|webm|3gp)(?:$|\/)/.test(pathname) || /video|watch\?v=|youtu\.be|youtube\.com|vimeo\.com/.test(norm(url))) videos.push(url);
+  }
+  return { images: [...new Set(images)], videos: [...new Set(videos)] };
 }
 
 function findTimeLine(lines: string[]): string | null {
@@ -431,8 +488,14 @@ export function parseWhatsAppEvent(raw: string): ParsedEvent {
   const { title, titleLines } = parseTitle(lines, blocks[0] ?? []);
   const { category } = classifyCategory(normalizedRaw);
 
-  const dateLine = findDateLine(lines);
-  const { start, end } = dateLine ? parseDateRange(dateLine, today) : { start: null, end: null };
+  const dateLine = findDateLine(lines, "event");
+  const registrationLine = findDateLine(lines, "registration");
+  const { start, end, label: eventPeriodLabel } = dateLine
+    ? parseDateRange(dateLine, today)
+    : { start: null, end: null, label: null };
+  const { start: registrationStart, end: registrationEnd, label: registrationPeriodLabel } = registrationLine
+    ? parseDateRange(registrationLine, today)
+    : { start: null, end: null, label: null };
   if (!start) warnings.push("Sem data reconhecida — define manualmente no preview.");
 
   const timeLine = findTimeLine(lines);
@@ -443,6 +506,7 @@ export function parseWhatsAppEvent(raw: string): ParsedEvent {
   const { label: priceLabel, isFree } = parsePrice(lines, normalizedRaw);
 
   const links = extractUrls(normalizedRaw).map((url) => ({ url, kind: classifyLink(url) }));
+  const media = parseMediaUrls(normalizedRaw);
 
   const { theme, description } = parseDescription(lines, new Set(titleLines));
   if (!description) warnings.push("Descrição vazia — o parser não encontrou corpo de texto.");
@@ -452,9 +516,16 @@ export function parseWhatsAppEvent(raw: string): ParsedEvent {
     category,
     theme,
     description,
-    dateLabel: dateLine ? dateLine.replace(/^[^\p{L}\d]+/u, "").trim() : null,
+    dateLabel: eventPeriodLabel ?? (dateLine ? dateLine.replace(/^[^\p{L}\d]+/u, "").trim() : null),
     dateStart: start ? iso(start) : null,
     dateEnd: end ? iso(end) : null,
+    registrationLabel: registrationLine
+      ? registrationPeriodLabel ?? registrationLine.replace(/^[^\p{L}\d]+/u, "").trim()
+      : null,
+    registrationStart: registrationStart ? iso(registrationStart) : null,
+    registrationEnd: registrationEnd ? iso(registrationEnd) : null,
+    images: media.images,
+    videos: media.videos,
     timeLabel,
     location,
     priceLabel,
